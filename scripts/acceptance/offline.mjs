@@ -1,4 +1,5 @@
 // 不启动任何服务：浏览器请求 http://deverdesk.local/* 时直接从 out/ 目录读文件返回
+// 核对脚本是对本地版的打包结果跑的：先 `pnpm build:local`，再用这里的脚本打开 out/。
 import { chromium } from "playwright-core"
 import { readFile } from "node:fs/promises"
 import { extname, join } from "node:path"
@@ -37,7 +38,10 @@ export async function launch() {
   return browser
 }
 
-export async function openPage(browser, { width = 1440, height = 900, mobile = false, path = "/" } = {}) {
+export async function openPage(
+  browser,
+  { width = 1440, height = 900, mobile = false, path = "/", showLocalNotice = false } = {},
+) {
   const context = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: mobile ? 3 : 1,
@@ -46,7 +50,18 @@ export async function openPage(browser, { width = 1440, height = 900, mobile = f
     locale: "zh-CN",
     timezoneId: "Asia/Shanghai",
   })
+  // 默认把「本地版说明弹框」标记成看过，页面加载时它就不会自动弹出来挡截图；
+  // 想看弹框本身就把 showLocalNotice 传 true。
+  if (!showLocalNotice) {
+    await context.addInitScript((key) => {
+      window.localStorage.setItem(key, "1")
+    }, "deverdesk:local-notice-seen")
+  }
   await context.route(`${ORIGIN}/**`, serve)
+  // 本地版配了统计令牌时会加载 Cloudflare 统计脚本；核对时不连外网，直接给个空脚本
+  await context.route("https://static.cloudflareinsights.com/**", (route) =>
+    route.fulfill({ status: 200, contentType: "text/javascript", body: "" })
+  )
   const page = await context.newPage()
   const errors = []
   page.on("pageerror", (error) => errors.push(error.message))

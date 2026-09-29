@@ -1,6 +1,6 @@
 "use client"
 
-import { Keyboard, Plus, RotateCcw, SquarePen, Sparkles, Wallet } from "lucide-react"
+import { Info, Keyboard, Plus, RotateCcw, SquarePen, Sparkles, Wallet } from "lucide-react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useMemo, useState, type ReactNode } from "react"
 import { toast } from "sonner"
@@ -22,6 +22,7 @@ import { DropdownMenuItem, DropdownMenuShortcut } from "@/components/ui/dropdown
 import { isDone, isDueOn } from "@/domain/routines"
 import { isOpen, isOverdue, isSlipped } from "@/domain/tasks"
 import { pendingIncome } from "@/domain/ledger"
+import { IS_LOCAL_EDITION } from "@/lib/edition"
 import { NavRow, SectionTitle } from "@/features/shell/sidebar-parts"
 import { BrandMenu } from "@/features/shell/brand-menu"
 import { useUi } from "@/state/ui"
@@ -48,6 +49,7 @@ export function WorkbenchSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const openEntryForm = useUi((state) => state.openEntryForm)
   const openProjectForm = useUi((state) => state.openProjectForm)
   const openShortcuts = useUi((state) => state.setShortcutsOpen)
+  const openLocalNotice = useUi((state) => state.setLocalNoticeOpen)
   const [confirm, setConfirm] = useState<Confirm>(null)
 
   const active = resolveWorkbenchNav(pathname, new URLSearchParams(params.toString()))
@@ -108,6 +110,12 @@ export function WorkbenchSidebar({ onNavigate }: { onNavigate?: () => void }) {
             <DropdownMenuItem onSelect={() => setConfirm("sample")}>
               <RotateCcw />
               换回样例数据
+            </DropdownMenuItem>
+          )}
+          {IS_LOCAL_EDITION && (
+            <DropdownMenuItem onSelect={() => openLocalNotice(true)}>
+              <Info />
+              关于本地版
             </DropdownMenuItem>
           )}
         </BrandMenu>

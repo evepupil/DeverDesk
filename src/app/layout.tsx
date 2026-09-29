@@ -4,6 +4,7 @@ import "./globals.css"
 import type { Metadata, Viewport } from "next"
 import { Suspense } from "react"
 
+import { Analytics } from "@/features/edition/analytics"
 import { ShellSkeleton } from "@/features/shell/shell-skeleton"
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {/* 筛选条件存在地址栏里，外框要在浏览器里读参数，这里给出加载骨架 */}
         <Suspense fallback={<ShellSkeleton />}>{children}</Suspense>
+        <Analytics />
       </body>
     </html>
   )

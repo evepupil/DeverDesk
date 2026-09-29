@@ -163,6 +163,18 @@ await run("回顾笔记", { path: "/review" }, async (page) => {
   check("回顾笔记：刷新后还在", (await page.getByLabel("做得好的").inputValue()) === "探针写下的复盘")
 })
 
+// 13. 本地版：第一次打开弹说明，关掉后刷新不再弹；右上角 GitHub 图标指向仓库
+await run("本地版说明", { showLocalNotice: true }, async (page) => {
+  const title = page.getByRole("heading", { name: "你在用本地版" })
+  check("本地版：第一次打开弹出说明", await title.isVisible())
+  await page.getByRole("button", { name: "知道了" }).click()
+  await page.reload({ waitUntil: "networkidle" })
+  await page.waitForTimeout(600)
+  check("本地版：关掉后刷新不再弹", !(await title.isVisible()))
+  const href = await page.getByRole("link", { name: "GitHub 仓库" }).getAttribute("href")
+  check("本地版：右上角 GitHub 图标指向仓库", href === "https://github.com/evepupil/DeverDesk", href ?? "")
+})
+
 console.log(results.join("\n"))
 console.log(`\n${results.filter((line) => line.startsWith("PASS")).length}/${results.length} 通过`)
 await browser.close()

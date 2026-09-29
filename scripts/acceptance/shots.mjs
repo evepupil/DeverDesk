@@ -92,6 +92,9 @@ await shot("29-save-failed", { path: "/?fail=save", ...desk }, async (page) => {
   await page.keyboard.press("Enter")
   await page.waitForTimeout(500)
 })
+await shot("30-local-notice", { path: "/", ...desk, showLocalNotice: true }, async (page) => {
+  await page.getByText("你在用本地版").first().waitFor({ state: "visible" })
+})
 
 console.log(report.join("\n"))
 await browser.close()

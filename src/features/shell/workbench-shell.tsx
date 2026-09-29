@@ -6,9 +6,12 @@ import type { ReactNode } from "react"
 
 import { WorkbenchMark } from "@/components/base/marks"
 import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut } from "@/components/ui/dropdown-menu"
+import { LocalNotice } from "@/features/edition/local-notice"
+import { RepoLink } from "@/features/edition/repo-link"
 import { PersistenceFeedback } from "@/features/shell/persistence-feedback"
 import { ShellFrame } from "@/features/shell/shell-frame"
 import { UserMenu } from "@/features/shell/user-menu"
+import { IS_LOCAL_EDITION } from "@/lib/edition"
 import { useUi } from "@/state/ui"
 import { useToday } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
@@ -57,7 +60,12 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
       sidebar={(onNavigate) => <WorkbenchSidebar onNavigate={onNavigate} />}
       windowBar={{
         searchLabel: "搜索任务、副业、收支",
-        extras: <TimerChip />,
+        extras: (
+          <>
+            <TimerChip />
+            {IS_LOCAL_EDITION && <RepoLink />}
+          </>
+        ),
         notifications: <WorkbenchNotifications />,
         userMenu: (
           <UserMenu name={profile.name} avatar={<ProfileAvatar name={profile.name} />}>
@@ -97,6 +105,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
           <ProjectFormDialog />
           <ProfileDialog />
           <QuickCapture />
+          {IS_LOCAL_EDITION && <LocalNotice />}
           {backup.node}
           <PersistenceFeedback id="workbench-save" failures={failures} retry={retrySave} />
         </>

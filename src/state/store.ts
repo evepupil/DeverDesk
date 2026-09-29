@@ -21,29 +21,14 @@ import type {
   WeekNote,
   WorkbenchData,
 } from "@/domain/types"
-import { armFailureSimulation, loadVersioned, saveVersioned } from "./persistence"
+import { createStorage, type Snapshot, type StoredMeta } from "./storage"
 
 /**
- * 个人工作台的数据：任务、投入时间、收支、副业、例行、周回顾。
- * 只做前端：存在浏览器本地；以后换成云端数据库时只替换 load / save 这两处。
+ * 工作台的数据：任务、投入时间、收支、副业、例行、周回顾。
+ * 读写都经过存储层（./storage），本地版和在线版只是存储层的实现不同，这里不用管。
  */
 
-const KEY = "deverdesk:data"
-const VERSION = 1
-
-interface Meta {
-  /** 还是样例数据 */
-  sample: boolean
-  /** 样例生成的日子 */
-  seededOn: DayKey
-  /** 样例数据被改过 */
-  touched: boolean
-}
-
-interface Stored {
-  meta: Meta
-  data: WorkbenchData
-}
+const storage = createStorage()
 
 export interface TaskInput {
   title: string
@@ -66,16 +51,15 @@ function uid(prefix: string) {
 }
 
 /** 没改过的样例数据，隔天打开时重新按今天生成，保证演示总是新鲜的 */
-function initial(): Stored {
-  armFailureSimulation()
+function initial(): Snapshot {
   const today = todayKey()
-  const stored = loadVersioned<Stored>(KEY, VERSION)
+  const stored = storage.load()
   if (stored && (!stored.meta.sample || stored.meta.touched || stored.meta.seededOn === today)) return stored
   return { meta: { sample: true, seededOn: today, touched: false }, data: generateWorkbench(today, Date.now()) }
 }
 
 interface WorkbenchState extends WorkbenchData {
-  meta: Meta
+  meta: StoredMeta
   saveFailures: number
   lastSaveOk: boolean
 
@@ -129,15 +113,14 @@ function dataOf(state: WorkbenchState): WorkbenchData {
 export const useWorkbench = create<WorkbenchState>()((set, get) => {
   const start = initial()
 
-  /** 写入内存并尝试落盘；落盘失败时内存里的修改保留 */
-  const commit = (patch: Partial<WorkbenchData>, meta?: Meta) => {
+  /** 写入内存并交给存储层保存；没存上时内存里的修改保留，提示用户重试 */
+  const commit = (patch: Partial<WorkbenchData>, meta?: StoredMeta) => {
     const current = get()
-    const nextMeta = meta ?? { ...current.meta, touched: true }
-    const next = { ...dataOf(current), ...patch }
-    const ok = saveVersioned(KEY, VERSION, { meta: nextMeta, data: next } satisfies Stored)
+    const next: Snapshot = { meta: meta ?? { ...current.meta, touched: true }, data: { ...dataOf(current), ...patch } }
+    const ok = storage.save(next)
     set((state) => ({
       ...patch,
-      meta: nextMeta,
+      meta: next.meta,
       lastSaveOk: ok,
       saveFailures: ok ? state.saveFailures : state.saveFailures + 1,
     }))
@@ -440,7 +423,7 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
 
     retrySave() {
       const state = get()
-      const ok = saveVersioned(KEY, VERSION, { meta: state.meta, data: dataOf(state) } satisfies Stored)
+      const ok = storage.save({ meta: state.meta, data: dataOf(state) })
       set((current) => ({ lastSaveOk: ok, saveFailures: ok ? current.saveFailures : current.saveFailures + 1 }))
       return ok
     },

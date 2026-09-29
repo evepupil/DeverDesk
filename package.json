@@ -9,9 +9,14 @@
     "url": "https://github.com/evepupil/DeverDesk"
   },
   "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node scripts/flatten-segments.mjs",
+    "build": "node scripts/build.mjs",
+    "build:local": "node scripts/build.mjs --edition local",
+    "deploy:demo": "node scripts/build.mjs --edition local && wrangler deploy -c deploy/demo/wrangler.jsonc",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "shots": "node scripts/acceptance/shots.mjs",
@@ -42,6 +47,7 @@
     "eslint-config-next": "16.3.6",
     "playwright-core": "1.63.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.143.1"
   }
 }

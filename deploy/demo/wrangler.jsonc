@@ -1,0 +1,24 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // 本地版演示站：https://deverdesk.com
+  // 本地版的数据只存在访问者自己的浏览器里，服务端不存任何东西，
+  // 所以这里只有静态资源、没有 Worker 代码（不配 main）：
+  // out/ 是 `pnpm build:local`（Next.js 静态导出）的产物，直接整目录挂上去即可。
+  "name": "deverdesk-demo",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    // 仓库根目录的 out/，路径相对本配置文件
+    "directory": "../../out",
+    // auto-trailing-slash：/week 会去找 week.html
+    "html_handling": "auto-trailing-slash",
+    // 找不到的路径交给 out/404.html
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    {
+      // 自定义域名绑到这个 Worker
+      "pattern": "deverdesk.com",
+      "custom_domain": true
+    }
+  ]
+}

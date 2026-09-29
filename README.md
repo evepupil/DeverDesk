@@ -27,24 +27,36 @@
 | 多设备同步 | 不同步 | 手机、电脑自动同步 |
 | 怎么用 | 打开 [deverdesk.com](https://deverdesk.com) 直接用，或者自己部署 | 部署到自己的 Cloudflare，免费额度个人用不完 |
 
-两个版本是同一套代码，打包时用环境变量切换。在线版还在开发，进度见 [路线图](docs/roadmap.md)。
+两个版本是同一套代码，打包时用环境变量切换，默认打包在线版。
 
 ## 运行
 
 ```bash
 pnpm install
-pnpm dev          # 开发
-pnpm build        # 导出静态文件到 out/
+pnpm dev             # 开发
+pnpm build           # 打包在线版，导出静态文件到 out/
+pnpm build:local     # 打包本地版
+pnpm deploy:demo     # 打包本地版并部署成演示站（需要先登录 wrangler，域名在同一个 Cloudflare 账号里）
 ```
+
+| 环境变量 | 作用 |
+| --- | --- |
+| `NEXT_PUBLIC_DEVERDESK_EDITION` | `local` 打包本地版，其余打包在线版 |
+| `NEXT_PUBLIC_DEVERDESK_REPO_URL` | 本地版右上角 GitHub 图标指向的仓库，fork 后可以换成自己的 |
+| `NEXT_PUBLIC_DEVERDESK_ANALYTICS_TOKEN` | Cloudflare 网页统计令牌，只在本地版生效 |
 
 地址后面加 `?fail=save`，第一次保存会故意失败，用来看失败提示和重试。
 
+## 在线版部署
+
+在线版的后端正在开发（[路线图](docs/roadmap.md) M2），完成后这里会放一键部署按钮：点一下就部署到你自己的 Cloudflare，免费额度个人用不完。在那之前可以先用本地版，数据随时能从右上角头像菜单导出备份，以后导进在线版。
+
 ## 核对
 
-脚本用本机 Edge 直接读 `out/` 里的文件，不启动服务，先 `pnpm build`：
+脚本用本机 Edge 直接读 `out/` 里的文件，不启动服务，先打包本地版 `pnpm build:local`：
 
 ```bash
-pnpm probe        # 真的点一遍：快速添加、拖动排期、自动排、标记到账、例行、快捷键、计时，核对数字和刷新后是否还在
+pnpm probe        # 真的点一遍：快速添加、拖动排期、自动排、标记到账、例行、快捷键、计时、本地版说明，核对数字和刷新后是否还在
 pnpm shots        # 各页面、各宽度和交互状态截图，输出到 scripts/acceptance/.shots/
 ```
 
@@ -55,10 +67,12 @@ pnpm shots        # 各页面、各宽度和交互状态截图，输出到 scrip
 | `src/styles/tokens.css` | 设计令牌：配色、字号、圆角、阴影、密度 |
 | `src/domain/` | 只做计算、不碰界面：排期、例行、收支、指标、回顾、快速添加解析、搜索、备份校验 |
 | `src/data/` | 状态叫法、分类选项、样例数据生成 |
-| `src/state/` | 数据、界面偏好、浮层开合和本地存储 |
+| `src/state/` | 数据、界面偏好、浮层开合；`storage/` 是存储层（本地版写浏览器，在线版接云端） |
+| `src/lib/edition.ts` | 版本开关：本地版还是在线版 |
 | `src/components/` | 基础组件：shadcn 组件和状态图形、标签、看板列等 |
 | `src/features/` | 外框（`shell`）、各页面和共用部件 |
 | `src/app/` | 路由 |
+| `deploy/demo/` | 本地版演示站的部署配置 |
 
 设计规格见 [docs/前端设计.md](docs/前端设计.md)，各模块怎么工作见 [docs/模块设计/](docs/模块设计/)。
 
