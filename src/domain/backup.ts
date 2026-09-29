@@ -1,3 +1,5 @@
+import { getT } from "@/i18n/runtime"
+
 import type { WorkbenchData } from "./types"
 
 /**
@@ -28,18 +30,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export type BackupResult = { ok: true; data: WorkbenchData } | { ok: false; error: string }
 
 export function parseBackup(raw: string): BackupResult {
+  const t = getT().frame.backup.parse
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)
   } catch {
-    return { ok: false, error: "文件不是有效的 JSON" }
+    return { ok: false, error: t.invalidJson }
   }
-  if (!isRecord(parsed) || parsed.format !== BACKUP_FORMAT) return { ok: false, error: "这不是工作台导出的备份文件" }
-  if (parsed.version !== BACKUP_VERSION) return { ok: false, error: "备份文件的版本不认识" }
+  if (!isRecord(parsed) || parsed.format !== BACKUP_FORMAT) return { ok: false, error: t.notBackup }
+  if (parsed.version !== BACKUP_VERSION) return { ok: false, error: t.unknownVersion }
   const data = parsed.data
-  if (!isRecord(data)) return { ok: false, error: "备份文件里没有数据" }
+  if (!isRecord(data)) return { ok: false, error: t.noData }
   for (const key of LIST_KEYS) {
-    if (!Array.isArray(data[key])) return { ok: false, error: `备份文件缺少「${key}」` }
+    if (!Array.isArray(data[key])) return { ok: false, error: t.missingList(key) }
   }
   const profile = data.profile
   if (
@@ -48,9 +51,10 @@ export function parseBackup(raw: string): BackupResult {
     typeof profile.weekdayMin !== "number" ||
     typeof profile.weekendMin !== "number" ||
     typeof profile.dayStartHour !== "number" ||
-    typeof profile.dayEndHour !== "number"
+    typeof profile.dayEndHour !== "number" ||
+    (profile.currency !== undefined && typeof profile.currency !== "string")
   ) {
-    return { ok: false, error: "备份文件里的作息设置不完整" }
+    return { ok: false, error: t.badProfile }
   }
   return { ok: true, data: { ...(data as unknown as WorkbenchData), timer: null } }
 }

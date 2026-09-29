@@ -3,6 +3,7 @@
 import { create } from "zustand"
 
 import { blankWorkbench, emptyWorkbench, generateWorkbench } from "@/data/seed"
+import { subscribeLocale } from "@/i18n/runtime"
 import { todayKey } from "@/domain/calendar"
 import { toggleDone } from "@/domain/routines"
 import { nextTaskSeq } from "@/domain/tasks"
@@ -441,4 +442,10 @@ storage.connect?.({
   replace(next) {
     useWorkbench.setState({ ...next.data, meta: next.meta })
   },
+})
+
+// 样例数据还没动过时，换语言就按新语言重新生成一份（在线版不生成样例，不受影响）
+subscribeLocale(() => {
+  const state = useWorkbench.getState()
+  if (state.meta.sample && !state.meta.touched) state.resetSample()
 })

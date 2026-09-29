@@ -1,5 +1,6 @@
 import { categoryLabel } from "@/data/catalog"
 import { formatMonthLabel, monthKeyOf } from "@/domain/calendar"
+import { getT } from "@/i18n/runtime"
 import type { LedgerEntry, Project } from "@/domain/types"
 import type { LedgerGroupBy } from "@/state/prefs"
 
@@ -17,11 +18,15 @@ export interface LedgerGroup {
   projectId?: string | null
 }
 
-export const LEDGER_GROUP_OPTIONS: { value: LedgerGroupBy; label: string }[] = [
-  { value: "month", label: "月份" },
-  { value: "project", label: "副业" },
-  { value: "category", label: "分类" },
-]
+/** 分组方式的选项；名字按当前语言从词条现取 */
+export function ledgerGroupOptions(): { value: LedgerGroupBy; label: string }[] {
+  const t = getT().ledger.group
+  return [
+    { value: "month", label: t.month },
+    { value: "project", label: t.project },
+    { value: "category", label: t.category },
+  ]
+}
 
 function sums(items: LedgerEntry[]) {
   let income = 0
@@ -48,7 +53,7 @@ export function groupLedger(entries: LedgerEntry[], by: LedgerGroupBy, projects:
   const pending = entries
     .filter((entry) => entry.status === "pending")
     .sort((a, b) => (a.expectedOn ?? a.date).localeCompare(b.expectedOn ?? b.date))
-  if (pending.length > 0) groups.push({ key: "pending", label: "待到账", items: pending, ...sums(pending), collapsed: false })
+  if (pending.length > 0) groups.push({ key: "pending", label: getT().ledger.group.pending, items: pending, ...sums(pending), collapsed: false })
 
   const rest = entries.filter((entry) => entry.status !== "pending").sort(newestFirst)
   const bucket = new Map<string, LedgerEntry[]>()
@@ -78,9 +83,10 @@ export function groupLedger(entries: LedgerEntry[], by: LedgerGroupBy, projects:
   }
 
   const names = new Map(projects.map((project) => [project.id, project.name]))
+  const t = getT().ledger.group
   const rows = [...bucket.entries()].map(([key, items]) => ({
     key,
-    label: by === "project" ? (key === "none" ? "个人事务" : (names.get(key) ?? "已删除的副业")) : categoryLabel(key),
+    label: by === "project" ? (key === "none" ? t.personal : (names.get(key) ?? t.deletedProject)) : categoryLabel(key),
     items,
     ...sums(items),
     collapsed: false,

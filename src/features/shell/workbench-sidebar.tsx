@@ -23,6 +23,7 @@ import { isDone, isDueOn } from "@/domain/routines"
 import { isOpen, isOverdue, isSlipped } from "@/domain/tasks"
 import { pendingIncome } from "@/domain/ledger"
 import { IS_LOCAL_EDITION } from "@/lib/edition"
+import { useT } from "@/i18n/react"
 import { NavRow, SectionTitle } from "@/features/shell/sidebar-parts"
 import { BrandMenu } from "@/features/shell/brand-menu"
 import { useUi } from "@/state/ui"
@@ -51,6 +52,7 @@ export function WorkbenchSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const openShortcuts = useUi((state) => state.setShortcutsOpen)
   const openLocalNotice = useUi((state) => state.setLocalNoticeOpen)
   const [confirm, setConfirm] = useState<Confirm>(null)
+  const t = useT()
 
   const active = resolveWorkbenchNav(pathname, new URLSearchParams(params.toString()))
 
@@ -88,43 +90,43 @@ export function WorkbenchSidebar({ onNavigate }: { onNavigate?: () => void }) {
         <BrandMenu>
           <DropdownMenuItem onSelect={() => openTaskForm({ mode: "create" })}>
             <SquarePen />
-            新建任务
+            {t.shell.menu.newTask}
             <DropdownMenuShortcut>C</DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => openEntryForm({ mode: "create" })}>
             <Wallet />
-            记一笔
+            {t.shell.menu.logEntry}
             <DropdownMenuShortcut>M</DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => openShortcuts(true)}>
             <Keyboard />
-            键盘快捷键
+            {t.shell.menu.shortcuts}
             <DropdownMenuShortcut>?</DropdownMenuShortcut>
           </DropdownMenuItem>
           {meta.sample ? (
             <DropdownMenuItem onSelect={() => setConfirm("fresh")}>
               <Sparkles />
-              清空样例，开始自己用
+              {t.shell.sidebar.startFresh}
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem onSelect={() => setConfirm("sample")}>
               <RotateCcw />
-              换回样例数据
+              {t.shell.sidebar.resetSample}
             </DropdownMenuItem>
           )}
           {IS_LOCAL_EDITION && (
             <DropdownMenuItem onSelect={() => openLocalNotice(true)}>
               <Info />
-              关于本地版
+              {t.shell.sidebar.aboutLocal}
             </DropdownMenuItem>
           )}
         </BrandMenu>
-        <IconButton label="新建任务" shortcut="C" className="ml-auto" onClick={() => openTaskForm({ mode: "create" })}>
+        <IconButton label={t.shell.menu.newTask} shortcut="C" className="ml-auto" onClick={() => openTaskForm({ mode: "create" })}>
           <SquarePen />
         </IconButton>
       </div>
 
-      <nav aria-label="主导航" className="scroll-thin flex-1 overflow-y-auto px-2 pb-4">
+      <nav aria-label={t.shell.sidebar.mainNav} className="scroll-thin flex-1 overflow-y-auto px-2 pb-4">
         <div className="flex flex-col gap-px">
           {WORKBENCH_PAGES.map((page) => (
             <NavRow
@@ -141,12 +143,12 @@ export function WorkbenchSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
         <SectionTitle
           action={
-            <IconButton label="新的副业" size="icon-xs" onClick={() => openProjectForm(null)}>
+            <IconButton label={t.shell.sidebar.newProject} size="icon-xs" onClick={() => openProjectForm(null)}>
               <Plus />
             </IconButton>
           }
         >
-          副业
+          {t.shell.sidebar.projects}
         </SectionTitle>
         <div className="flex flex-col gap-px">
           {visibleProjects.map((project) => (
@@ -162,7 +164,7 @@ export function WorkbenchSidebar({ onNavigate }: { onNavigate?: () => void }) {
           ))}
         </div>
 
-        <SectionTitle>视图</SectionTitle>
+        <SectionTitle>{t.shell.sidebar.views}</SectionTitle>
         <div className="flex flex-col gap-px">
           {WORKBENCH_VIEWS.map((view) => (
             <NavRow
@@ -181,28 +183,28 @@ export function WorkbenchSidebar({ onNavigate }: { onNavigate?: () => void }) {
       <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirm === "fresh" ? "清空样例，开始自己用？" : "换回样例数据？"}</AlertDialogTitle>
+            <AlertDialogTitle>{confirm === "fresh" ? t.shell.sidebar.startFreshTitle : t.shell.sidebar.resetSampleTitle}</AlertDialogTitle>
             <AlertDialogDescription>
               {confirm === "fresh"
-                ? "任务、投入记录、收支和回顾会清空；副业清单、例行事务和可用时间会保留，方便直接改成你自己的。"
-                : "你自己记的内容会被样例数据替换，不能恢复。"}
+                ? t.shell.sidebar.startFreshDescription
+                : t.shell.sidebar.resetSampleDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t.words.cancel}</AlertDialogCancel>
             <AlertDialogAction
               variant={confirm === "sample" ? "destructive" : "default"}
               onClick={() => {
                 if (confirm === "fresh") {
                   startFresh()
-                  toast.success("已清空，从今天开始记")
+                  toast.success(t.shell.sidebar.startedFresh)
                 } else {
                   resetSample()
-                  toast.success("已换回样例数据")
+                  toast.success(t.shell.sidebar.resetSampleDone)
                 }
               }}
             >
-              {confirm === "fresh" ? "清空" : "换回"}
+              {confirm === "fresh" ? t.shell.sidebar.startFreshAction : t.shell.sidebar.resetSampleAction}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

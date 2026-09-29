@@ -21,6 +21,8 @@ import {
 import { PRIORITY, PRIORITY_ORDER, TASK_STATUS, TASK_STATUS_ORDER } from "@/data/catalog"
 import { addDays, formatDayShort, weekDays, weekStart, weekdayLabel } from "@/domain/calendar"
 import { taskCode } from "@/domain/tasks"
+import { useT } from "@/i18n/react"
+import { getT } from "@/i18n/runtime"
 import type { DayKey, Priority, Task, TaskStatus } from "@/domain/types"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
@@ -31,11 +33,11 @@ export function planTargets(today: DayKey): { day: DayKey; label: string }[] {
   const rest = weekDays(today).filter((day) => day >= today)
   const targets = rest.map((day, i) => ({
     day,
-    label: i === 0 ? "今天" : i === 1 ? "明天" : `${weekdayLabel(day)} ${formatDayShort(day)}`,
+    label: i === 0 ? getT().calendar.today : i === 1 ? getT().calendar.tomorrow : `${weekdayLabel(day)} ${formatDayShort(day)}`,
   }))
   const nextMonday = addDays(weekStart(today), 7)
   if (!targets.some((target) => target.day === nextMonday)) {
-    targets.push({ day: nextMonday, label: `下周一 ${formatDayShort(nextMonday)}` })
+    targets.push({ day: nextMonday, label: getT().common.taskMenu.nextMonday(formatDayShort(nextMonday)) })
   }
   return targets
 }
@@ -51,13 +53,14 @@ export function TaskMenu({ task, today, trigger }: { task: Task; today: DayKey; 
   const deleteTask = useWorkbench((state) => state.deleteTask)
   const restoreTask = useWorkbench((state) => state.restoreTask)
   const openTaskForm = useUi((state) => state.openTaskForm)
+  const t = useT()
   const open = task.status !== "done" && task.status !== "dropped"
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
         {trigger ?? (
-          <Button variant="ghost" size="icon-xs" aria-label={`「${task.title}」的操作`} className="text-fg-3 hover:text-fg">
+          <Button variant="ghost" size="icon-xs" aria-label={t.common.taskMenu.actions(task.title)} className="text-fg-3 hover:text-fg">
             <MoreHorizontal />
           </Button>
         )}
@@ -66,29 +69,29 @@ export function TaskMenu({ task, today, trigger }: { task: Task; today: DayKey; 
         {open && (
           <DropdownMenuItem onSelect={() => (running ? stopTimer() : startTimer(task.id))}>
             {running ? <Square /> : <Play />}
-            {running ? "停止计时" : "开始计时"}
+            {running ? t.common.timer.stop : t.common.timer.start}
           </DropdownMenuItem>
         )}
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <CalendarDays className="text-fg-2" />
-            安排到
+            {t.common.taskMenu.schedule}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-44">
             {planTargets(today).map((target) => (
               <DropdownMenuItem key={target.day} onSelect={() => planTask(task.id, target.day)}>
                 {target.label}
-                {task.plannedFor === target.day && <span className="ml-auto text-xs text-fg-2">当前</span>}
+                {task.plannedFor === target.day && <span className="ml-auto text-xs text-fg-2">{t.common.taskMenu.current}</span>}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => planTask(task.id, null)}>不安排</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => planTask(task.id, null)}>{t.common.taskMenu.unschedule}</DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Zap className="text-fg-2" />
-            优先级
+            {t.common.fields.priority}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-40">
             <DropdownMenuRadioGroup
@@ -107,7 +110,7 @@ export function TaskMenu({ task, today, trigger }: { task: Task; today: DayKey; 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <CircleDashed className="text-fg-2" />
-            状态
+            {t.common.fields.status}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-40">
             <DropdownMenuRadioGroup value={task.status} onValueChange={(value) => setStatus(task.id, value as TaskStatus)}>
@@ -123,20 +126,20 @@ export function TaskMenu({ task, today, trigger }: { task: Task; today: DayKey; 
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => openTaskForm({ mode: "edit", taskId: task.id })}>
           <Pencil />
-          编辑
+          {t.words.edit}
         </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
           onSelect={() => {
             deleteTask(task.id)
-            toast(`已删除 ${taskCode(task)}`, {
+            toast(t.common.taskMenu.deleted(taskCode(task)), {
               description: task.title,
-              action: { label: "撤销", onClick: () => restoreTask(task) },
+              action: { label: t.common.undo, onClick: () => restoreTask(task) },
             })
           }}
         >
           <Trash2 />
-          删除
+          {t.words.delete}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

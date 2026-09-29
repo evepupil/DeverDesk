@@ -6,6 +6,7 @@ import { dayLoad } from "@/domain/planning"
 import { routineMinutesOn } from "@/domain/routines"
 import { isOverdue, isSlipped } from "@/domain/tasks"
 import type { DayKey, WorkbenchData } from "@/domain/types"
+import { getT } from "@/i18n/runtime"
 
 /** 点提醒之后去哪：打开任务、打开那笔收支，或者跳到某个页面 */
 export type AlertTarget =
@@ -21,10 +22,16 @@ export interface WorkbenchAlert {
   target: AlertTarget
 }
 
-const OVERDUE: StatusMeta = { label: "逾期", glyph: "alert", tone: "risk" }
-const SLIPPED: StatusMeta = { label: "延期", glyph: "half", tone: "progress" }
-const PENDING: StatusMeta = { label: "待到账", glyph: "half", tone: "progress" }
-const FULL: StatusMeta = { label: "排满", glyph: "alert", tone: "progress" }
+/** 状态叫法按当前语言现取（写法和数据目录里的状态一致） */
+function statuses(): { OVERDUE: StatusMeta; SLIPPED: StatusMeta; PENDING: StatusMeta; FULL: StatusMeta } {
+  const t = getT().shell.alerts
+  return {
+    OVERDUE: { label: t.statusOverdue, glyph: "alert", tone: "risk" },
+    SLIPPED: { label: t.statusSlipped, glyph: "half", tone: "progress" },
+    PENDING: { label: t.statusPending, glyph: "half", tone: "progress" },
+    FULL: { label: t.statusFull, glyph: "alert", tone: "progress" },
+  }
+}
 
 /**
  * 提醒都从数据现算：今天排超了、过了截止日、没按计划做完、钱过了约定日还没到。
@@ -32,14 +39,16 @@ const FULL: StatusMeta = { label: "排满", glyph: "alert", tone: "progress" }
  */
 export function deriveWorkbenchAlerts(data: WorkbenchData, today: DayKey): WorkbenchAlert[] {
   const alerts: WorkbenchAlert[] = []
+  const { OVERDUE, SLIPPED, PENDING, FULL } = statuses()
+  const t = getT().shell.alerts
 
   const load = dayLoad(data.tasks, today, data.profile, routineMinutesOn(data.routines, today))
   if (load.planned > load.capacity) {
     alerts.push({
       id: `capacity:${today}`,
       status: FULL,
-      title: "今天排的比能用的时间多",
-      detail: `已排 ${formatMinutes(load.planned)}，可用 ${formatMinutes(load.capacity)}`,
+      title: t.capacityTitle,
+      detail: t.capacityDetail(formatMinutes(load.planned), formatMinutes(load.capacity)),
       target: { kind: "href", href: "/" },
     })
   }
@@ -53,7 +62,7 @@ export function deriveWorkbenchAlerts(data: WorkbenchData, today: DayKey): Workb
       id: `overdue:${task.id}:${due}`,
       status: OVERDUE,
       title: task.title,
-      detail: `逾期 ${diffDays(today, due)} 天 · ${formatMonthDay(due)}截止`,
+      detail: t.overdueDetail(diffDays(today, due), formatMonthDay(due)),
       target: { kind: "task", taskId: task.id },
     })
   }
@@ -63,8 +72,8 @@ export function deriveWorkbenchAlerts(data: WorkbenchData, today: DayKey): Workb
     alerts.push({
       id: `slipped:${today}:${slipped.length}`,
       status: SLIPPED,
-      title: `${slipped.length} 件任务没按计划做完`,
-      detail: "挪到今天，或者重新安排日子",
+      title: t.slippedTitle(slipped.length),
+      detail: t.slippedDetail,
       target: { kind: "href", href: "/tasks?plan=overdue" },
     })
   }
@@ -74,8 +83,8 @@ export function deriveWorkbenchAlerts(data: WorkbenchData, today: DayKey): Workb
     alerts.push({
       id: `pending:${entry.id}:${expected}`,
       status: PENDING,
-      title: `${formatAmount(entry.amount)} 还没到账`,
-      detail: `${entry.note} · 约定 ${formatMonthDay(expected)}`,
+      title: t.pendingTitle(formatAmount(entry.amount)),
+      detail: t.pendingDetail(entry.note, formatMonthDay(expected)),
       target: { kind: "entry", entryId: entry.id },
     })
   }

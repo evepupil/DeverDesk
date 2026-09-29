@@ -8,6 +8,7 @@ import { BoardColumn, CollapsedRow } from "@/components/base/board"
 import { IconButton } from "@/components/base/icon-button"
 import type { DayKey } from "@/domain/types"
 import { formatMinutes } from "@/domain/format"
+import { useT } from "@/i18n/react"
 import { focusRing } from "@/lib/styles"
 import type { TaskProperty } from "@/state/prefs"
 import { useUi } from "@/state/ui"
@@ -35,6 +36,7 @@ function Column({
   onDropTask(taskId: string, group: TaskGroup): void
 }) {
   const openTaskForm = useUi((state) => state.openTaskForm)
+  const t = useT()
   const [limit, setLimit] = useState(PAGE_SIZE)
   const { over, dropProps } = useTaskDrop((taskId) => onDropTask(taskId, group))
   const minutes = openMinutes(group)
@@ -51,20 +53,20 @@ function Column({
         actions={
           <>
             <IconButton
-              label={`在「${group.label}」新建`}
+              label={t.tasks.board.newInGroup(group.label)}
               size="icon-xs"
               onClick={() => openTaskForm({ mode: "create", preset: group.preset })}
             >
               <Plus />
             </IconButton>
-            <IconButton label="收起这一列" size="icon-xs" onClick={onCollapse}>
+            <IconButton label={t.tasks.board.collapseColumn} size="icon-xs" onClick={onCollapse}>
               <Minimize2 />
             </IconButton>
           </>
         }
       >
         {group.items.length === 0 ? (
-          <p className="px-2 pb-2 text-sm text-fg-2">没有任务</p>
+          <p className="px-2 pb-2 text-sm text-fg-2">{t.tasks.board.emptyGroup}</p>
         ) : (
           <>
             {group.items.slice(0, limit).map((task) => (
@@ -76,7 +78,7 @@ function Column({
                 onClick={() => setLimit((current) => current + PAGE_SIZE)}
                 className={cn("h-8 shrink-0 rounded-md text-sm text-fg-2 hover:bg-hover hover:text-fg", focusRing)}
               >
-                显示更多（还有 {group.items.length - limit} 件）
+                {t.tasks.board.more(group.items.length - limit)}
               </button>
             )}
           </>
@@ -104,6 +106,7 @@ export function TasksBoard({
   onDropTask(taskId: string, group: TaskGroup): void
 }) {
   const [toggled, setToggled] = useState<Set<string>>(new Set())
+  const t = useT()
   const isCollapsed = (group: TaskGroup) => group.collapsed !== toggled.has(group.key)
   const flip = (key: string) =>
     setToggled((current) => {
@@ -137,7 +140,7 @@ export function TasksBoard({
               label={group.label}
               count={group.items.length}
               onClick={() => flip(group.key)}
-              aria-label={`展开「${group.label}」，${group.items.length} 件`}
+              aria-label={t.tasks.board.expandGroup(group.label, group.items.length)}
             />
           ))}
         </div>

@@ -19,6 +19,7 @@ import { minuteOfDay, minutesToTime, todayKey } from "@/domain/calendar"
 import { formatMinutes } from "@/domain/format"
 import { MIN_BLOCK, SLOT_STEP, blocksFor, layoutBlocks, type PlacedBlock } from "@/domain/planning"
 import type { DayKey, Task } from "@/domain/types"
+import { useT } from "@/i18n/react"
 import { focusRingInset } from "@/lib/styles"
 import { useNow, useProjectsById } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
@@ -77,6 +78,7 @@ function Block({
   onOpen(): void
 }) {
   const project = useProjectsById().get(task.projectId ?? "")
+  const t = useT()
   const height = Math.max(MIN_BLOCK * PX, (span.end - span.start) * PX) - 2
   const width = 100 / block.lanes
   const compact = height < 38
@@ -93,7 +95,7 @@ function Block({
       onPointerCancel={onPointerUp}
       onKeyDown={onKeyDown}
       onClick={onOpen}
-      aria-label={`${task.title}，${range}。上下方向键挪动，按住 Shift 调整时长`}
+      aria-label={t.today.timeline.blockAria(task.title, range)}
       className={cn(
         "group absolute z-10 flex min-w-0 touch-pan-y overflow-hidden rounded-md border bg-card pr-1.5 pl-3 text-left shadow-xs transition-[border-color,box-shadow] duration-(--dur-fast) select-none hover:border-line-3 hover:shadow-sm",
         compact ? "items-center gap-1.5" : "flex-col justify-start py-[3px]",
@@ -147,6 +149,7 @@ export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: 
   const openTaskForm = useUi((state) => state.openTaskForm)
   const projectsById = useProjectsById()
   const now = useNow(30_000)
+  const t = useT()
 
   const dayStart = profile.dayStartHour * 60
   const dayEnd = profile.dayEndHour * 60
@@ -342,7 +345,7 @@ export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: 
 
         {placed.length === 0 && (
           <p className="pointer-events-none absolute inset-x-11 top-1/2 -translate-y-1/2 text-center text-xs text-fg-2">
-            拖任务到这里，或点空白处安排时间
+            {t.today.timeline.empty}
           </p>
         )}
 
@@ -351,7 +354,7 @@ export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: 
             <span aria-hidden className="pointer-events-none absolute left-12 h-0 w-0" style={{ top: ((slot ?? dayStart) - dayStart) * PX }} />
           </PopoverAnchor>
           <PopoverContent align="start" side="right" className="w-64 gap-0 p-1">
-            <div className="px-2 pt-1 pb-1.5 text-xs text-fg-2 tabular">{slot !== null && minutesToTime(slot)} 开始</div>
+            <div className="px-2 pt-1 pb-1.5 text-xs text-fg-2 tabular">{slot !== null && t.today.timeline.slotStart(minutesToTime(slot))}</div>
             {unscheduled.slice(0, 6).map((task) => {
               const project = projectsById.get(task.projectId ?? "")
               return (
@@ -385,7 +388,7 @@ export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: 
               )}
             >
               <Plus className="size-3.5" aria-hidden />
-              新建任务
+              {t.today.page.newTask}
             </button>
           </PopoverContent>
         </Popover>

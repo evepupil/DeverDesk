@@ -1,3 +1,4 @@
+import { getT } from "../i18n/runtime"
 import { addDays, dayKeyOf } from "./calendar"
 import { doneIn, estimateAccuracy, minutesIn } from "./insights"
 import { totals } from "./ledger"
@@ -78,13 +79,6 @@ export function weekReview(data: WorkbenchData, start: DayKey, today?: DayKey): 
   }
 }
 
-function compare(current: number, before: number, unit: string, format: (value: number) => string, than: string): string {
-  if (before === 0 && current === 0) return ""
-  if (current === before) return `，和${than}持平`
-  const diff = current - before
-  return `，比${than}${diff > 0 ? "多" : "少"} ${format(Math.abs(diff))}${unit}`
-}
-
 /** 一段话的自动小结：只陈述数据，不做评价 */
 export function summarize(
   review: WeekReview,
@@ -92,33 +86,42 @@ export function summarize(
   formatMinutes: (minutes: number) => string,
   formatMoney: (value: number) => string
 ): string[] {
+  const t = getT().review.summary
   const lines: string[] = []
-  const than = review.partial ? "上周同期" : "上周"
-  lines.push(
-    `完成 ${review.done.length} 件任务${compare(review.done.length, review.previous.done, " 件", String, than)}。`
-  )
+  const than = review.partial ? t.thanPartial : t.thanWeek
+  const compareTasks = (current: number, before: number) => {
+    if (before === 0 && current === 0) return ""
+    if (current === before) return t.compare.tasks.same(than)
+    const diff = Math.abs(current - before)
+    return current > before ? t.compare.tasks.more(diff, than) : t.compare.tasks.less(diff, than)
+  }
+  const compareMinutes = (current: number, before: number) => {
+    if (before === 0 && current === 0) return ""
+    if (current === before) return t.compare.minutes.same(than)
+    const diff = formatMinutes(Math.abs(current - before))
+    return current > before ? t.compare.minutes.more(diff, than) : t.compare.minutes.less(diff, than)
+  }
+  lines.push(t.done(review.done.length, compareTasks(review.done.length, review.previous.done)))
   if (review.minutes > 0) {
     const top = [...review.minutesByProject.entries()].sort((a, b) => b[1] - a[1])[0]
     const share = top ? Math.round((top[1] / review.minutes) * 100) : 0
     lines.push(
-      `投入 ${formatMinutes(review.minutes)}${compare(review.minutes, review.previous.minutes, "", formatMinutes, than)}；` +
-        (top ? `${projectName(top[0])}占 ${share}%。` : "")
+      t.invested(formatMinutes(review.minutes), compareMinutes(review.minutes, review.previous.minutes), top ? t.share(projectName(top[0]), share) : "")
     )
   }
-  lines.push(`净收入 ${formatMoney(review.net)}（收入 ${formatMoney(review.income)}，支出 ${formatMoney(review.expense)}）。`)
+  lines.push(t.net(formatMoney(review.net), formatMoney(review.income), formatMoney(review.expense)))
   if (review.accuracy.ratio !== null) {
     const deviation = Math.round((review.accuracy.ratio - 1) * 100)
-    lines.push(
-      deviation === 0
-        ? "完成的任务实际用时和预估一致。"
-        : `完成的任务实际用时比预估${deviation > 0 ? "多" : "少"} ${Math.abs(deviation)}%。`
-    )
+    lines.push(t.accuracy(deviation === 0 ? "same" : deviation > 0 ? "over" : "under", Math.abs(deviation)))
   }
-  if (review.routines.due > 0) lines.push(`例行事务完成 ${review.routines.done}/${review.routines.due}。`)
+  if (review.routines.due > 0) lines.push(t.routines(review.routines.done, review.routines.due))
   return lines
 }
 
 export function projectNameOf(projects: Project[]) {
   const map = new Map(projects.map((project) => [project.id, project.name]))
-  return (id: string | null) => (id ? (map.get(id) ?? "已删除的副业") : "个人事务")
+  return (id: string | null) => {
+    const t = getT()
+    return id ? (map.get(id) ?? t.review.deletedProject) : t.common.personal
+  }
 }

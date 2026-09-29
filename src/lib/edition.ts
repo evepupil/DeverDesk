@@ -19,7 +19,7 @@ export const IS_LOCAL_EDITION = EDITION === "local"
 export const REPO_URL = process.env.NEXT_PUBLIC_DEVERDESK_REPO_URL || "https://github.com/evepupil/DeverDesk"
 
 /** 仓库首页里讲怎么部署在线版的那一节 */
-export const DEPLOY_GUIDE_URL = `${REPO_URL}#在线版部署`
+export const DEPLOY_GUIDE_URL = `${REPO_URL}#在线版部署` // i18n-ignore 指向 README 的章节
 
 /** Cloudflare 网页统计的令牌：只在本地版、并且配了令牌时才加统计脚本 */
 export const ANALYTICS_TOKEN = process.env.NEXT_PUBLIC_DEVERDESK_ANALYTICS_TOKEN || ""

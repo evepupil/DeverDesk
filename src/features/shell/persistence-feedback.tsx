@@ -3,11 +3,14 @@
 import { useEffect, useRef } from "react"
 import { toast } from "sonner"
 
+import { useT } from "@/i18n/react"
+
 /**
  * 本地保存失败时给出可执行的反馈：说明修改还在，并提供重试。
  * failures 每失败一次加一；retry 返回是否这次存上了。
  */
 export function PersistenceFeedback({ failures, retry, id }: { failures: number; retry: () => boolean; id: string }) {
+  const t = useT()
   const retryRef = useRef(retry)
   useEffect(() => {
     retryRef.current = retry
@@ -15,18 +18,18 @@ export function PersistenceFeedback({ failures, retry, id }: { failures: number;
 
   useEffect(() => {
     if (failures === 0) return
-    toast.error("没能保存到本机", {
+    toast.error(t.frame.persistence.saveFailed, {
       id,
-      description: "修改在关闭页面前仍然有效",
+      description: t.frame.persistence.saveFailedHint,
       duration: Infinity,
       action: {
-        label: "重试",
+        label: t.words.retry,
         onClick: () => {
-          if (retryRef.current()) toast.success("已保存到本机", { id, duration: 2500 })
+          if (retryRef.current()) toast.success(t.frame.persistence.saved, { id, duration: 2500 })
         },
       },
     })
-  }, [failures, id])
+  }, [failures, id, t])
 
   return null
 }

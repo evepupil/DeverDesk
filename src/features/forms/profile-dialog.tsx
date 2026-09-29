@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { formatMinutesLong } from "@/domain/format"
+import { CURRENCIES, currencyLabel } from "@/data/catalog"
+import { formatMinutesLong, profileCurrency } from "@/domain/format"
 import type { Profile } from "@/domain/types"
 import { validateTitle } from "@/domain/validation"
+import { useT } from "@/i18n/react"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
 
@@ -52,6 +54,7 @@ function HourSelect({ id, value, onChange, min, max }: { id: string; value: numb
 }
 
 function Body() {
+  const t = useT()
   const profile = useWorkbench((state) => state.profile)
   const updateProfile = useWorkbench((state) => state.updateProfile)
   const setOpen = useUi((state) => state.setProfileOpen)
@@ -61,38 +64,52 @@ function Body() {
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    const found = validateTitle(draft.name, "称呼", 12)
+    const found = validateTitle(draft.name, t.forms.profile.name, 12)
     setError(found)
     if (found) return
     updateProfile({ ...draft, name: draft.name.trim() })
     setOpen(false)
-    if (useWorkbench.getState().lastSaveOk) toast.success("已保存")
+    if (useWorkbench.getState().lastSaveOk) toast.success(t.forms.profile.saved)
   }
 
   return (
     <form noValidate onSubmit={submit} className="contents">
       <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
-        <Field id="profile-name" label="称呼" error={error} className="sm:col-span-2">
+        <Field id="profile-name" label={t.forms.profile.name} error={error} className="sm:col-span-2">
           <Input id="profile-name" value={draft.name} aria-invalid={error ? true : undefined} onChange={(event) => set("name", event.target.value)} />
         </Field>
-        <Field id="profile-weekday" label="工作日可用">
+        <Field id="profile-weekday" label={t.forms.profile.weekday}>
           <MinutesSelect id="profile-weekday" value={draft.weekdayMin} onChange={(value) => set("weekdayMin", value)} />
         </Field>
-        <Field id="profile-weekend" label="周末可用">
+        <Field id="profile-weekend" label={t.forms.profile.weekend}>
           <MinutesSelect id="profile-weekend" value={draft.weekendMin} onChange={(value) => set("weekendMin", value)} />
         </Field>
-        <Field id="profile-start" label="时间线从">
+        <Field id="profile-start" label={t.forms.profile.dayStart}>
           <HourSelect id="profile-start" value={draft.dayStartHour} min={0} max={draft.dayEndHour - 4} onChange={(value) => set("dayStartHour", value)} />
         </Field>
-        <Field id="profile-end" label="时间线到">
+        <Field id="profile-end" label={t.forms.profile.dayEnd}>
           <HourSelect id="profile-end" value={draft.dayEndHour} min={draft.dayStartHour + 4} max={24} onChange={(value) => set("dayEndHour", value)} />
+        </Field>
+        <Field id="profile-currency" label={t.forms.profile.currency} className="sm:col-span-2">
+          <Select value={profileCurrency(draft)} onValueChange={(value) => set("currency", value)}>
+            <SelectTrigger id="profile-currency" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              {CURRENCIES.map((code) => (
+                <SelectItem key={code} value={code}>
+                  {currencyLabel(code)} ({code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
       </div>
       <DialogFooter className="border-t border-line px-4 py-3">
         <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-          取消
+          {t.words.cancel}
         </Button>
-        <Button type="submit">保存</Button>
+        <Button type="submit">{t.words.save}</Button>
       </DialogFooter>
     </form>
   )
@@ -100,14 +117,15 @@ function Body() {
 
 /** 作息设置：每天能拿出多少时间，决定容量条和「超出」提醒 */
 export function ProfileDialog() {
+  const t = useT()
   const open = useUi((state) => state.profileOpen)
   const setOpen = useUi((state) => state.setProfileOpen)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="gap-0 p-0 sm:max-w-[440px]">
         <DialogHeader className="border-b border-line px-4 py-3">
-          <DialogTitle>可用时间</DialogTitle>
-          <DialogDescription className="sr-only">每天能拿出多少时间做副业和自己的事</DialogDescription>
+          <DialogTitle>{t.forms.profile.title}</DialogTitle>
+          <DialogDescription className="sr-only">{t.forms.profile.description}</DialogDescription>
         </DialogHeader>
         {open && <Body />}
       </DialogContent>

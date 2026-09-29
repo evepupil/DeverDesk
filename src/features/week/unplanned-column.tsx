@@ -7,6 +7,7 @@ import { useState } from "react"
 import { BoardColumn } from "@/components/base/board"
 import { StatusIcon } from "@/components/base/status-icon"
 import type { DayKey, Task } from "@/domain/types"
+import { useT } from "@/i18n/react"
 import { focusRing } from "@/lib/styles"
 import { useWorkbench } from "@/state/store"
 import { TaskCard } from "../common/task-card"
@@ -16,6 +17,7 @@ const PAGE_SIZE = 20
 
 function CardList({ tasks, today }: { tasks: Task[]; today: DayKey }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
+  const t = useT()
   return (
     <>
       {tasks.slice(0, limit).map((task) => (
@@ -27,7 +29,7 @@ function CardList({ tasks, today }: { tasks: Task[]; today: DayKey }) {
           onClick={() => setLimit((current) => current + PAGE_SIZE)}
           className={cn("h-8 shrink-0 rounded-md text-sm text-fg-2 hover:bg-hover hover:text-fg", focusRing)}
         >
-          显示更多（还有 {tasks.length - limit} 件）
+          {t.week.showMore(tasks.length - limit)}
         </button>
       )}
     </>
@@ -38,6 +40,7 @@ function CardList({ tasks, today }: { tasks: Task[]; today: DayKey }) {
 export function UnplannedColumn({ earlier, unplanned, today }: { earlier: Task[]; unplanned: Task[]; today: DayKey }) {
   const planTask = useWorkbench((state) => state.planTask)
   const { over, dropProps } = useTaskDrop((taskId) => planTask(taskId, null))
+  const t = useT()
 
   return (
     <div
@@ -48,13 +51,13 @@ export function UnplannedColumn({ earlier, unplanned, today }: { earlier: Task[]
       )}
     >
       {earlier.length > 0 && (
-        <BoardColumn icon={<StatusIcon glyph="half" tone="progress" />} title="之前没做完" count={earlier.length}>
+        <BoardColumn icon={<StatusIcon glyph="half" tone="progress" />} title={t.week.earlier} count={earlier.length}>
           <CardList tasks={earlier} today={today} />
         </BoardColumn>
       )}
-      <BoardColumn icon={<Inbox className="size-4 text-fg-2" aria-hidden />} title="还没安排" count={unplanned.length}>
+      <BoardColumn icon={<Inbox className="size-4 text-fg-2" aria-hidden />} title={t.week.unplannedTitle} count={unplanned.length}>
         {unplanned.length === 0 ? (
-          <p className="px-2 pb-2 text-sm text-fg-2">所有任务都排上日子了</p>
+          <p className="px-2 pb-2 text-sm text-fg-2">{t.week.allPlanned}</p>
         ) : (
           <CardList tasks={unplanned} today={today} />
         )}

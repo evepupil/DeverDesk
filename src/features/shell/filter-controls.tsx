@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { Filters } from "@/domain/filters"
+import { useT } from "@/i18n/react"
 
 export interface FilterOption {
   value: string
@@ -66,12 +67,13 @@ export function FilterMenu({
   filters: Filters
   onToggle(key: string, value: string): void
 }) {
+  const t = useT()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="shrink-0">
           <ListFilter />
-          筛选
+          {t.frame.filter.label}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
@@ -111,6 +113,7 @@ export function FilterChips({
   onClear(key: string): void
   onClearAll(): void
 }) {
+  const t = useT()
   const active = fields.filter((field) => (filters[field.key] ?? []).length > 0)
   if (active.length === 0) return null
 
@@ -130,7 +133,7 @@ export function FilterChips({
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger className="h-full max-w-44 truncate border-l border-line px-1.5 text-fg outline-none hover:bg-hover focus-visible:bg-hover focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring) data-[state=open]:bg-hover">
-                {labels.length > 2 ? `${labels.length} 项` : labels.join("、")}
+                {labels.length > 2 ? t.frame.filter.count(labels.length) : labels.join(t.frame.filter.joiner)}
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="scroll-thin max-h-80 w-56 overflow-y-auto">
                 <DropdownMenuLabel>{field.label}</DropdownMenuLabel>
@@ -139,7 +142,7 @@ export function FilterChips({
             </DropdownMenu>
             <button
               type="button"
-              aria-label={`清除${field.label}条件`}
+              aria-label={t.frame.filter.clearAria(field.label)}
               onClick={() => onClear(field.key)}
               className="flex h-full items-center border-l border-line px-1 text-fg-3 outline-none hover:bg-hover hover:text-fg focus-visible:bg-hover focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-(--focus-ring)"
             >
@@ -149,7 +152,7 @@ export function FilterChips({
         )
       })}
       <Button variant="ghost" size="sm" className="shrink-0" onClick={onClearAll}>
-        清除
+        {t.frame.filter.clear}
       </Button>
     </>
   )

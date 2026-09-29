@@ -29,44 +29,54 @@ import {
 } from "@/features/shell/display-controls"
 import { FilterChips, FilterMenu, type FilterField } from "@/features/shell/filter-controls"
 import { FilterBar, PageFrame } from "@/features/shell/page-frame"
+import type { Messages } from "@/i18n/messages/types"
+import { useT } from "@/i18n/react"
 import { useFilters, useUrlState } from "@/state/url-state"
 import { useToday } from "@/state/hooks"
 import { usePrefs, type TaskProperty } from "@/state/prefs"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
 import { planField, priorityField, projectField, taskStatusField } from "../common/filter-fields"
-import { TASK_GROUP_OPTIONS, groupTasks, type TaskGroup } from "./task-groups"
+import { taskGroupOptions, groupTasks, type TaskGroup } from "./task-groups"
 import { TasksBoard } from "./tasks-board"
 import { TasksList } from "./tasks-list"
-
-const SORT_OPTIONS: { value: TaskSortBy; label: string }[] = [
-  { value: "priority", label: "优先级" },
-  { value: "due", label: "截止日期" },
-  { value: "created", label: "创建时间" },
-  { value: "title", label: "名称" },
-]
-
-const PROPERTY_OPTIONS: { value: TaskProperty; label: string }[] = [
-  { value: "id", label: "编号" },
-  { value: "estimate", label: "时长" },
-  { value: "project", label: "副业" },
-  { value: "priority", label: "优先级" },
-  { value: "plan", label: "安排" },
-  { value: "due", label: "截止" },
-]
 
 const PLAN_WINDOWS: PlanWindow[] = ["today", "week", "unplanned", "overdue"]
 
 type Scope = "all" | "week" | "unplanned"
 
-const SCOPES: { key: Scope; label: string }[] = [
-  { key: "all", label: "全部" },
-  { key: "week", label: "本周" },
-  { key: "unplanned", label: "还没安排" },
-]
+/** 排序和卡片属性的可选值：按当前语言取词条 */
+function sortOptions(t: Messages): { value: TaskSortBy; label: string }[] {
+  return [
+    { value: "priority", label: t.tasks.display.sortPriority },
+    { value: "due", label: t.tasks.display.sortDue },
+    { value: "created", label: t.tasks.display.sortCreated },
+    { value: "title", label: t.tasks.display.sortTitle },
+  ]
+}
+
+function propertyOptions(t: Messages): { value: TaskProperty; label: string }[] {
+  return [
+    { value: "id", label: t.tasks.display.propertyId },
+    { value: "estimate", label: t.tasks.display.propertyEstimate },
+    { value: "project", label: t.common.fields.project },
+    { value: "priority", label: t.common.fields.priority },
+    { value: "plan", label: t.common.fields.plan },
+    { value: "due", label: t.tasks.display.propertyDue },
+  ]
+}
+
+function scopeOptions(t: Messages): { key: Scope; label: string }[] {
+  return [
+    { key: "all", label: t.tasks.scopes.all },
+    { key: "week", label: t.tasks.scopes.week },
+    { key: "unplanned", label: t.tasks.scopes.unplanned },
+  ]
+}
 
 /** 任务：看板或列表，按状态 / 副业 / 优先级分组；筛选条件存在地址栏里 */
 export function TasksPage() {
+  const t = useT()
   const today = useToday()
   const tasks = useWorkbench((state) => state.tasks)
   const projects = useWorkbench((state) => state.projects)
@@ -137,35 +147,35 @@ export function TasksPage() {
       }
       right={
         <>
-          <span className="hidden text-xs text-fg-2 tabular sm:inline">{visible.length} 件</span>
+          <span className="hidden text-xs text-fg-2 tabular sm:inline">{t.tasks.count(visible.length)}</span>
           <Segmented
-            label="布局"
+            label={t.tasks.layout.label}
             value={prefs.layout}
             options={[
-              { value: "board", label: "看板" },
-              { value: "list", label: "列表" },
+              { value: "board", label: t.tasks.layout.board },
+              { value: "list", label: t.tasks.layout.list },
             ]}
             onChange={(layout) => setPrefs("tasks", { layout })}
           />
           <DisplayPopover onReset={() => resetPrefs("tasks")}>
-            <DisplayRow id="tasks-group" label="分组">
+            <DisplayRow id="tasks-group" label={t.tasks.display.group}>
               <DisplaySelect
                 id="tasks-group"
                 value={prefs.groupBy}
-                options={TASK_GROUP_OPTIONS}
+                options={taskGroupOptions(t)}
                 onChange={(groupBy) => setPrefs("tasks", { groupBy })}
               />
             </DisplayRow>
-            <DisplayRow id="tasks-sort" label="排序">
-              <DisplaySelect id="tasks-sort" value={prefs.sortBy} options={SORT_OPTIONS} onChange={(sortBy) => setPrefs("tasks", { sortBy })} />
+            <DisplayRow id="tasks-sort" label={t.tasks.display.sort}>
+              <DisplaySelect id="tasks-sort" value={prefs.sortBy} options={sortOptions(t)} onChange={(sortBy) => setPrefs("tasks", { sortBy })} />
             </DisplayRow>
-            <DisplayRow id="tasks-ended" label="显示已结束的分组">
+            <DisplayRow id="tasks-ended" label={t.tasks.display.showEnded}>
               <DisplaySwitch id="tasks-ended" checked={prefs.showEnded} onChange={(showEnded) => setPrefs("tasks", { showEnded })} />
             </DisplayRow>
             <DisplayDivider />
             <PropertyToggles
-              title="卡片上显示"
-              options={PROPERTY_OPTIONS}
+              title={t.tasks.display.onCard}
+              options={propertyOptions(t)}
               selected={prefs.properties}
               onToggle={(property) =>
                 setPrefs("tasks", {
@@ -183,14 +193,14 @@ export function TasksPage() {
 
   return (
     <PageFrame
-      title="任务"
-      tabs={SCOPES}
+      title={t.nav.pages.tasks}
+      tabs={scopeOptions(t)}
       activeTab={scope}
       onTabChange={(key) => update({ view: key === "all" ? null : key })}
       actions={
         <Button variant="outline" size="sm" className="hidden sm:inline-flex" onClick={() => openTaskForm({ mode: "create" })}>
           <Plus />
-          新建任务
+          {t.tasks.newTask}
         </Button>
       }
       filterBar={filterBar}
@@ -199,16 +209,16 @@ export function TasksPage() {
       {visible.length === 0 ? (
         <EmptyState
           icon={FilterX}
-          title={scoped.length === 0 ? (scope === "all" ? "还没有任务" : "这里没有任务") : "没有符合筛选条件的任务"}
+          title={scoped.length === 0 ? (scope === "all" ? t.tasks.empty.all : t.tasks.empty.scope) : t.tasks.empty.filtered}
           className="h-full"
           action={
             scoped.length === 0 ? (
               <Button variant="outline" size="sm" onClick={() => openTaskForm({ mode: "create" })}>
-                新建任务
+                {t.tasks.newTask}
               </Button>
             ) : (
               <Button variant="outline" size="sm" onClick={clearAll}>
-                清除筛选
+                {t.tasks.clearFilters}
               </Button>
             )
           }

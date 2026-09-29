@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import { EmptyState } from "@/components/base/empty-state"
 import { Button } from "@/components/ui/button"
 import { ShellSkeleton } from "@/features/shell/shell-skeleton"
+import { useT } from "@/i18n/react"
 import { ApiFailure, getSession } from "@/lib/api"
 import { IS_LOCAL_EDITION } from "@/lib/edition"
 import { startSync, useSync } from "@/state/sync"
@@ -20,6 +21,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 }
 
 function CloudGate({ children }: { children: ReactNode }) {
+  const t = useT()
   const [gate, setGate] = useState<Gate>("loading")
   const [passwordEnabled, setPasswordEnabled] = useState(true)
 
@@ -78,10 +80,10 @@ function CloudGate({ children }: { children: ReactNode }) {
         <EmptyState
           icon={TriangleAlert}
           tone="error"
-          title="连不上服务器"
+          title={t.auth.gate.offline}
           action={
             <Button variant="outline" size="sm" onClick={retry}>
-              重试
+              {t.words.retry}
             </Button>
           }
         />

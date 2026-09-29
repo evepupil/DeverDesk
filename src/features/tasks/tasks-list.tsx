@@ -8,6 +8,7 @@ import { IconButton } from "@/components/base/icon-button"
 import { formatMinutes } from "@/domain/format"
 import type { DayKey } from "@/domain/types"
 import { focusRing, focusRingInset } from "@/lib/styles"
+import { useT } from "@/i18n/react"
 import { useUi } from "@/state/ui"
 import { TaskRow } from "../common/task-row"
 import { useTaskDrop } from "../common/use-task-drop"
@@ -29,6 +30,7 @@ function GroupSection({
   onDropTask(taskId: string, group: TaskGroup): void
 }) {
   const openTaskForm = useUi((state) => state.openTaskForm)
+  const t = useT()
   const [limit, setLimit] = useState(PAGE_SIZE)
   const { over, dropProps } = useTaskDrop((taskId) => onDropTask(taskId, group))
   const headingId = `task-group-${group.key}`
@@ -58,7 +60,7 @@ function GroupSection({
         </button>
         {minutes > 0 && <span className="text-xs text-fg-2 tabular">{formatMinutes(minutes)}</span>}
         <IconButton
-          label={`在「${group.label}」新建`}
+          label={t.tasks.board.newInGroup(group.label)}
           size="icon-xs"
           className="ml-auto"
           onClick={() => openTaskForm({ mode: "create", preset: group.preset })}
@@ -77,7 +79,7 @@ function GroupSection({
               onClick={() => setLimit((current) => current + PAGE_SIZE)}
               className={cn("h-9 w-full border-b border-line text-sm text-fg-2 hover:bg-hover hover:text-fg", focusRingInset)}
             >
-              显示更多（还有 {group.items.length - limit} 件）
+              {t.tasks.board.more(group.items.length - limit)}
             </button>
           )}
         </div>

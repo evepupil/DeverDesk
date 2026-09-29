@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/base/empty-state"
+import { useT } from "@/i18n/react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +22,7 @@ import { Input } from "@/components/ui/input"
 import { ApiFailure, createToken, listTokens, revokeToken } from "@/lib/api"
 import { copyText } from "@/lib/platform"
 import type { CreatedToken, TokenInfo } from "@/sync/protocol"
+import { getT } from "@/i18n/runtime"
 import { syncNow } from "@/state/sync"
 import { useUi } from "@/state/ui"
 
@@ -37,16 +39,17 @@ function sessionExpired(cause: unknown): boolean {
 /** 时间显示成「9月30日」 */
 function formatDay(at: number): string {
   const date = new Date(at)
-  return `${date.getMonth() + 1}月${date.getDate()}日`
+  return getT().calendar.monthDay(date.getMonth() + 1, date.getDate())
 }
 
 /** 新建后的令牌：只显示这一次 */
 function CreatedTokenRow({ created }: { created: CreatedToken }) {
   const [copied, setCopied] = useState(false)
+  const t = useT()
   const copy = async () => {
     if (await copyText(created.token)) {
       setCopied(true)
-      toast.success("已复制")
+      toast.success(t.auth.tokens.created.copied)
     }
   }
   return (
@@ -55,16 +58,16 @@ function CreatedTokenRow({ created }: { created: CreatedToken }) {
         <Input
           readOnly
           value={created.token}
-          aria-label="新建的访问令牌"
+          aria-label={t.auth.tokens.created.label}
           className="min-w-0 flex-1 font-mono"
           onFocus={(event) => event.target.select()}
         />
         <Button type="button" variant="outline" onClick={() => void copy()}>
           {copied ? <Check className="text-done" /> : <Copy />}
-          复制
+          {t.auth.tokens.created.copy}
         </Button>
       </div>
-      <p className="text-xs text-fg-2">只显示这一次，现在复制保存好</p>
+      <p className="text-xs text-fg-2">{t.auth.tokens.created.hint}</p>
     </div>
   )
 }
@@ -73,6 +76,7 @@ function CreatedTokenRow({ created }: { created: CreatedToken }) {
 export function TokensDialog() {
   const open = useUi((state) => state.tokensOpen)
   const setOpen = useUi((state) => state.setTokensOpen)
+  const t = useT()
   const [tokens, setTokens] = useState<TokenInfo[] | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [created, setCreated] = useState<CreatedToken | null>(null)
@@ -120,11 +124,11 @@ export function TokensDialog() {
   const submit = async () => {
     const value = name.trim()
     if (!value) {
-      setNameError("请填写用途")
+      setNameError(t.auth.tokens.form.required)
       return
     }
     if (value.length > NAME_MAX) {
-      setNameError(`最多 ${NAME_MAX} 个字`)
+      setNameError(t.auth.tokens.form.tooLong(NAME_MAX))
       return
     }
     setCreating(true)
@@ -134,7 +138,7 @@ export function TokensDialog() {
       setName("")
       load()
     } catch (cause) {
-      if (!sessionExpired(cause)) setNameError("没能新建，再试一次")
+      if (!sessionExpired(cause)) setNameError(t.auth.tokens.form.createFailed)
     } finally {
       setCreating(false)
     }
@@ -146,7 +150,7 @@ export function TokensDialog() {
       await revokeToken(revoking.id)
       load()
     } catch (cause) {
-      if (!sessionExpired(cause)) toast.error("没能撤销，再试一次")
+      if (!sessionExpired(cause)) toast.error(t.auth.tokens.form.revokeFailed)
     } finally {
       setRevoking(null)
     }
@@ -157,8 +161,8 @@ export function TokensDialog() {
       <Dialog open={open} onOpenChange={close}>
         <DialogContent className="gap-0 p-0 sm:max-w-[440px]">
           <DialogHeader className="border-b border-line px-4 py-3">
-            <DialogTitle>访问令牌</DialogTitle>
-            <DialogDescription className="sr-only">给 AI 助手这类程序用的登录凭证</DialogDescription>
+            <DialogTitle>{t.auth.tokens.title}</DialogTitle>
+            <DialogDescription className="sr-only">{t.auth.tokens.description}</DialogDescription>
           </DialogHeader>
           <div className="px-4 py-4">
             {created && (
@@ -170,20 +174,20 @@ export function TokensDialog() {
               <EmptyState
                 icon={TriangleAlert}
                 tone="error"
-                title="没能读取令牌"
+                title={t.auth.tokens.loadFailed}
                 action={
                   <Button variant="outline" size="sm" onClick={load}>
-                    重试
+                    {t.words.retry}
                   </Button>
                 }
               />
             ) : tokens === null ? (
-              <div aria-busy="true" aria-label="正在加载" className="flex flex-col gap-2 py-2">
+              <div aria-busy="true" aria-label={t.words.loading} className="flex flex-col gap-2 py-2">
                 <div className="h-9 animate-pulse rounded-md bg-column" />
                 <div className="h-9 animate-pulse rounded-md bg-column" />
               </div>
             ) : tokens.length === 0 ? (
-              !created && <p className="py-2 text-sm text-fg-2">还没有令牌</p>
+              !created && <p className="py-2 text-sm text-fg-2">{t.auth.tokens.empty}</p>
             ) : (
               <ul className="flex flex-col">
                 {tokens.map((token) => (
@@ -192,12 +196,12 @@ export function TokensDialog() {
                     <div className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm">{token.name}</span>
                       <span className="text-xs text-fg-2">
-                        {formatDay(token.createdAt)} 创建 ·{" "}
-                        {token.lastUsedAt === null ? "没用过" : `${formatDay(token.lastUsedAt)} 用过`}
+                        {t.auth.tokens.createdAt(formatDay(token.createdAt))} ·{" "}
+                        {token.lastUsedAt === null ? t.auth.tokens.neverUsed : t.auth.tokens.lastUsed(formatDay(token.lastUsedAt))}
                       </span>
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => setRevoking(token)}>
-                      撤销
+                      {t.auth.tokens.revoke}
                     </Button>
                   </li>
                 ))}
@@ -217,14 +221,14 @@ export function TokensDialog() {
                 <Input
                   value={name}
                   maxLength={NAME_MAX}
-                  placeholder="用途，比如 Claude"
-                  aria-label="令牌用途"
+                  placeholder={t.auth.tokens.form.placeholder}
+                  aria-label={t.auth.tokens.form.label}
                   aria-invalid={nameError ? true : undefined}
                   aria-describedby={nameError ? "token-name-error" : undefined}
                   onChange={(event) => setName(event.target.value)}
                 />
                 <Button type="submit" disabled={creating}>
-                  新建
+                  {t.words.create}
                 </Button>
               </div>
               {nameError && (
@@ -239,13 +243,13 @@ export function TokensDialog() {
       <AlertDialog open={revoking !== null} onOpenChange={(next) => !next && setRevoking(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>撤销「{revoking?.name}」？</AlertDialogTitle>
-            <AlertDialogDescription>撤销后，用这个令牌的程序会马上失效。</AlertDialogDescription>
+            <AlertDialogTitle>{t.auth.tokens.revokeTitle(revoking?.name ?? "")}</AlertDialogTitle>
+            <AlertDialogDescription>{t.auth.tokens.revokeDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t.words.cancel}</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={() => void revoke()}>
-              撤销
+              {t.auth.tokens.revoke}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

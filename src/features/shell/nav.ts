@@ -10,43 +10,68 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
-/** 个人工作台的导航：页面 + 常用视图（带固定筛选的页面地址） */
+import { getT } from "@/i18n/runtime"
+
+/** 个人工作台的导航：页面 + 常用视图（带固定筛选的页面地址）。名字按当前语言从词条现取 */
 
 export type WorkbenchPageKey = "today" | "week" | "tasks" | "projects" | "ledger" | "insights" | "review" | "routines"
 
 export interface WorkbenchPage {
   key: WorkbenchPageKey
-  label: string
+  readonly label: string
   path: string
   icon: LucideIcon
   /** 先按 G 再按这个键跳转 */
   goKey: string
 }
 
+function page(key: WorkbenchPageKey, path: string, icon: LucideIcon, goKey: string): WorkbenchPage {
+  return {
+    key,
+    get label() {
+      return getT().nav.pages[key]
+    },
+    path,
+    icon,
+    goKey,
+  }
+}
+
 export const WORKBENCH_PAGES: WorkbenchPage[] = [
-  { key: "today", label: "今天", path: "/", icon: Sun, goKey: "t" },
-  { key: "week", label: "本周", path: "/week", icon: CalendarRange, goKey: "w" },
-  { key: "tasks", label: "任务", path: "/tasks", icon: ListTodo, goKey: "k" },
-  { key: "projects", label: "副业", path: "/projects", icon: FolderKanban, goKey: "p" },
-  { key: "ledger", label: "收支", path: "/ledger", icon: Wallet, goKey: "l" },
-  { key: "insights", label: "概览", path: "/insights", icon: ChartColumn, goKey: "i" },
-  { key: "review", label: "回顾", path: "/review", icon: NotebookPen, goKey: "r" },
-  { key: "routines", label: "例行", path: "/routines", icon: Repeat, goKey: "h" },
+  page("today", "/", Sun, "t"),
+  page("week", "/week", CalendarRange, "w"),
+  page("tasks", "/tasks", ListTodo, "k"),
+  page("projects", "/projects", FolderKanban, "p"),
+  page("ledger", "/ledger", Wallet, "l"),
+  page("insights", "/insights", ChartColumn, "i"),
+  page("review", "/review", NotebookPen, "r"),
+  page("routines", "/routines", Repeat, "h"),
 ]
 
 export type WorkbenchViewKey = "overdue" | "pending" | "urgent"
 
 export interface WorkbenchView {
   key: WorkbenchViewKey
-  label: string
+  readonly label: string
   path: string
   query: Record<string, string>
 }
 
+function view(key: WorkbenchViewKey, path: string, query: Record<string, string>): WorkbenchView {
+  return {
+    key,
+    get label() {
+      return getT().nav.views[key]
+    },
+    path,
+    query,
+  }
+}
+
 export const WORKBENCH_VIEWS: WorkbenchView[] = [
-  { key: "overdue", label: "逾期和延期", path: "/tasks", query: { plan: "overdue" } },
-  { key: "urgent", label: "高优先", path: "/tasks", query: { priority: "3,4", status: "todo,doing" } },
-  { key: "pending", label: "待到账", path: "/ledger", query: { status: "pending" } },
+  view("overdue", "/tasks", { plan: "overdue" }),
+  view("urgent", "/tasks", { priority: "3,4", status: "todo,doing" }),
+  view("pending", "/ledger", { status: "pending" }),
 ]
 
 export function viewHref(view: { path: string; query: Record<string, string> }): string {

@@ -175,6 +175,39 @@ await run("本地版说明", { showLocalNotice: true }, async (page) => {
   check("本地版：右上角 GitHub 图标指向仓库", href === "https://github.com/evepupil/DeverDesk", href ?? "")
 })
 
+// 14. 英文界面：英文浏览器第一次打开就是英文，各页（含样例数据）看不到中文，标题和语言标记跟着变
+const HAN = /[一-鿿]/
+const PAGES = [
+  ["/", "Today"],
+  ["/week", "Week"],
+  ["/tasks", "Tasks"],
+  ["/projects", "Projects"],
+  ["/ledger", "Ledger"],
+  ["/insights", "Insights"],
+  ["/review", "Review"],
+  ["/routines", "Routines"],
+]
+for (const [path, name] of PAGES) {
+  await run(`英文界面 ${path}`, { locale: "en-US", path }, async (page) => {
+    const text = await page.evaluate(() => document.body.innerText)
+    const han = text.split("\n").filter((line) => HAN.test(line))
+    check(`英文界面：${name} 页没有中文`, han.length === 0, han.slice(0, 3).join(" | "))
+    check(`英文界面：${name} 页标题和语言标记`, (await page.title()) === `${name} · DeverDesk` && (await page.evaluate(() => document.documentElement.lang)) === "en", await page.title())
+  })
+}
+
+// 15. 切换语言：从头像菜单切到英文，界面马上换成英文，刷新后还是英文
+await run("切换语言", {}, async (page) => {
+  await page.getByRole("button", { name: /^账户/ }).click()
+  await page.getByRole("menuitem", { name: "语言" }).click()
+  await page.getByRole("menuitemradio", { name: "English" }).click()
+  await page.getByRole("heading", { name: "Today", exact: true }).waitFor({ timeout: 5_000 })
+  check("切换语言：菜单切到英文后马上生效", true)
+  await page.reload({ waitUntil: "networkidle" })
+  await page.waitForTimeout(400)
+  check("切换语言：刷新后还是英文", await page.getByRole("heading", { name: "Today", exact: true }).isVisible())
+})
+
 console.log(results.join("\n"))
 console.log(`\n${results.filter((line) => line.startsWith("PASS")).length}/${results.length} 通过`)
 await browser.close()

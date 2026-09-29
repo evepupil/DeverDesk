@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { diffDays } from "@/domain/calendar"
 import { formatMinutes } from "@/domain/format"
 import type { DayKey, Task } from "@/domain/types"
+import { useT } from "@/i18n/react"
 import { focusRing } from "@/lib/styles"
 import { useProjectsById } from "@/state/hooks"
 import type { TaskProperty } from "@/state/prefs"
@@ -32,6 +33,7 @@ function RolloverCard({ tasks, today }: { tasks: Task[]; today: DayKey }) {
   const moveTasksToDay = useWorkbench((state) => state.moveTasksToDay)
   const updateTask = useWorkbench((state) => state.updateTask)
   const openTask = useUi((state) => state.openTask)
+  const t = useT()
 
   const moveAll = () => {
     const before = tasks.map((task) => ({ id: task.id, plannedFor: task.plannedFor, startAt: task.startAt }))
@@ -40,9 +42,9 @@ function RolloverCard({ tasks, today }: { tasks: Task[]; today: DayKey }) {
       today
     )
     if (!useWorkbench.getState().lastSaveOk) return
-    toast.success(`已把 ${tasks.length} 件挪到今天`, {
+    toast.success(t.today.rollover.moved(tasks.length), {
       action: {
-        label: "撤销",
+        label: t.today.undo,
         onClick: () => before.forEach((item) => updateTask(item.id, { plannedFor: item.plannedFor, startAt: item.startAt })),
       },
     })
@@ -52,9 +54,9 @@ function RolloverCard({ tasks, today }: { tasks: Task[]; today: DayKey }) {
     <Surface className="flex flex-col gap-1.5 px-3 py-2.5">
       <div className="flex min-w-0 items-center gap-2">
         <StatusIcon glyph="half" tone="progress" />
-        <span className="min-w-0 flex-1 truncate text-sm">{tasks.length} 件之前计划的还没做完</span>
+        <span className="min-w-0 flex-1 truncate text-sm">{t.today.rollover.count(tasks.length)}</span>
         <Button variant="outline" size="sm" onClick={moveAll}>
-          挪到今天
+          {t.today.rollover.move}
         </Button>
       </div>
       <ul className="flex flex-col pl-[22px]">
@@ -66,14 +68,14 @@ function RolloverCard({ tasks, today }: { tasks: Task[]; today: DayKey }) {
               className={cn("flex h-6 w-full min-w-0 items-center gap-2 rounded-sm text-left text-xs text-fg-2 hover:text-fg", focusRing)}
             >
               <span className="min-w-0 flex-1 truncate">{task.title}</span>
-              <span className="shrink-0 text-warn tabular">延期 {diffDays(today, task.plannedFor ?? today)} 天</span>
+              <span className="shrink-0 text-warn tabular">{t.today.rollover.late(diffDays(today, task.plannedFor ?? today))}</span>
             </button>
           </li>
         ))}
         {tasks.length > 3 && (
           <li>
             <Link href="/tasks?plan=overdue" className={cn("text-xs text-fg-2 hover:text-fg", focusRing)}>
-              还有 {tasks.length - 3} 件
+              {t.today.rollover.more(tasks.length - 3)}
             </Link>
           </li>
         )}
@@ -85,17 +87,18 @@ function RolloverCard({ tasks, today }: { tasks: Task[]; today: DayKey }) {
 /** 今天的计划：还没做完的卡片（可拖到时间线）、一行快速添加、做完的收成短行 */
 export function PlanColumn({ today, plan }: { today: DayKey; plan: TodayPlan }) {
   const openTaskForm = useUi((state) => state.openTaskForm)
+  const t = useT()
   const [showDone, setShowDone] = useState(false)
   const total = plan.open.length + plan.done.length
 
   return (
     <BoardColumn
       icon={<Sun className="size-4 text-fg-2" aria-hidden />}
-      title="今天的计划"
+      title={t.today.plan.title}
       count={total > 0 ? `${plan.done.length}/${total}` : undefined}
       meta={total > 0 ? formatMinutes(plan.load.planned - plan.routineMinutes) : undefined}
       actions={
-        <IconButton label="新建今天的任务" size="icon-xs" onClick={() => openTaskForm({ mode: "create", preset: { plannedFor: today } })}>
+        <IconButton label={t.today.plan.newTask} size="icon-xs" onClick={() => openTaskForm({ mode: "create", preset: { plannedFor: today } })}>
           <Plus />
         </IconButton>
       }
@@ -105,16 +108,16 @@ export function PlanColumn({ today, plan }: { today: DayKey; plan: TodayPlan }) 
         <TaskCard key={task.id} task={task} today={today} properties={CARD_PROPERTIES} draggable showTime />
       ))}
       {plan.open.length === 0 && (
-        <p className="px-2 py-1 text-sm text-fg-2">{plan.done.length > 0 ? "今天的计划都做完了" : "今天还没有安排"}</p>
+        <p className="px-2 py-1 text-sm text-fg-2">{plan.done.length > 0 ? t.today.plan.allDone : t.today.plan.empty}</p>
       )}
       <Surface className="overflow-hidden">
-        <QuickAdd defaultDay={today} today={today} placeholder="加到今天，例如：回复留言 15m #公众号" />
+        <QuickAdd defaultDay={today} today={today} placeholder={t.today.plan.placeholder} />
       </Surface>
       {plan.done.length > 0 && (
         <>
           <CollapsedRow
             icon={<StatusIcon glyph="check" tone="done" />}
-            label="今天做完的"
+            label={t.today.plan.done}
             count={plan.done.length}
             aria-expanded={showDone}
             onClick={() => setShowDone((current) => !current)}
@@ -133,10 +136,11 @@ export function SuggestionsColumn({ tasks, today }: { tasks: Task[]; today: DayK
   const updateTask = useWorkbench((state) => state.updateTask)
   const openTask = useUi((state) => state.openTask)
   const projectsById = useProjectsById()
+  const t = useT()
   if (tasks.length === 0) return null
 
   return (
-    <BoardColumn icon={<Lightbulb className="size-4 text-fg-2" aria-hidden />} title="可以加进今天" count={tasks.length}>
+    <BoardColumn icon={<Lightbulb className="size-4 text-fg-2" aria-hidden />} title={t.today.suggestions.title} count={tasks.length}>
       <Surface className="overflow-hidden">
         <ul>
           {tasks.map((task) => {
@@ -166,15 +170,15 @@ export function SuggestionsColumn({ tasks, today }: { tasks: Task[]; today: DayK
                 {project && <ProjectMark name={project.name} color={project.color} size={14} />}
                 <span className="w-9 shrink-0 text-right text-xs text-fg-2 tabular">{formatMinutes(task.estimateMin)}</span>
                 <IconButton
-                  label={`加进今天：${task.title}`}
+                  label={t.today.suggestions.add(task.title)}
                   size="icon-xs"
                   onClick={() => {
                     planTask(task.id, today)
                     if (useWorkbench.getState().lastSaveOk) {
-                      toast.success("已加进今天", {
+                      toast.success(t.today.suggestions.added, {
                         description: task.title,
                         action: {
-                          label: "撤销",
+                          label: t.today.undo,
                           onClick: () => updateTask(task.id, { plannedFor: task.plannedFor, startAt: task.startAt, status: task.status }),
                         },
                       })

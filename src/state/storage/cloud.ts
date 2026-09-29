@@ -8,6 +8,7 @@
 
 import { blankWorkbench } from "@/data/seed"
 import { todayKey } from "@/domain/calendar"
+import { getT } from "@/i18n/runtime"
 import { ApiFailure, pull, push } from "@/lib/api"
 import { PULL_PAGE_SIZE, PUSH_BATCH_SIZE, type SyncChange, type SyncRecord } from "@/sync/protocol"
 import { registerSyncEngine, setSyncState } from "@/state/sync"
@@ -151,7 +152,7 @@ export function createCloudStorage(): WorkbenchStorage {
           merged = applyRemote(rejected) || merged
         }
 
-        if (!persistAll()) throw new Error("本地同步数据写入失败")
+        if (!persistAll()) throw new Error(getT().sync.writeFailed)
       }
 
       let pageSince = cursor
@@ -168,11 +169,11 @@ export function createCloudStorage(): WorkbenchStorage {
         }
 
         const nextCursor = Math.max(cursor, page.cursor)
-        if (page.more && nextCursor <= pageSince) throw new Error("云端同步游标没有前进")
+        if (page.more && nextCursor <= pageSince) throw new Error(getT().sync.cursorStuck)
         cursor = nextCursor
         pageSince = cursor
         more = page.more
-        if (!persistCache()) throw new Error("本地云端缓存写入失败")
+        if (!persistCache()) throw new Error(getT().sync.cacheFailed)
       }
 
       if (!stillActive()) return
@@ -190,7 +191,7 @@ export function createCloudStorage(): WorkbenchStorage {
         setSyncState({ status: "offline", message: error.message, pending: pendingCount() })
         scheduleRetry()
       } else {
-        const message = error instanceof Error && error.message ? error.message : "同步失败，请稍后重试"
+        const message = error instanceof Error && error.message ? error.message : getT().sync.failed
         setSyncState({ status: "error", message, pending: pendingCount() })
         scheduleRetry()
       }

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { formatDayLong, minuteOfDay } from "@/domain/calendar"
 import { formatMinutes } from "@/domain/format"
 import { autoSchedule, blocksFor, tasksPlannedOn } from "@/domain/planning"
+import { useT } from "@/i18n/react"
 import { FilterBar, PageFrame } from "@/features/shell/page-frame"
 import { focusRing } from "@/lib/styles"
 import { useToday } from "@/state/hooks"
@@ -34,6 +35,7 @@ export function TodayPage() {
   const openTaskForm = useUi((state) => state.openTaskForm)
   const openEntryForm = useUi((state) => state.openEntryForm)
   const setProfileOpen = useUi((state) => state.setProfileOpen)
+  const t = useT()
 
   const todayTasks = useMemo(() => tasksPlannedOn(tasks, today), [tasks, today])
   const scheduledCount = todayTasks.filter((task) => task.startAt).length
@@ -42,14 +44,14 @@ export function TodayPage() {
     const from = Math.max(profile.dayStartHour * 60, minuteOfDay(Date.now()))
     const times = autoSchedule(plan.unscheduled, blocksFor(todayTasks, today), from, profile.dayEndHour * 60)
     if (times.size === 0) {
-      toast("今天剩下的时间放不下了", { description: "挪一些到明天，或者调整可用时间" })
+      toast(t.today.arrange.noRoom, { description: t.today.arrange.noRoomHint })
       return
     }
     scheduleMany(times)
     if (!useWorkbench.getState().lastSaveOk) return
     const left = plan.unscheduled.length - times.size
-    toast.success(`排好了 ${times.size} 件${left > 0 ? `，还有 ${left} 件放不下` : ""}`, {
-      action: { label: "撤销", onClick: () => scheduleMany(new Map([...times.keys()].map((id) => [id, null]))) },
+    toast.success(`${t.today.arrange.done(times.size)}${left > 0 ? t.today.arrange.leftover(left) : ""}`, {
+      action: { label: t.today.undo, onClick: () => scheduleMany(new Map([...times.keys()].map((id) => [id, null]))) },
     })
   }
 
@@ -59,20 +61,20 @@ export function TodayPage() {
         <button
           type="button"
           onClick={() => setProfileOpen(true)}
-          aria-label="调整每天的可用时间"
+          aria-label={t.today.load.aria}
           className={cn("flex min-w-0 items-center gap-3 rounded-md px-1 py-0.5 hover:bg-hover", focusRing)}
         >
           <CapacityBar planned={plan.load.planned} capacity={plan.load.capacity} done={plan.load.done} className="w-[260px] max-w-[60vw]" />
           <span className="hidden shrink-0 text-xs text-fg-2 tabular lg:inline">
-            任务 {formatMinutes(plan.load.planned - plan.routineMinutes)} · 例行 {formatMinutes(plan.routineMinutes)}
+            {t.today.load.tasks} {formatMinutes(plan.load.planned - plan.routineMinutes)} · {t.today.load.routines} {formatMinutes(plan.routineMinutes)}
           </span>
         </button>
       }
       right={
         <Button variant="ghost" size="sm" onClick={arrange} disabled={plan.unscheduled.length === 0}>
           <CalendarClock />
-          <span className="hidden sm:inline">自动排进时间线</span>
-          <span className="sm:hidden">自动排</span>
+          <span className="hidden sm:inline">{t.today.page.autoSchedule}</span>
+          <span className="sm:hidden">{t.today.page.autoScheduleShort}</span>
         </Button>
       }
     />
@@ -80,17 +82,17 @@ export function TodayPage() {
 
   return (
     <PageFrame
-      title="今天"
+      title={t.today.page.title}
       meta={<span className="truncate">{formatDayLong(today)}</span>}
       actions={
         <>
           <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => openEntryForm({ mode: "create" })}>
             <Wallet />
-            记一笔
+            {t.today.page.addEntry}
           </Button>
           <Button variant="outline" size="sm" onClick={() => openTaskForm({ mode: "create", preset: { plannedFor: today } })}>
             <Plus />
-            新建任务
+            {t.today.page.newTask}
           </Button>
         </>
       }
@@ -105,9 +107,9 @@ export function TodayPage() {
 
         <BoardColumn
           icon={<Clock className="size-4 text-fg-2" aria-hidden />}
-          title="时间线"
+          title={t.today.timeline.title}
           count={scheduledCount > 0 ? scheduledCount : undefined}
-          meta={plan.unscheduled.length > 0 ? `${plan.unscheduled.length} 件还没排时间` : undefined}
+          meta={plan.unscheduled.length > 0 ? t.today.timeline.unplaced(plan.unscheduled.length) : undefined}
           className="h-[560px] lg:self-start xl:h-auto xl:min-h-0 xl:self-stretch"
           bodyClassName="flex-1"
         >

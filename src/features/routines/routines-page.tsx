@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { isDone, isDueOn, streak } from "@/domain/routines"
 import type { Cadence, Routine } from "@/domain/types"
 import { FilterBar, PageFrame } from "@/features/shell/page-frame"
+import { useT } from "@/i18n/react"
 import { useToday } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
@@ -24,14 +25,15 @@ interface RoutineGroup {
   collapsed: boolean
 }
 
-const GROUPS: { key: string; label: string; cadences: Cadence[] }[] = [
-  { key: "day", label: "每天", cadences: ["daily", "weekdays"] },
-  { key: "week", label: "每周", cadences: ["weekly"] },
-  { key: "month", label: "每月", cadences: ["monthly"] },
+const GROUPS: { key: "day" | "week" | "month"; cadences: Cadence[] }[] = [
+  { key: "day", cadences: ["daily", "weekdays"] },
+  { key: "week", cadences: ["weekly"] },
+  { key: "month", cadences: ["monthly"] },
 ]
 
 /** 例行：按频率分成每天、每周、每月三列，停用的收成短行（提炼） */
 export function RoutinesPage() {
+  const t = useT()
   const today = useToday()
   const routines = useWorkbench((state) => state.routines)
   const openRoutineForm = useUi((state) => state.openRoutineForm)
@@ -43,22 +45,23 @@ export function RoutinesPage() {
     return [
       ...GROUPS.map((group) => ({
         ...group,
+        label: t.routines.groups[group.key],
         items: active.filter((routine) => group.cadences.includes(routine.cadence)).sort(order),
         collapsed: false,
       })),
       {
         key: "archived",
-        label: "已停用",
+        label: t.routines.groups.archived,
         cadences: [],
         items: routines.filter((routine) => routine.archived),
         collapsed: true,
       },
     ]
-  }, [routines, today])
+  }, [routines, today, t])
 
   const progress = GROUPS.map((group) => {
     const due = routines.filter((routine) => !routine.archived && group.cadences.includes(routine.cadence) && isDueOn(routine, today))
-    return { label: group.key === "day" ? "今天" : group.key === "week" ? "本周" : "本月", done: due.filter((routine) => isDone(routine, today)).length, total: due.length }
+    return { label: t.routines.progress[group.key], done: due.filter((routine) => isDone(routine, today)).length, total: due.length }
   }).filter((item) => item.total > 0)
 
   const isCollapsed = (group: RoutineGroup) => group.collapsed !== toggled.has(group.key)
@@ -74,11 +77,11 @@ export function RoutinesPage() {
 
   return (
     <PageFrame
-      title="例行"
+      title={t.nav.pages.routines}
       actions={
         <Button variant="outline" size="sm" onClick={() => openRoutineForm(null)}>
           <Plus />
-          新的例行事务
+          {t.routines.newRoutine}
         </Button>
       }
       filterBar={
@@ -99,11 +102,11 @@ export function RoutinesPage() {
       {routines.length === 0 ? (
         <EmptyState
           icon={Repeat}
-          title="还没有例行事务"
+          title={t.routines.empty}
           className="h-full"
           action={
             <Button variant="outline" size="sm" onClick={() => openRoutineForm(null)}>
-              新的例行事务
+              {t.routines.newRoutine}
             </Button>
           }
         />
@@ -120,18 +123,18 @@ export function RoutinesPage() {
               actions={
                 <>
                   {group.key !== "archived" && (
-                    <IconButton label="新的例行事务" size="icon-xs" onClick={() => openRoutineForm(null)}>
+                    <IconButton label={t.routines.newRoutine} size="icon-xs" onClick={() => openRoutineForm(null)}>
                       <Plus />
                     </IconButton>
                   )}
-                  <IconButton label="收起这一列" size="icon-xs" onClick={() => flip(group.key)}>
+                  <IconButton label={t.routines.collapseColumn} size="icon-xs" onClick={() => flip(group.key)}>
                     <Minimize2 />
                   </IconButton>
                 </>
               }
             >
               {group.items.length === 0 ? (
-                <p className="px-2 pb-2 text-sm text-fg-2">没有例行事务</p>
+                <p className="px-2 pb-2 text-sm text-fg-2">{t.routines.emptyGroup}</p>
               ) : (
                 group.items.map((routine) => <RoutineCard key={routine.id} routine={routine} today={today} />)
               )}
@@ -146,7 +149,7 @@ export function RoutinesPage() {
                   label={group.label}
                   count={group.items.length}
                   onClick={() => flip(group.key)}
-                  aria-label={`展开「${group.label}」，${group.items.length} 项`}
+                  aria-label={t.routines.expandGroup(group.label, group.items.length)}
                 />
               ))}
             </div>

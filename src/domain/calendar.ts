@@ -1,10 +1,10 @@
+import { getT } from "../i18n/runtime"
 import type { DayKey } from "./types"
 
 /**
  * 本地日历工具。个人工作台按真实的今天运转，所有日期都用浏览器所在时区的日历日。
+ * 给人看的日期文字按当前语言输出（词条在 i18n/messages 的 calendar）。
  */
-
-const WEEKDAY = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
 
 function pad(value: number) {
   return String(value).padStart(2, "0")
@@ -73,7 +73,7 @@ export function isWeekend(key: DayKey): boolean {
 }
 
 export function weekdayLabel(key: DayKey): string {
-  return WEEKDAY[parseDay(key).getDay()]
+  return getT().calendar.weekdays[parseDay(key).getDay()]
 }
 
 export function formatDayShort(key: DayKey): string {
@@ -83,25 +83,27 @@ export function formatDayShort(key: DayKey): string {
 
 export function formatMonthDay(key: DayKey): string {
   const date = parseDay(key)
-  return `${date.getMonth() + 1}月${date.getDate()}日`
+  return getT().calendar.monthDay(date.getMonth() + 1, date.getDate())
 }
 
 export function formatDayLong(key: DayKey): string {
-  return `${formatMonthDay(key)} ${weekdayLabel(key)}`
+  return getT().calendar.dayLong(formatMonthDay(key), weekdayLabel(key))
 }
 
 export function formatMonthLabel(key: DayKey, withYear = false): string {
   const date = parseDay(key)
-  return withYear ? `${date.getFullYear()}年${date.getMonth() + 1}月` : `${date.getMonth() + 1}月`
+  const words = getT().calendar
+  return withYear ? words.yearMonth(date.getFullYear(), date.getMonth() + 1) : words.month(date.getMonth() + 1)
 }
 
 /** 今天、明天、昨天、本周内的星期几，其余写日期 */
 export function formatRelativeDay(key: DayKey, today: DayKey): string {
   const diff = diffDays(key, today)
-  if (diff === 0) return "今天"
-  if (diff === 1) return "明天"
-  if (diff === -1) return "昨天"
-  if (diff === 2) return "后天"
+  const words = getT().calendar
+  if (diff === 0) return words.today
+  if (diff === 1) return words.tomorrow
+  if (diff === -1) return words.yesterday
+  if (diff === 2) return words.dayAfterTomorrow
   if (weekStart(key) === weekStart(today)) return weekdayLabel(key)
   return formatMonthDay(key)
 }
@@ -141,12 +143,13 @@ export function isWithin(key: DayKey, start: DayKey, end: DayKey): boolean {
 /** 动态里的时间：刚刚、12 分钟前、3 小时前、昨天、4 天前，再早写日期 */
 export function formatAgo(at: number, now: number): string {
   const minutes = Math.floor((now - at) / 60_000)
-  if (minutes < 1) return "刚刚"
+  const words = getT().calendar
+  if (minutes < 1) return words.justNow
   const today = todayKey(now)
   const day = todayKey(at)
-  if (day === today) return minutes < 60 ? `${minutes} 分钟前` : `${Math.floor(minutes / 60)} 小时前`
+  if (day === today) return minutes < 60 ? words.minutesAgo(minutes) : words.hoursAgo(Math.floor(minutes / 60))
   const days = diffDays(today, day)
-  if (days === 1) return "昨天"
-  if (days < 7) return `${days} 天前`
+  if (days === 1) return words.yesterday
+  if (days < 7) return words.daysAgo(days)
   return formatMonthDay(day)
 }

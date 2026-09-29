@@ -12,6 +12,7 @@ import { formatDayShort, weekdayLabel } from "@/domain/calendar"
 import { formatMinutes } from "@/domain/format"
 import type { DayLoad } from "@/domain/planning"
 import type { DayKey, Task } from "@/domain/types"
+import { useT } from "@/i18n/react"
 import { focusRing } from "@/lib/styles"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
@@ -35,6 +36,7 @@ export function DaySection({ plan, today, showDone }: { plan: DayPlan; today: Da
   const planTask = useWorkbench((state) => state.planTask)
   const moveTasksToDay = useWorkbench((state) => state.moveTasksToDay)
   const openTaskForm = useUi((state) => state.openTaskForm)
+  const t = useT()
   const { day, tasks, load, logged } = plan
   const past = day < today
   const isToday = day === today
@@ -49,7 +51,7 @@ export function DaySection({ plan, today, showDone }: { plan: DayPlan; today: Da
       unfinished.map((task) => task.id),
       today
     )
-    if (useWorkbench.getState().lastSaveOk) toast.success(`已把 ${unfinished.length} 件挪到今天`)
+    if (useWorkbench.getState().lastSaveOk) toast.success(t.week.movedToToday(unfinished.length))
   }
 
   return (
@@ -76,24 +78,24 @@ export function DaySection({ plan, today, showDone }: { plan: DayPlan; today: Da
             {weekdayLabel(day)}
           </h2>
           <span className="text-fg-2 tabular">{formatDayShort(day)}</span>
-          {isToday && <span className="rounded-sm bg-fg px-1 text-xs text-white">今天</span>}
+          {isToday && <span className="rounded-sm bg-fg px-1 text-xs text-white">{t.today.page.title}</span>}
           {tasks.length > 0 && (
             <span className="text-xs text-fg-2 tabular">
               {load.doneCount}/{load.count}
             </span>
           )}
         </button>
-        {past && logged > 0 && <span className="hidden text-xs text-fg-2 tabular sm:inline">投入 {formatMinutes(logged)}</span>}
+        {past && logged > 0 && <span className="hidden text-xs text-fg-2 tabular sm:inline">{t.week.loggedDay(formatMinutes(logged))}</span>}
         {past && unfinished.length > 0 && (
           <Button variant="ghost" size="sm" className="text-warn hover:text-warn" onClick={moveToToday}>
-            {unfinished.length} 件没做完，挪到今天
+            {t.week.moveUnfinished(unfinished.length)}
           </Button>
         )}
         <div className="ml-auto flex min-w-0 items-center gap-1">
           {!past && <CapacityBar planned={load.planned} capacity={load.capacity} done={load.done} className="w-44 max-sm:hidden" />}
           {!past && (
             <IconButton
-              label={`在${weekdayLabel(day)}新建任务`}
+              label={t.week.newTaskOn(weekdayLabel(day))}
               size="icon-xs"
               onClick={() => openTaskForm({ mode: "create", preset: { plannedFor: day } })}
             >
@@ -105,7 +107,7 @@ export function DaySection({ plan, today, showDone }: { plan: DayPlan; today: Da
       {expanded && (
         <Surface className="mx-1 mb-1 overflow-hidden">
           {visible.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-fg-2">{tasks.length > 0 ? "都做完了" : "没有安排"}</p>
+            <p className="px-3 py-2 text-sm text-fg-2">{tasks.length > 0 ? t.week.dayAllDone : t.week.dayEmpty}</p>
           ) : (
             visible.map((task) => (
               <TaskRow key={task.id} task={task} today={today} showTime showPlan={false} draggable className="last:border-b-0" />

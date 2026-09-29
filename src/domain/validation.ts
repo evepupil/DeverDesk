@@ -1,3 +1,4 @@
+import { getT } from "../i18n/runtime"
 import { parseAmount } from "./ledger"
 import type { EntryKind, EntryStatus } from "./types"
 
@@ -6,10 +7,11 @@ import type { EntryKind, EntryStatus } from "./types"
 export const TASK_TITLE_MAX = 80
 export const NAME_MAX = 20
 
-export function validateTitle(title: string, label = "任务名称", max = TASK_TITLE_MAX): string | undefined {
+export function validateTitle(title: string, label?: string, max = TASK_TITLE_MAX): string | undefined {
   const text = title.trim()
-  if (!text) return `请填写${label}`
-  if (text.length > max) return `${label}最多 ${max} 个字`
+  const name = label ?? getT().forms.validation.title
+  if (!text) return getT().forms.validation.required(name)
+  if (text.length > max) return getT().forms.validation.tooLong(name, max)
   return undefined
 }
 
@@ -23,10 +25,11 @@ export interface EntryDraft {
 
 export function validateEntry(draft: EntryDraft): Partial<Record<"amount" | "date" | "expectedOn", string>> {
   const errors: Partial<Record<"amount" | "date" | "expectedOn", string>> = {}
-  if (parseAmount(draft.amount) === null) errors.amount = "请填写大于 0 的金额，最多两位小数"
-  if (!draft.date) errors.date = "请选择日期"
+  const t = getT().forms.validation
+  if (parseAmount(draft.amount) === null) errors.amount = t.amount
+  if (!draft.date) errors.date = t.date
   if (draft.kind === "income" && draft.status === "pending" && !draft.expectedOn) {
-    errors.expectedOn = "请填写预计到账日期"
+    errors.expectedOn = t.expectedOn
   }
   return errors
 }

@@ -1,3 +1,7 @@
+"use client"
+
+import { useT } from "@/i18n/react"
+
 /**
  * 加载态：页面脚本就绪前先画出同样的骨架，避免空白闪一下。
  * 只用静态标记，不依赖任何数据。
@@ -7,8 +11,9 @@ function Bar({ className }: { className: string }) {
 }
 
 export function ShellSkeleton() {
+  const t = useT()
   return (
-    <div aria-busy="true" aria-label="正在加载" className="flex h-dvh flex-col overflow-hidden bg-window">
+    <div aria-busy="true" aria-label={t.words.loading} className="flex h-dvh flex-col overflow-hidden bg-window">
       <div className="flex h-(--h-windowbar) shrink-0 items-center gap-2 px-3">
         <Bar className="h-4 w-16" />
         <Bar className="mx-auto hidden h-[26px] w-[clamp(240px,34vw,440px)] md:block" />

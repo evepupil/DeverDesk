@@ -5,6 +5,7 @@ import { ArrowDownLeft, ArrowUpRight, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useT } from "@/i18n/react"
 import { focusRing } from "@/lib/styles"
 import { useToday } from "@/state/hooks"
 import { useUi } from "@/state/ui"
@@ -15,6 +16,7 @@ import { QuickAdd } from "../common/quick-add"
  * 桌面有快捷键和顶部按钮，不显示这个圆钮。
  */
 export function QuickCapture() {
+  const t = useT()
   const open = useUi((state) => state.quickAddOpen)
   const setOpen = useUi((state) => state.setQuickAddOpen)
   const openEntryForm = useUi((state) => state.openEntryForm)
@@ -29,7 +31,7 @@ export function QuickCapture() {
     <>
       <button
         type="button"
-        aria-label="快速记录"
+        aria-label={t.frame.quickCapture.label}
         onClick={() => setOpen(true)}
         className={cn(
           "fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex size-12 items-center justify-center rounded-full bg-fg text-white shadow-lg transition-transform duration-(--dur-fast) active:scale-95 lg:hidden",
@@ -41,20 +43,20 @@ export function QuickCapture() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="gap-0 rounded-t-xl p-0 pb-[env(safe-area-inset-bottom)]">
           <SheetHeader className="border-b border-line px-4 py-3">
-            <SheetTitle>快速记录</SheetTitle>
-            <SheetDescription className="sr-only">加一条今天的任务，或者记一笔收支</SheetDescription>
+            <SheetTitle>{t.frame.quickCapture.label}</SheetTitle>
+            <SheetDescription className="sr-only">{t.frame.quickCapture.description}</SheetDescription>
           </SheetHeader>
           <div className="border-b border-line py-1">
-            <QuickAdd defaultDay={today} today={today} autoFocus placeholder="今天要做什么，例如：回复留言 15m" onCreated={() => setOpen(false)} />
+            <QuickAdd defaultDay={today} today={today} autoFocus placeholder={t.frame.quickCapture.placeholder} onCreated={() => setOpen(false)} />
           </div>
           <div className="grid grid-cols-2 gap-2 p-3">
             <Button variant="outline" className="h-10" onClick={() => record("income")}>
               <ArrowDownLeft className="text-good" />
-              记收入
+              {t.frame.quickCapture.income}
             </Button>
             <Button variant="outline" className="h-10" onClick={() => record("expense")}>
               <ArrowUpRight className="text-bad" />
-              记支出
+              {t.frame.quickCapture.expense}
             </Button>
           </div>
         </SheetContent>

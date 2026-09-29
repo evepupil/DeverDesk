@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/base/empty-state"
 import { StatusIcon } from "@/components/base/status-icon"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useT } from "@/i18n/react"
 import { focusRingInset } from "@/lib/styles"
 import { useToday, useWorkbenchData } from "@/state/hooks"
 import { useUi } from "@/state/ui"
@@ -24,6 +25,7 @@ export function WorkbenchNotifications() {
   const openTask = useUi((state) => state.openTask)
   const openEntryForm = useUi((state) => state.openEntryForm)
   const [open, setOpen] = useState(false)
+  const t = useT()
 
   const alerts = useMemo(() => deriveWorkbenchAlerts(data, today), [data, today])
   const unread = alerts.filter((alert) => !readIds.includes(alert.id))
@@ -43,7 +45,7 @@ export function WorkbenchNotifications() {
           variant="ghost"
           size="icon-sm"
           className="relative text-fg-2"
-          aria-label={unread.length ? `提醒，${unread.length} 条未读` : "提醒"}
+          aria-label={unread.length ? t.shell.notifications.unread(unread.length) : t.shell.notifications.title}
         >
           <Bell />
           {unread.length > 0 && (
@@ -53,15 +55,15 @@ export function WorkbenchNotifications() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[340px] gap-0 p-0">
         <div className="flex h-10 items-center justify-between border-b border-line pr-2 pl-3">
-          <span className="text-sm font-medium">提醒</span>
+          <span className="text-sm font-medium">{t.shell.notifications.title}</span>
           {unread.length > 0 && (
             <Button variant="ghost" size="sm" onClick={() => markRead(unread.map((alert) => alert.id))}>
-              全部标为已读
+              {t.shell.notifications.markAllRead}
             </Button>
           )}
         </div>
         {alerts.length === 0 ? (
-          <EmptyState icon={BellOff} title="没有需要处理的事" />
+          <EmptyState icon={BellOff} title={t.shell.notifications.empty} />
         ) : (
           <ul className="scroll-thin max-h-[min(420px,60vh)] overflow-y-auto p-1">
             {alerts.map((alert) => {
@@ -81,7 +83,7 @@ export function WorkbenchNotifications() {
                       <span className={cn("block truncate text-sm", !isUnread && "text-fg-2")}>{alert.title}</span>
                       <span className="block truncate text-xs text-fg-2">{alert.detail}</span>
                     </span>
-                    {isUnread && <span aria-label="未读" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-done" />}
+                    {isUnread && <span aria-label={t.shell.notifications.unreadDot} className="mt-1.5 size-1.5 shrink-0 rounded-full bg-done" />}
                   </button>
                 </li>
               )

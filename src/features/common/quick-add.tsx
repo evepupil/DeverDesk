@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { ProjectMark } from "@/components/base/marks"
 import { parseQuickAdd, type QuickToken } from "@/domain/quick-add"
 import { taskCode } from "@/domain/tasks"
+import { useT } from "@/i18n/react"
 import type { DayKey } from "@/domain/types"
 import { useProjectsById } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
@@ -33,7 +34,7 @@ export function QuickAdd({
   defaultDay,
   defaultProjectId = null,
   today,
-  placeholder = "添加任务，例如：写周报 30m #技术博客 明天",
+  placeholder,
   className,
   autoFocus,
   onCreated,
@@ -50,14 +51,16 @@ export function QuickAdd({
   const projects = useWorkbench((state) => state.projects)
   const createTask = useWorkbench((state) => state.createTask)
   const projectsById = useProjectsById()
+  const t = useT()
   const [value, setValue] = useState("")
   const [error, setError] = useState<string | null>(null)
   const parsed = useMemo(() => parseQuickAdd(value, projects.filter((project) => project.stage !== "ended"), today), [value, projects, today])
+  const placeholderText = placeholder ?? t.common.quickAdd.placeholder
 
   const submit = () => {
     if (!value.trim()) return
     if (!parsed.title) {
-      setError("只识别出了时长、副业或日期，还缺任务名")
+      setError(t.common.quickAdd.missingTitle)
       return
     }
     const day = parsed.plannedFor ?? defaultDay
@@ -72,7 +75,7 @@ export function QuickAdd({
     setValue("")
     setError(null)
     onCreated?.()
-    if (useWorkbench.getState().lastSaveOk) toast.success(`已添加 ${taskCode(task)}`, { description: task.title, duration: 2000 })
+    if (useWorkbench.getState().lastSaveOk) toast.success(t.common.quickAdd.added(taskCode(task)), { description: task.title, duration: 2000 })
   }
 
   return (
@@ -93,8 +96,8 @@ export function QuickAdd({
             }
             if (event.key === "Escape") setValue("")
           }}
-          placeholder={placeholder}
-          aria-label="快速添加任务"
+          placeholder={placeholderText}
+          aria-label={t.common.quickAdd.label}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "quick-add-error" : undefined}
           className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-3 md:text-sm"
@@ -102,7 +105,7 @@ export function QuickAdd({
         {value.trim() && (
           <span className="hidden items-center gap-1 text-xs text-fg-3 sm:flex">
             <CornerDownLeft className="size-3" aria-hidden />
-            回车添加
+            {t.common.quickAdd.enterHint}
           </span>
         )}
       </div>

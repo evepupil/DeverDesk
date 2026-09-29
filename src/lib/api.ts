@@ -9,6 +9,7 @@ import {
   type SyncChange,
   type TokenInfo,
 } from "@/sync/protocol"
+import { getT } from "@/i18n/runtime"
 
 /**
  * 在线版的接口调用：和页面同一个域名，带上登录 Cookie。
@@ -36,8 +37,8 @@ async function readJson<T>(response: Response): Promise<T> {
   try {
     return (await response.json()) as T
   } catch (cause) {
-    if (cause instanceof SyntaxError) throw new ApiFailure("server", `服务器出错（${response.status}）`)
-    throw new ApiFailure("network", "连不上服务器")
+    if (cause instanceof SyntaxError) throw new ApiFailure("server", getT().auth.api.serverError(response.status))
+    throw new ApiFailure("network", getT().auth.api.network)
   }
 }
 
@@ -55,13 +56,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
         headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), ...init.headers },
       })
     } catch {
-      throw new ApiFailure("network", "连不上服务器")
+      throw new ApiFailure("network", getT().auth.api.network)
     }
     if (response.ok) return response.status === 204 ? (undefined as T) : await readJson<T>(response)
+    // 服务器返回的错误原文是给程序看的，界面上按状态码换成当前语言的话；只取等待秒数
     const body = await readJson<ApiError>(response).catch(() => null)
-    if (response.status === 401) throw new ApiFailure("unauthorized", body?.error ?? "需要重新登录")
-    if (response.status === 429) throw new ApiFailure("rate-limited", body?.error ?? "尝试太多次", body?.retryAfter)
-    throw new ApiFailure("server", body?.error ?? `服务器出错（${response.status}）`)
+    if (response.status === 401) throw new ApiFailure("unauthorized", getT().auth.api.unauthorized)
+    if (response.status === 429) throw new ApiFailure("rate-limited", getT().auth.api.rateLimited, body?.retryAfter)
+    throw new ApiFailure("server", getT().auth.api.serverError(response.status))
   } finally {
     clearTimeout(timer)
   }

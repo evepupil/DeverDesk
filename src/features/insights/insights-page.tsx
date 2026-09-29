@@ -7,10 +7,11 @@ import { byCategory } from "@/domain/ledger"
 import { estimateAccuracy, minutesByWeekday, projectStats, rangePeriods } from "@/domain/insights"
 import { DisplayPopover, DisplayRow, DisplaySwitch } from "@/features/shell/display-controls"
 import { FilterBar, PageFrame } from "@/features/shell/page-frame"
+import { useT } from "@/i18n/react"
 import { useProjectsById, useToday, useWorkbenchData } from "@/state/hooks"
 import { DEFAULT_PREFS, usePrefs } from "@/state/prefs"
 import { MoneyBreakdown, ProjectsBreakdown, TimeBreakdown } from "./breakdown"
-import { INSIGHT_RANGES } from "./insight-meta"
+import { insightRanges } from "./insight-meta"
 import { InsightChart } from "./insight-chart"
 import { ActivityColumn, EndedColumn } from "./period-column"
 
@@ -19,6 +20,7 @@ import { ActivityColumn, EndedColumn } from "./period-column"
  * 最右一列放本期结束的短行和动态。所有数字都从同一份记录现算。
  */
 export function InsightsPage() {
+  const t = useT()
   const data = useWorkbenchData()
   const today = useToday()
   const projectsById = useProjectsById()
@@ -34,10 +36,10 @@ export function InsightsPage() {
 
   const filterBar = (
     <FilterBar
-      left={<Segmented label="时间范围" value={prefs.range} options={INSIGHT_RANGES} onChange={(range) => setPrefs("insights", { range })} />}
+      left={<Segmented label={t.insights.range} value={prefs.range} options={insightRanges()} onChange={(range) => setPrefs("insights", { range })} />}
       right={
         <DisplayPopover onReset={() => setPrefs("insights", DEFAULT_PREFS.insights)}>
-          <DisplayRow id="insights-compare" label="对比上一段时间">
+          <DisplayRow id="insights-compare" label={t.insights.compare}>
             <DisplaySwitch id="insights-compare" checked={prefs.compare} onChange={(compare) => setPrefs("insights", { compare })} />
           </DisplayRow>
         </DisplayPopover>
@@ -46,7 +48,7 @@ export function InsightsPage() {
   )
 
   return (
-    <PageFrame title="概览" filterBar={filterBar}>
+    <PageFrame title={t.nav.pages.insights} filterBar={filterBar}>
       <div className="grid gap-(--gap-card) p-3 pb-20 lg:pb-3 xl:grid-cols-4">
         <div className="flex min-w-0 flex-col gap-(--gap-card) xl:col-span-3">
           <InsightChart data={data} range={prefs.range} compare={prefs.compare} today={today} />

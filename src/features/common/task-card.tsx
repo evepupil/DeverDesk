@@ -8,6 +8,7 @@ import { LabelChip } from "@/components/base/label-chip"
 import { ProjectMark } from "@/components/base/marks"
 import { PRIORITY } from "@/data/catalog"
 import { taskCode } from "@/domain/tasks"
+import { useT } from "@/i18n/react"
 import type { DayKey, Task } from "@/domain/types"
 import { focusRing } from "@/lib/styles"
 import { useLoggedByTask, useProjectsById } from "@/state/hooks"
@@ -28,13 +29,14 @@ export function startTaskDrag(event: DragEvent, taskId: string) {
 }
 
 function RunningDot() {
+  const t = useT()
   return (
     <span className="inline-flex items-center gap-1 text-warn">
       <span className="relative flex size-1.5">
         <span className="absolute inline-flex size-full animate-ping rounded-full bg-progress opacity-60 motion-reduce:hidden" />
         <span className="relative inline-flex size-1.5 rounded-full bg-progress" />
       </span>
-      计时中
+      {t.common.running}
     </span>
   )
 }

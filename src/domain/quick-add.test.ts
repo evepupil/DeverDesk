@@ -1,4 +1,5 @@
-import { beforeAll, describe, expect, it } from "vitest"
+import { afterEach, beforeAll, describe, expect, it } from "vitest"
+import { setLocale } from "../i18n/runtime"
 import { parseQuickAdd } from "./quick-add"
 import type { DayKey, Project } from "./types"
 
@@ -154,5 +155,53 @@ describe("parseQuickAdd 标题", () => {
 
   it("只有标记没有文字时标题为空字符串", () => {
     expect(parse("30m 明天 !!").title).toBe("")
+  })
+})
+
+describe("parseQuickAdd 英文写法（不管界面语言都认）", () => {
+  afterEach(() => setLocale("zh-CN"))
+
+  it("时长：2hr、45min、90 minutes 的写法", () => {
+    expect(parse("Fix bug 2hr").estimateMin).toBe(120)
+    expect(parse("Fix bug 45min").estimateMin).toBe(45)
+    expect(parse("Fix bug 90minutes").estimateMin).toBe(90)
+    expect(parse("Fix bug 1.5hours").estimateMin).toBe(90)
+  })
+
+  it("日期：today、tomorrow、tmr", () => {
+    expect(parse("Ship today").plannedFor).toBe("2026-09-30")
+    expect(parse("Ship tomorrow").plannedFor).toBe("2026-10-01")
+    expect(parse("Ship tmr").plannedFor).toBe("2026-10-01")
+  })
+
+  it("日期：星期几取本周或之后最近的一天", () => {
+    expect(parse("Call fri").plannedFor).toBe("2026-10-02")
+    expect(parse("Call Friday").plannedFor).toBe("2026-10-02")
+    expect(parse("Call wed").plannedFor).toBe("2026-09-30")
+    expect(parse("Call mon").plannedFor).toBe("2026-10-05")
+  })
+
+  it("日期：next tue 两个词、next-tue 一个词都是下周", () => {
+    const spaced = parse("Plan next tue 30m")
+    expect(spaced.plannedFor).toBe("2026-10-06")
+    expect(spaced.title).toBe("Plan")
+    expect(parse("Plan next-thu").plannedFor).toBe("2026-10-08")
+  })
+
+  it("普通英文单词不当成日期", () => {
+    const result = parse("Write the next chapter")
+    expect(result.plannedFor).toBeNull()
+    expect(result.title).toBe("Write the next chapter")
+  })
+
+  it("中英文混写", () => {
+    const result = parse("写周报 30m #技术博客 tomorrow !!")
+    expect(result).toMatchObject({ title: "写周报", estimateMin: 30, projectId: "p-blog", plannedFor: "2026-10-01", priority: 3 })
+  })
+
+  it("识别出的标记按当前语言显示", () => {
+    expect(parse("Ship tomorrow 90m !!!").tokens.map((token) => token.label)).toEqual(["明天", "1.5 小时", "紧急"])
+    setLocale("en")
+    expect(parse("Ship tomorrow 90m !!!").tokens.map((token) => token.label)).toEqual(["Tomorrow", "1.5 hr", "Urgent"])
   })
 })

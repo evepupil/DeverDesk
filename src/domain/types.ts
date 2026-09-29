@@ -133,6 +133,8 @@ export interface Profile {
   /** 时间线从几点画到几点 */
   dayStartHour: number
   dayEndHour: number
+  /** 记账币种（ISO 4217 代码，如 CNY、USD）；老数据没有这一项，按人民币显示 */
+  currency?: string
 }
 
 export interface ActiveTimer {

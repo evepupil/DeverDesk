@@ -20,6 +20,7 @@ import { FilterChips, FilterMenu, type FilterField } from "@/features/shell/filt
 import { FilterBar, PageFrame } from "@/features/shell/page-frame"
 import { downloadCsv } from "@/lib/csv"
 import { focusRing } from "@/lib/styles"
+import { useT } from "@/i18n/react"
 import { useFilters } from "@/state/url-state"
 import { useProjectsById, useToday } from "@/state/hooks"
 import { usePrefs } from "@/state/prefs"
@@ -27,7 +28,7 @@ import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
 import { categoryField, channelField, entryStatusField, projectField } from "../common/filter-fields"
 import { EntryRow } from "./entry-row"
-import { LEDGER_GROUP_OPTIONS, groupLedger, type LedgerGroup } from "./ledger-groups"
+import { ledgerGroupOptions, groupLedger, type LedgerGroup } from "./ledger-groups"
 
 const VALUE_OF: Record<LedgerFilterKey, (entry: LedgerEntry) => string[]> = {
   kind: (entry) => [entry.kind],
@@ -40,6 +41,7 @@ const VALUE_OF: Record<LedgerFilterKey, (entry: LedgerEntry) => string[]> = {
 type Scope = "all" | "income" | "expense"
 
 function GroupSection({ group, collapsed, onToggle }: { group: LedgerGroup; collapsed: boolean; onToggle(): void }) {
+  const t = useT()
   const projectsById = useProjectsById()
   const today = useToday()
   const project = group.projectId ? projectsById.get(group.projectId) : undefined
@@ -67,15 +69,13 @@ function GroupSection({ group, collapsed, onToggle }: { group: LedgerGroup; coll
         </button>
         <span className="ml-auto flex shrink-0 items-center gap-3 text-xs text-fg-2 tabular">
           {group.key === "pending" ? (
-            <span>
-              还有 <span className="text-fg">{formatAmount(group.pending)}</span> 在路上
-            </span>
+            <span>{t.ledger.totals.pendingOnTheWay(formatAmount(group.pending))}</span>
           ) : (
             <>
-              <span className="hidden sm:inline">收入 {formatAmount(group.income)}</span>
-              <span className="hidden sm:inline">支出 {formatAmount(group.expense)}</span>
+              <span className="hidden sm:inline">{t.ledger.totals.income} {formatAmount(group.income)}</span>
+              <span className="hidden sm:inline">{t.ledger.totals.expense} {formatAmount(group.expense)}</span>
               <span>
-                净 <span className={cn("text-fg", group.net < 0 && "text-bad")}>{formatSignedAmount(group.net)}</span>
+                {t.ledger.totals.net} <span className={cn("text-fg", group.net < 0 && "text-bad")}>{formatSignedAmount(group.net)}</span>
               </span>
             </>
           )}
@@ -94,6 +94,7 @@ function GroupSection({ group, collapsed, onToggle }: { group: LedgerGroup; coll
 
 /** 收支流水：待到账放最上面，其余按月（或副业、分类）分组，每组标出收入、支出和净收入 */
 export function LedgerPage() {
+  const t = useT()
   const ledger = useWorkbench((state) => state.ledger)
   const projects = useWorkbench((state) => state.projects)
   const prefs = usePrefs((state) => state.ledger)
@@ -136,17 +137,17 @@ export function LedgerPage() {
       .sort((a, b) => b.date.localeCompare(a.date))
       .map((entry) => [
         entry.date,
-        entry.kind === "income" ? "收入" : "支出",
+        entry.kind === "income" ? t.ledger.export.kindIncome : t.ledger.export.kindExpense,
         entry.amount,
         ENTRY_STATUS[entry.status].label,
-        entry.projectId ? (projectsById.get(entry.projectId)?.name ?? "") : "个人事务",
+        entry.projectId ? (projectsById.get(entry.projectId)?.name ?? "") : t.ledger.group.personal,
         categoryLabel(entry.category),
         CHANNELS[entry.channel].label,
         entry.expectedOn ?? "",
         entry.note,
       ])
-    downloadCsv(`收支-${todayKey()}.csv`, ["日期", "类型", "金额", "状态", "副业", "分类", "渠道", "预计到账", "说明"], rows)
-    toast.success(`已导出 ${rows.length} 笔`)
+    downloadCsv(`${t.ledger.export.fileName}-${todayKey()}.csv`, t.ledger.export.headers, rows)
+    toast.success(t.ledger.export.success(rows.length))
   }
 
   const filterBar = (
@@ -166,18 +167,18 @@ export function LedgerPage() {
       right={
         <>
           <span className="hidden items-center gap-3 text-xs text-fg-2 tabular md:flex">
-            <span>收入 {formatAmount(sum.income)}</span>
-            <span>支出 {formatAmount(sum.expense)}</span>
+            <span>{t.ledger.totals.income} {formatAmount(sum.income)}</span>
+            <span>{t.ledger.totals.expense} {formatAmount(sum.expense)}</span>
             <span>
-              净 <span className={cn("text-fg", sum.income - sum.expense < 0 && "text-bad")}>{formatSignedAmount(sum.income - sum.expense)}</span>
+              {t.ledger.totals.net} <span className={cn("text-fg", sum.income - sum.expense < 0 && "text-bad")}>{formatSignedAmount(sum.income - sum.expense)}</span>
             </span>
           </span>
           <DisplayPopover onReset={() => setPrefs("ledger", { groupBy: "month" })}>
-            <DisplayRow id="ledger-group" label="分组">
+            <DisplayRow id="ledger-group" label={t.ledger.group.label}>
               <DisplaySelect
                 id="ledger-group"
                 value={prefs.groupBy}
-                options={LEDGER_GROUP_OPTIONS}
+                options={ledgerGroupOptions()}
                 onChange={(groupBy) => setPrefs("ledger", { groupBy })}
               />
             </DisplayRow>
@@ -189,11 +190,11 @@ export function LedgerPage() {
 
   return (
     <PageFrame
-      title="收支"
+      title={t.nav.pages.ledger}
       tabs={[
-        { key: "all", label: "全部" },
-        { key: "income", label: "收入" },
-        { key: "expense", label: "支出" },
+        { key: "all", label: t.ledger.page.tabAll },
+        { key: "income", label: t.ledger.totals.income },
+        { key: "expense", label: t.ledger.totals.expense },
       ]}
       activeTab={scope}
       onTabChange={(key) => setValues("kind", key === "all" ? [] : [key])}
@@ -201,11 +202,11 @@ export function LedgerPage() {
         <>
           <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={exportCsv} disabled={visible.length === 0}>
             <Download />
-            导出
+            {t.ledger.page.export}
           </Button>
           <Button variant="outline" size="sm" onClick={() => openEntryForm({ mode: "create", preset: scope === "expense" ? { kind: "expense", category: "server" } : undefined })}>
             <Plus />
-            记一笔
+            {t.ledger.page.newEntry}
           </Button>
         </>
       }
@@ -214,16 +215,16 @@ export function LedgerPage() {
       {visible.length === 0 ? (
         <EmptyState
           icon={FilterX}
-          title={ledger.length === 0 ? "还没有收支记录" : "没有符合筛选条件的记录"}
+          title={ledger.length === 0 ? t.ledger.page.empty : t.ledger.page.emptyFiltered}
           className="h-full"
           action={
             ledger.length === 0 ? (
               <Button variant="outline" size="sm" onClick={() => openEntryForm({ mode: "create" })}>
-                记一笔
+                {t.ledger.page.newEntry}
               </Button>
             ) : (
               <Button variant="outline" size="sm" onClick={clearAll}>
-                清除筛选
+                {t.ledger.page.clearFilters}
               </Button>
             )
           }

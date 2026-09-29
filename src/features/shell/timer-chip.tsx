@@ -9,6 +9,7 @@ import { ProjectMark } from "@/components/base/marks"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { formatClock, formatMinutesLong } from "@/domain/format"
 import { minutesOf } from "@/domain/tasks"
+import { useT } from "@/i18n/react"
 import { focusRing } from "@/lib/styles"
 import { useNow, useProjectsById } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
@@ -19,6 +20,7 @@ import { useUi } from "@/state/ui"
  * 计时时浏览器标签页的标题前面也带上时长，切到别的页面也看得到。
  */
 export function TimerChip() {
+  const t = useT()
   const timer = useWorkbench((state) => state.timer)
   const stopTimer = useWorkbench((state) => state.stopTimer)
   const openTask = useUi((state) => state.openTask)
@@ -40,7 +42,7 @@ export function TimerChip() {
   const stop = () => {
     const entry = stopTimer()
     if (!useWorkbench.getState().lastSaveOk) return
-    toast.success(entry ? `记下 ${formatMinutesLong(minutesOf(entry))}` : "不到一分钟，没有记录", {
+    toast.success(entry ? t.frame.timerChip.logged(formatMinutesLong(minutesOf(entry))) : t.frame.timerChip.tooShort, {
       description: timer.label,
     })
   }
@@ -51,7 +53,7 @@ export function TimerChip() {
         type="button"
         onClick={() => timer.taskId && openTask(timer.taskId)}
         className={cn("flex h-full min-w-0 items-center gap-1.5 rounded-l-md pr-1.5 pl-2 hover:bg-hover", focusRing)}
-        aria-label={`正在计时：${timer.label}，已用 ${elapsed}`}
+        aria-label={t.frame.timerChip.runningAria(timer.label, elapsed)}
       >
         <span aria-hidden className="relative flex size-1.5 shrink-0">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-progress opacity-60 motion-reduce:hidden" />
@@ -66,7 +68,7 @@ export function TimerChip() {
           <button
             type="button"
             onClick={stop}
-            aria-label="停止计时"
+            aria-label={t.frame.timerChip.stop}
             className={cn(
               "flex h-full w-7 shrink-0 items-center justify-center rounded-r-md border-l border-line text-fg-2 hover:bg-hover hover:text-fg",
               focusRing
@@ -75,7 +77,7 @@ export function TimerChip() {
             <Square className="size-3 fill-current" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">停止计时</TooltipContent>
+        <TooltipContent side="bottom">{t.frame.timerChip.stop}</TooltipContent>
       </Tooltip>
     </div>
   )

@@ -25,6 +25,7 @@ import { PersistenceFeedback } from "@/features/shell/persistence-feedback"
 import { ShellFrame } from "@/features/shell/shell-frame"
 import { UserMenu } from "@/features/shell/user-menu"
 import { ApiFailure, logout } from "@/lib/api"
+import { useT } from "@/i18n/react"
 import { EDITION, IS_LOCAL_EDITION } from "@/lib/edition"
 import { clearLocalData, stopSync, useSync } from "@/state/sync"
 import { useUi } from "@/state/ui"
@@ -37,6 +38,8 @@ import { ProjectFormDialog } from "../forms/project-form-dialog"
 import { RoutineFormDialog } from "../forms/routine-form-dialog"
 import { TaskFormDialog } from "../forms/task-form-dialog"
 import { useBackupActions } from "./backup"
+import { LanguageMenu } from "./language-menu"
+import { usePageTitle } from "./page-title"
 import { WORKBENCH_PAGES } from "./nav"
 import { QuickCapture } from "./quick-capture"
 import { TimerChip } from "./timer-chip"
@@ -68,6 +71,8 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
   const isCloud = EDITION === "cloud"
   const pendingCount = useSync((state) => state.pending)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
+  usePageTitle(pathname)
+  const t = useT()
 
   // 在「今天」页新建的任务默认排在今天
   const newTask = () => openTaskForm({ mode: "create", preset: pathname === "/" ? { plannedFor: today } : undefined })
@@ -79,7 +84,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
     } catch (cause) {
       // 登录凭证只有服务器能清掉：断网时退出，联网后会自动登录回来，所以先不退
       if (cause instanceof ApiFailure && cause.kind === "network") {
-        toast.error("连不上服务器，联网后再退出")
+        toast.error(t.shell.workbench.offlineSignOut)
         return
       }
     }
@@ -99,10 +104,10 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
 
   return (
     <ShellFrame
-      crumb={{ icon: <WorkbenchMark size={16} />, label: "我的工作台" }}
+      crumb={{ icon: <WorkbenchMark size={16} />, label: t.shell.workbench.workspace }}
       sidebar={(onNavigate) => <WorkbenchSidebar onNavigate={onNavigate} />}
       windowBar={{
-        searchLabel: "搜索任务、副业、收支",
+        searchLabel: t.shell.workbench.search,
         extras: (
           <>
             <TimerChip />
@@ -115,37 +120,38 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
           <UserMenu name={profile.name} avatar={<ProfileAvatar name={profile.name} />}>
             <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
               <Clock />
-              可用时间
+              {t.shell.menu.availableTime}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={newEntry}>
               <Wallet />
-              记一笔
+              {t.shell.menu.logEntry}
               <DropdownMenuShortcut>M</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setShortcutsOpen(true)}>
               <Keyboard />
-              键盘快捷键
+              {t.shell.menu.shortcuts}
               <DropdownMenuShortcut>?</DropdownMenuShortcut>
             </DropdownMenuItem>
+            <LanguageMenu />
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={backup.exportBackup}>
               <Download />
-              导出备份
+              {t.shell.workbench.exportBackup}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={backup.chooseFile}>
               <Upload />
-              导入备份
+              {t.shell.workbench.importBackup}
             </DropdownMenuItem>
             {isCloud && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setTokensOpen(true)}>
                   <KeyRound />
-                  访问令牌
+                  {t.shell.workbench.tokens}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={requestSignOut}>
                   <LogOut />
-                  退出登录
+                  {t.shell.workbench.signOut}
                 </DropdownMenuItem>
               </>
             )}
@@ -169,15 +175,15 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
             <AlertDialog open={confirmSignOut} onOpenChange={setConfirmSignOut}>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>退出登录？</AlertDialogTitle>
+                  <AlertDialogTitle>{t.shell.workbench.signOutTitle}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    还有 {pendingCount} 条改动没传到云端，退出后会丢掉。
+                    {t.shell.workbench.signOutPending(pendingCount)}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogCancel>{t.words.cancel}</AlertDialogCancel>
                   <AlertDialogAction variant="destructive" onClick={() => void doSignOut()}>
-                    仍然退出
+                    {t.shell.workbench.signOutAnyway}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -190,9 +196,9 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
         go: Object.fromEntries(WORKBENCH_PAGES.map((page) => [page.goKey, page.path])),
         keys: { c: newTask, m: newEntry },
         help: [
-          { label: "新建任务", keys: ["C"] },
-          { label: "记一笔", keys: ["M"] },
-          ...WORKBENCH_PAGES.map((page) => ({ label: `前往${page.label}`, keys: ["G", page.goKey.toUpperCase()] })),
+          { label: t.shell.menu.newTask, keys: ["C"] },
+          { label: t.shell.menu.logEntry, keys: ["M"] },
+          ...WORKBENCH_PAGES.map((page) => ({ label: t.shell.workbench.goTo(page.label), keys: ["G", page.goKey.toUpperCase()] })),
         ],
       }}
     >

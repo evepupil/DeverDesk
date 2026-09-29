@@ -14,11 +14,21 @@ import { dayKeyOf, dayStartMs, addDays, formatAgo, formatMonthDay } from "@/doma
 import { formatAmount } from "@/domain/format"
 import { doneIn, type Period } from "@/domain/insights"
 import type { WorkbenchData } from "@/domain/types"
+import { useT } from "@/i18n/react"
 import { focusRingInset } from "@/lib/styles"
 import { useNow, useProjectsById } from "@/state/hooks"
 import { useUi } from "@/state/ui"
 
 const LIMIT = 12
+
+/** 动态事件类型的叫法，按当前语言取 */
+function eventText(kind: EventKind, t: ReturnType<typeof useT>["insights"]): string {
+  if (kind === "done") return t.eventDone
+  if (kind === "income") return t.eventIncome
+  if (kind === "expense") return t.eventExpense
+  if (kind === "refund") return t.eventRefund
+  return t.eventMilestone
+}
 
 function EventGlyph({ kind }: { kind: EventKind }) {
   const box = "flex size-3.5 shrink-0 items-center justify-center"
@@ -27,14 +37,6 @@ function EventGlyph({ kind }: { kind: EventKind }) {
   if (kind === "expense") return <span className={box}><ArrowUpRight className="size-3.5 text-fg-2" aria-hidden /></span>
   if (kind === "refund") return <span className={box}><Undo2 className="size-3.5 text-fg-2" aria-hidden /></span>
   return <span className={box}><Flag className="size-3.5 text-fg-2" aria-hidden /></span>
-}
-
-const EVENT_TEXT: Record<EventKind, string> = {
-  done: "完成任务",
-  income: "收入到账",
-  expense: "支出",
-  refund: "退款",
-  milestone: "达成里程碑",
 }
 
 interface EndedRow {
@@ -48,6 +50,7 @@ interface EndedRow {
 
 /** 本期结束的事收成短行（提炼）：做完的任务、达成的里程碑、退掉的钱；点开看名单 */
 export function EndedColumn({ data, period }: { data: WorkbenchData; period: Period }) {
+  const t = useT().insights
   const openTask = useUi((state) => state.openTask)
   const openEntryForm = useUi((state) => state.openEntryForm)
   const projectsById = useProjectsById()
@@ -64,7 +67,7 @@ export function EndedColumn({ data, period }: { data: WorkbenchData; period: Per
       {
         key: "done",
         icon: <StatusIcon glyph="check" tone="done" />,
-        label: "完成的任务",
+        label: t.endedDone,
         count: done.length,
         items: done.map((task) => ({
           id: task.id,
@@ -77,7 +80,7 @@ export function EndedColumn({ data, period }: { data: WorkbenchData; period: Per
       {
         key: "milestones",
         icon: <span className="flex size-3.5 items-center justify-center"><Flag className="size-3.5 text-fg-2" aria-hidden /></span>,
-        label: "达成的里程碑",
+        label: t.endedMilestones,
         count: milestones.length,
         items: milestones.map(({ milestone, project }) => ({
           id: milestone.id,
@@ -89,7 +92,7 @@ export function EndedColumn({ data, period }: { data: WorkbenchData; period: Per
       {
         key: "refunds",
         icon: <StatusIcon glyph="minus" tone="idle" />,
-        label: "退款",
+        label: t.endedRefunds,
         count: refunds.length,
         amount: refunds.length > 0 ? formatAmount(refunds.reduce((sum, entry) => sum + entry.amount, 0)) : undefined,
         items: refunds.map((entry) => ({
@@ -101,10 +104,10 @@ export function EndedColumn({ data, period }: { data: WorkbenchData; period: Per
         })),
       },
     ]
-  }, [data, period, openTask, openEntryForm])
+  }, [t, data, period, openTask, openEntryForm])
 
   return (
-    <BoardColumn title="本期结束" count={rows.reduce((sum, row) => sum + row.count, 0)} bodyClassName="gap-0 pb-1">
+    <BoardColumn title={t.ended} count={rows.reduce((sum, row) => sum + row.count, 0)} bodyClassName="gap-0 pb-1">
       {rows.map((row) =>
         row.count === 0 ? (
           <div key={row.key} className="flex h-8 items-center gap-2 px-2 text-sm text-fg-2">
@@ -153,7 +156,7 @@ export function EndedColumn({ data, period }: { data: WorkbenchData; period: Per
                     </li>
                   )
                 })}
-                {row.items.length > LIMIT && <li className="px-2 py-1.5 text-xs text-fg-2">另有 {row.items.length - LIMIT} 条</li>}
+                {row.items.length > LIMIT && <li className="px-2 py-1.5 text-xs text-fg-2">{t.moreItems(row.items.length - LIMIT)}</li>}
               </ul>
             </PopoverContent>
           </Popover>
@@ -165,6 +168,7 @@ export function EndedColumn({ data, period }: { data: WorkbenchData; period: Per
 
 /** 动态：这段时间里完成的事、进出的钱、达成的里程碑，按时间倒序 */
 export function ActivityColumn({ data, period }: { data: WorkbenchData; period: Period }) {
+  const t = useT().insights
   const openTask = useUi((state) => state.openTask)
   const openEntryForm = useUi((state) => state.openEntryForm)
   const projectsById = useProjectsById()
@@ -179,10 +183,10 @@ export function ActivityColumn({ data, period }: { data: WorkbenchData; period: 
   }, [data, period])
 
   return (
-    <BoardColumn title="动态">
+    <BoardColumn title={t.activity}>
       <Surface className="py-1">
         {events.length === 0 ? (
-          <EmptyState icon={Inbox} title="这段时间没有动态" />
+          <EmptyState icon={Inbox} title={t.activityEmpty} />
         ) : (
           <ol>
             {events.map((event) => {
@@ -207,7 +211,7 @@ export function ActivityColumn({ data, period }: { data: WorkbenchData; period: 
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">{event.title}</span>
                       <span className="block truncate text-xs text-fg-2">
-                        {EVENT_TEXT[event.kind]}
+                        {eventText(event.kind, t)}
                         {entry && ` ${formatAmount(entry.amount)}`}
                         {project && ` · ${project.name}`}
                       </span>

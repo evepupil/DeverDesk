@@ -7,6 +7,7 @@ import type { ReactNode } from "react"
 
 import { IconButton } from "@/components/base/icon-button"
 import { Kbd } from "@/components/ui/kbd"
+import { useT } from "@/i18n/react"
 import { useIsMac } from "@/lib/platform"
 import { focusRing } from "@/lib/styles"
 import { usePrefs } from "@/state/prefs"
@@ -23,6 +24,7 @@ export interface WindowBarProps {
 
 /** 第一层：约 38px 的窗口操作栏（提炼）。网页里放前进后退、搜索、提醒和头像 */
 export function WindowBar({ searchLabel, extras, notifications, userMenu }: WindowBarProps) {
+  const t = useT()
   const router = useRouter()
   const isMac = useIsMac()
   const collapsed = usePrefs((state) => state.sidebarCollapsed)
@@ -34,21 +36,21 @@ export function WindowBar({ searchLabel, extras, notifications, userMenu }: Wind
   return (
     <header className="relative flex h-(--h-windowbar) shrink-0 items-center gap-1 px-2">
       <div className="flex items-center gap-0.5">
-        <IconButton label="打开导航" className="lg:hidden" onClick={() => setMobileNavOpen(true)}>
+        <IconButton label={t.frame.windowBar.openNav} className="lg:hidden" onClick={() => setMobileNavOpen(true)}>
           <Menu />
         </IconButton>
         <IconButton
-          label={collapsed ? "展开侧栏" : "收起侧栏"}
+          label={collapsed ? t.frame.windowBar.expandSidebar : t.frame.windowBar.collapseSidebar}
           shortcut="["
           className="hidden lg:inline-flex"
           onClick={() => setSidebarCollapsed(!collapsed)}
         >
           <PanelLeft />
         </IconButton>
-        <IconButton label="后退" className="hidden sm:inline-flex" onClick={() => router.back()}>
+        <IconButton label={t.frame.windowBar.back} className="hidden sm:inline-flex" onClick={() => router.back()}>
           <ArrowLeft />
         </IconButton>
-        <IconButton label="前进" className="hidden sm:inline-flex" onClick={() => router.forward()}>
+        <IconButton label={t.frame.windowBar.forward} className="hidden sm:inline-flex" onClick={() => router.forward()}>
           <ArrowRight />
         </IconButton>
       </div>
@@ -68,11 +70,11 @@ export function WindowBar({ searchLabel, extras, notifications, userMenu }: Wind
 
       <div className="ml-auto flex items-center gap-0.5">
         {extras}
-        <IconButton label="搜索" className="md:hidden" onClick={() => setCommandOpen(true)}>
+        <IconButton label={t.frame.windowBar.search} className="md:hidden" onClick={() => setCommandOpen(true)}>
           <Search />
         </IconButton>
         {notifications}
-        <IconButton label="键盘快捷键" shortcut="?" className="hidden sm:inline-flex" onClick={() => setShortcutsOpen(true)}>
+        <IconButton label={t.frame.windowBar.shortcuts} shortcut="?" className="hidden sm:inline-flex" onClick={() => setShortcutsOpen(true)}>
           <Keyboard />
         </IconButton>
         {userMenu}

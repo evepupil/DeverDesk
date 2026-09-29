@@ -16,10 +16,12 @@ import {
 import { parseBackup, toBackup } from "@/domain/backup"
 import { todayKey } from "@/domain/calendar"
 import type { WorkbenchData } from "@/domain/types"
+import { useT } from "@/i18n/react"
 import { useWorkbench, workbenchData } from "@/state/store"
 
 /** 导出 / 导入备份：导出直接下载一个 JSON 文件；导入先确认，因为会替换现有数据 */
 export function useBackupActions(): { exportBackup(): void; chooseFile(): void; node: ReactNode } {
+  const t = useT()
   const importData = useWorkbench((state) => state.importData)
   const inputRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<{ data: WorkbenchData; name: string } | null>(null)
@@ -32,14 +34,14 @@ export function useBackupActions(): { exportBackup(): void; chooseFile(): void; 
     link.download = `workbench-${todayKey()}.json`
     link.click()
     URL.revokeObjectURL(url)
-    toast.success("已导出备份文件")
+    toast.success(t.frame.backup.exported)
   }
 
   const onFile = async (file: File | undefined) => {
     if (!file) return
     const result = parseBackup(await file.text())
     if (!result.ok) {
-      toast.error("没能导入", { description: result.error })
+      toast.error(t.frame.backup.importFailed, { description: result.error })
       return
     }
     setPending({ data: result.data, name: file.name })
@@ -62,22 +64,22 @@ export function useBackupActions(): { exportBackup(): void; chooseFile(): void; 
       <AlertDialog open={pending !== null} onOpenChange={(open) => !open && setPending(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>用「{pending?.name}」替换现有数据？</AlertDialogTitle>
+            <AlertDialogTitle>{t.frame.backup.replaceTitle(pending?.name ?? "")}</AlertDialogTitle>
             <AlertDialogDescription>
-              备份里有 {pending?.data.tasks.length ?? 0} 件任务、{pending?.data.ledger.length ?? 0} 笔收支。现在的数据会被替换，建议先导出一份。
+              {t.frame.backup.replaceBody(pending?.data.tasks.length ?? 0, pending?.data.ledger.length ?? 0)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t.words.cancel}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
                 if (!pending) return
                 importData(pending.data)
-                if (useWorkbench.getState().lastSaveOk) toast.success("已导入备份")
+                if (useWorkbench.getState().lastSaveOk) toast.success(t.frame.backup.imported)
               }}
             >
-              替换
+              {t.frame.backup.replace}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

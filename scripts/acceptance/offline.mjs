@@ -40,14 +40,15 @@ export async function launch() {
 
 export async function openPage(
   browser,
-  { width = 1440, height = 900, mobile = false, path = "/", showLocalNotice = false } = {},
+  { width = 1440, height = 900, mobile = false, path = "/", showLocalNotice = false, locale = "zh-CN" } = {},
 ) {
+  // locale 是浏览器语言：没选过界面语言时，页面按它决定用中文还是英文
   const context = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: mobile ? 3 : 1,
     isMobile: mobile,
     hasTouch: mobile,
-    locale: "zh-CN",
+    locale,
     timezoneId: "Asia/Shanghai",
   })
   // 默认把「本地版说明弹框」标记成看过，页面加载时它就不会自动弹出来挡截图；

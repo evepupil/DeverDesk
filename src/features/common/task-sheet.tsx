@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { dayKeyOf, formatDayLong, formatMonthDay, minutesToTime, minuteOfDay } from "@/domain/calendar"
 import { formatClock, formatMinutes, formatMinutesLong } from "@/domain/format"
 import { minutesOf, taskCode } from "@/domain/tasks"
+import { useT } from "@/i18n/react"
 import type { Priority, TaskStatus } from "@/domain/types"
 import { focusRing } from "@/lib/styles"
 import { useNow, useToday } from "@/state/hooks"
@@ -52,6 +53,7 @@ export function TaskSheet() {
   const toggleSubtask = useWorkbench((state) => state.toggleSubtask)
   const removeSubtask = useWorkbench((state) => state.removeSubtask)
   const today = useToday()
+  const t = useT()
   const [subtask, setSubtask] = useState("")
 
   const task = taskId ? tasks.find((item) => item.id === taskId) : undefined
@@ -67,8 +69,8 @@ export function TaskSheet() {
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-[460px]">
         {!task ? (
           <>
-            <SheetTitle className="sr-only">任务详情</SheetTitle>
-            <EmptyState title="这个任务已经删除" className="flex-1" />
+            <SheetTitle className="sr-only">{t.common.taskSheet.title}</SheetTitle>
+            <EmptyState title={t.common.taskSheet.deleted} className="flex-1" />
           </>
         ) : (
           <>
@@ -76,7 +78,7 @@ export function TaskSheet() {
               <div className="flex items-center gap-1.5 text-xs text-fg-2">
                 <span className="tabular">{taskCode(task)}</span>
                 <span aria-hidden>·</span>
-                <span>{formatMonthDay(dayKeyOf(new Date(task.createdAt)))}创建</span>
+                <span>{t.common.taskSheet.createdAt(formatMonthDay(dayKeyOf(new Date(task.createdAt))))}</span>
                 <div className="ml-auto flex items-center gap-1">
                   {task.status !== "done" && task.status !== "dropped" && (
                     <Button
@@ -86,12 +88,12 @@ export function TaskSheet() {
                       className={cn(running && "text-warn")}
                     >
                       {running ? <Square className="fill-current" /> : <Play />}
-                      {running && timer ? <RunningClock startedAt={timer.startedAt} /> : "开始计时"}
+                      {running && timer ? <RunningClock startedAt={timer.startedAt} /> : t.common.timer.start}
                     </Button>
                   )}
                   <Button variant="outline" size="sm" onClick={() => openTaskForm({ mode: "edit", taskId: task.id })}>
                     <Pencil />
-                    编辑
+                    {t.words.edit}
                   </Button>
                   <TaskMenu task={task} today={today} />
                 </div>
@@ -100,17 +102,17 @@ export function TaskSheet() {
                 <StatusToggle task={task} className="mt-[-1.5px]" />
                 <span className="min-w-0 break-words">{task.title}</span>
               </SheetTitle>
-              <SheetDescription className="sr-only">任务详情</SheetDescription>
+              <SheetDescription className="sr-only">{t.common.taskSheet.title}</SheetDescription>
             </SheetHeader>
 
             <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
               <dl className="grid grid-cols-[76px_minmax(0,1fr)] gap-x-2 px-4 pb-3">
-                <SheetProperty label="状态" htmlFor="task-status">
+                <SheetProperty label={t.common.taskSheet.status} htmlFor="task-status">
                   <PropertySelect id="task-status" value={task.status} onChange={(value) => setStatus(task.id, value as TaskStatus)}>
                     <StatusOptions />
                   </PropertySelect>
                 </SheetProperty>
-                <SheetProperty label="副业" htmlFor="task-project">
+                <SheetProperty label={t.common.taskSheet.project} htmlFor="task-project">
                   <PropertySelect
                     id="task-project"
                     value={task.projectId ?? NO_PROJECT}
@@ -119,7 +121,7 @@ export function TaskSheet() {
                     <ProjectOptions projects={projects} />
                   </PropertySelect>
                 </SheetProperty>
-                <SheetProperty label="优先级" htmlFor="task-priority">
+                <SheetProperty label={t.common.taskSheet.priority} htmlFor="task-priority">
                   <PropertySelect
                     id="task-priority"
                     value={String(task.priority)}
@@ -128,7 +130,7 @@ export function TaskSheet() {
                     <PriorityOptions />
                   </PropertySelect>
                 </SheetProperty>
-                <SheetProperty label="计划" htmlFor="task-plan">
+                <SheetProperty label={t.common.taskSheet.plan} htmlFor="task-plan">
                   <div className="flex w-full items-center gap-1.5">
                     <Input
                       id="task-plan"
@@ -138,7 +140,7 @@ export function TaskSheet() {
                       className="h-7 flex-1"
                     />
                     <Input
-                      aria-label="开始时间"
+                      aria-label={t.common.taskSheet.startAt}
                       type="time"
                       step={900}
                       value={task.startAt ?? ""}
@@ -148,7 +150,7 @@ export function TaskSheet() {
                     />
                   </div>
                 </SheetProperty>
-                <SheetProperty label="预估" htmlFor="task-estimate">
+                <SheetProperty label={t.common.taskSheet.estimate} htmlFor="task-estimate">
                   <PropertySelect
                     id="task-estimate"
                     value={String(task.estimateMin)}
@@ -157,7 +159,7 @@ export function TaskSheet() {
                     <EstimateOptions current={task.estimateMin} />
                   </PropertySelect>
                 </SheetProperty>
-                <SheetProperty label="截止" htmlFor="task-due">
+                <SheetProperty label={t.common.taskSheet.due} htmlFor="task-due">
                   <Input
                     id="task-due"
                     type="date"
@@ -166,7 +168,7 @@ export function TaskSheet() {
                     className="h-7"
                   />
                 </SheetProperty>
-                <SheetProperty label="已投入">
+                <SheetProperty label={t.common.taskSheet.logged}>
                   <div className="flex w-full items-center justify-between gap-2 px-2">
                     <span className={cn("text-sm tabular", logged > task.estimateMin ? "text-warn" : "text-fg")}>
                       {formatMinutesLong(logged)}
@@ -175,7 +177,7 @@ export function TaskSheet() {
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
                           <Clock3 />
-                          补记
+                          {t.common.taskSheet.log}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-36">
@@ -184,7 +186,7 @@ export function TaskSheet() {
                             key={minutes}
                             onSelect={() => {
                               logTime(task.id, minutes)
-                              if (useWorkbench.getState().lastSaveOk) toast.success(`已补记 ${formatMinutesLong(minutes)}`)
+                              if (useWorkbench.getState().lastSaveOk) toast.success(t.common.taskSheet.loggedToast(formatMinutesLong(minutes)))
                             }}
                           >
                             {formatMinutesLong(minutes)}
@@ -196,11 +198,11 @@ export function TaskSheet() {
                 </SheetProperty>
               </dl>
 
-              <SheetSection title="备注">
+              <SheetSection title={t.common.taskSheet.notes}>
                 <Textarea
                   key={task.id}
                   defaultValue={task.notes}
-                  placeholder="写点背景、链接或下一步"
+                  placeholder={t.common.taskSheet.notesPlaceholder}
                   onBlur={(event) => {
                     if (event.target.value !== task.notes) updateTask(task.id, { notes: event.target.value })
                   }}
@@ -209,7 +211,7 @@ export function TaskSheet() {
               </SheetSection>
 
               <SheetSection
-                title="子任务"
+                title={t.common.taskSheet.subtasks}
                 aside={
                   task.subtasks.length > 0 ? (
                     <span className="text-xs text-fg-2 tabular">
@@ -233,7 +235,7 @@ export function TaskSheet() {
                       </span>
                       <button
                         type="button"
-                        aria-label={`删除子任务：${sub.title}`}
+                        aria-label={t.common.taskSheet.deleteSubtask(sub.title)}
                         onClick={() => removeSubtask(task.id, sub.id)}
                         className={cn("rounded p-0.5 text-fg-3 opacity-0 group-hover:opacity-100 hover:text-fg focus-visible:opacity-100", focusRing)}
                       >
@@ -255,22 +257,22 @@ export function TaskSheet() {
                   <input
                     value={subtask}
                     onChange={(event) => setSubtask(event.target.value)}
-                    placeholder="添加子任务，回车确认"
-                    aria-label="添加子任务"
+                    placeholder={t.common.taskSheet.addSubtaskPlaceholder}
+                    aria-label={t.common.taskSheet.addSubtask}
                     className="h-7 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-3 md:text-sm"
                   />
                 </form>
               </SheetSection>
 
-              <SheetSection title="投入记录" aside={taskEntries.length > 0 ? <span className="text-xs text-fg-2 tabular">{taskEntries.length} 段</span> : undefined}>
+              <SheetSection title={t.common.taskSheet.timeEntries} aside={taskEntries.length > 0 ? <span className="text-xs text-fg-2 tabular">{t.common.taskSheet.segments(taskEntries.length)}</span> : undefined}>
                 {taskEntries.length === 0 && !running ? (
-                  <p className="text-sm text-fg-2">还没有记录，开始计时或补记一段</p>
+                  <p className="text-sm text-fg-2">{t.common.taskSheet.emptyEntries}</p>
                 ) : (
                   <ul className="flex flex-col">
                     {running && timer && (
                       <li className="flex h-7 items-center gap-2 text-sm text-warn">
-                        <span className="w-24 shrink-0">正在计时</span>
-                        <span className="text-xs tabular">{minutesToTime(minuteOfDay(timer.startedAt))} 开始</span>
+                        <span className="w-24 shrink-0">{t.common.taskSheet.timing}</span>
+                        <span className="text-xs tabular">{t.common.taskSheet.startedAt(minutesToTime(minuteOfDay(timer.startedAt)))}</span>
                         <span className="ml-auto">
                           <RunningClock startedAt={timer.startedAt} />
                         </span>

@@ -16,6 +16,7 @@ import {
   TASK_STATUS_ORDER,
 } from "@/data/catalog"
 import type { EntryStatus, Project } from "@/domain/types"
+import { getT } from "@/i18n/runtime"
 import type { FilterField } from "@/features/shell/filter-controls"
 import { PriorityIcon } from "./task-bits"
 
@@ -23,7 +24,7 @@ import { PriorityIcon } from "./task-bits"
 
 export const taskStatusField = (): FilterField => ({
   key: "status",
-  label: "状态",
+  label: getT().common.fields.status,
   icon: CircleDashed,
   options: TASK_STATUS_ORDER.map((status) => ({
     value: status,
@@ -35,7 +36,7 @@ export const taskStatusField = (): FilterField => ({
 /** 副业：包含「个人事务」（没有归到任何副业的记录） */
 export const projectField = (projects: Project[]): FilterField => ({
   key: "project",
-  label: "副业",
+  label: getT().common.fields.project,
   icon: FolderKanban,
   options: [
     ...projects.map((project) => ({
@@ -43,13 +44,13 @@ export const projectField = (projects: Project[]): FilterField => ({
       label: project.name,
       icon: <ProjectMark name={project.name} color={project.color} size={14} />,
     })),
-    { value: "none", label: "个人事务" },
+    { value: "none", label: getT().common.personal },
   ],
 })
 
 export const priorityField = (): FilterField => ({
   key: "priority",
-  label: "优先级",
+  label: getT().common.fields.priority,
   icon: Zap,
   options: PRIORITY_ORDER.map((priority) => ({
     value: String(priority),
@@ -60,36 +61,36 @@ export const priorityField = (): FilterField => ({
 
 export const planField = (): FilterField => ({
   key: "plan",
-  label: "安排",
+  label: getT().common.fields.plan,
   icon: CalendarDays,
   options: [
-    { value: "today", label: "今天" },
-    { value: "week", label: "本周" },
-    { value: "unplanned", label: "还没安排" },
-    { value: "overdue", label: "逾期和延期" },
+    { value: "today", label: getT().common.fields.planOptions.today },
+    { value: "week", label: getT().common.fields.planOptions.week },
+    { value: "unplanned", label: getT().common.fields.planOptions.unplanned },
+    { value: "overdue", label: getT().common.fields.planOptions.overdue },
   ],
 })
 
 export const kindField = (): FilterField => ({
   key: "kind",
-  label: "收支",
+  label: getT().common.fields.kind,
   icon: ArrowDownUp,
   options: [
-    { value: "income", label: "收入" },
-    { value: "expense", label: "支出" },
+    { value: "income", label: getT().common.fields.income },
+    { value: "expense", label: getT().common.fields.expense },
   ],
 })
 
 export const channelField = (): FilterField => ({
   key: "channel",
-  label: "渠道",
+  label: getT().common.fields.channel,
   icon: Landmark,
   options: CHANNEL_ORDER.map((channel) => ({ value: channel, label: CHANNELS[channel].label })),
 })
 
 export const categoryField = (): FilterField => ({
   key: "category",
-  label: "分类",
+  label: getT().common.fields.category,
   icon: Tag,
   options: [
     ...INCOME_CATEGORY_ORDER.map((category) => ({ value: category, label: INCOME_CATEGORIES[category].label })),
@@ -101,7 +102,7 @@ const ENTRY_STATUS_ORDER: EntryStatus[] = ["pending", "received", "refunded"]
 
 export const entryStatusField = (): FilterField => ({
   key: "status",
-  label: "到账",
+  label: getT().common.fields.entryStatus,
   icon: CircleDashed,
   options: ENTRY_STATUS_ORDER.map((status) => ({
     value: status,

@@ -12,6 +12,7 @@ import { formatAmount, formatHours, formatMinutes, formatSignedAmount } from "@/
 import { doneIn, minutesIn } from "@/domain/insights"
 import { totals } from "@/domain/ledger"
 import { projectNameOf, summarize, weekReview } from "@/domain/review"
+import { useT } from "@/i18n/react"
 import { FilterBar, PageFrame } from "@/features/shell/page-frame"
 import { focusRingInset } from "@/lib/styles"
 import { useProjectsById, useToday, useWorkbenchData } from "@/state/hooks"
@@ -27,6 +28,7 @@ const PAST_WEEKS = 8
  * 再留三段自己的复盘。右边列出往期，方便对照。
  */
 export function ReviewPage() {
+  const t = useT()
   const data = useWorkbenchData()
   const today = useToday()
   const projectsById = useProjectsById()
@@ -65,13 +67,14 @@ export function ReviewPage() {
       left={
         <span className="flex items-center gap-3 text-xs text-fg-2 tabular">
           <span>
-            完成 <span className="text-fg">{review.done.length}</span> 件
+            {t.review.filter.doneBefore}<span className="text-fg">{review.done.length}</span>
+            {t.review.filter.doneAfter}
           </span>
           <span>
-            投入 <span className="text-fg">{formatHours(review.minutes)}</span>
+            {t.review.filter.invested} <span className="text-fg">{formatHours(review.minutes)}</span>
           </span>
           <span>
-            净收入 <span className={cn("text-fg", review.net < 0 && "text-bad")}>{formatAmount(review.net)}</span>
+            {t.review.filter.net} <span className={cn("text-fg", review.net < 0 && "text-bad")}>{formatAmount(review.net)}</span>
           </span>
         </span>
       }
@@ -80,7 +83,7 @@ export function ReviewPage() {
 
   return (
     <PageFrame
-      title={`${weekTitle(week, today)}回顾`}
+      title={t.review.title(weekTitle(week, today))}
       meta={<span className="hidden truncate sm:inline">{formatWeekRange(week)}</span>}
       actions={<WeekNav week={week} today={today} onChange={setWeek} />}
       filterBar={filterBar}
@@ -88,9 +91,9 @@ export function ReviewPage() {
       <div className="grid gap-(--gap-card) p-3 pb-20 lg:pb-3 xl:grid-cols-4">
         <div className="flex min-w-0 flex-col gap-(--gap-card) xl:col-span-3">
           <Surface className="flex flex-col gap-1.5 px-4 py-3">
-            <h2 className="text-xs font-medium text-fg-2">这周小结</h2>
+            <h2 className="text-xs font-medium text-fg-2">{t.review.digest.heading}</h2>
             {future ? (
-              <p className="text-sm text-fg-2">这一周还没开始</p>
+              <p className="text-sm text-fg-2">{t.review.digest.notStarted}</p>
             ) : (
               <ul className="flex flex-col gap-1 text-sm">
                 {lines.map((line) => (
@@ -101,10 +104,10 @@ export function ReviewPage() {
           </Surface>
 
           <div className="grid items-start gap-(--gap-card) md:grid-cols-2 lg:grid-cols-3">
-            <BoardColumn icon={<CheckCheck className="size-4 text-fg-2" aria-hidden />} title="完成的" count={review.done.length}>
+            <BoardColumn icon={<CheckCheck className="size-4 text-fg-2" aria-hidden />} title={t.review.done.title} count={review.done.length}>
               <Surface className="overflow-hidden">
                 {review.done.length === 0 ? (
-                  <p className="px-3 py-2.5 text-sm text-fg-2">这周还没有完成的任务</p>
+                  <p className="px-3 py-2.5 text-sm text-fg-2">{t.review.done.empty}</p>
                 ) : (
                   <ul className="py-1">
                     {review.done.slice(0, DONE_LIMIT).map((task) => {
@@ -127,16 +130,16 @@ export function ReviewPage() {
                       )
                     })}
                     {review.done.length > DONE_LIMIT && (
-                      <li className="px-3 py-1.5 text-xs text-fg-2">另有 {review.done.length - DONE_LIMIT} 件</li>
+                      <li className="px-3 py-1.5 text-xs text-fg-2">{t.review.done.more(review.done.length - DONE_LIMIT)}</li>
                     )}
                   </ul>
                 )}
               </Surface>
             </BoardColumn>
 
-            <BoardColumn icon={<Timer className="size-4 text-fg-2" aria-hidden />} title="时间" meta={formatHours(review.minutes)}>
+            <BoardColumn icon={<Timer className="size-4 text-fg-2" aria-hidden />} title={t.review.time.title} meta={formatHours(review.minutes)}>
               <Surface className="flex flex-col gap-2 px-3 py-2.5">
-                <CardHeading title="每天" aside="投入 / 可用" />
+                <CardHeading title={t.review.time.perDay} aside={t.review.time.perDayAside} />
                 <ul className="flex flex-col gap-1.5">
                   {review.days.map((day) => (
                     <li key={day.day} className="flex items-center gap-2 text-xs">
@@ -154,7 +157,7 @@ export function ReviewPage() {
               </Surface>
               {byProject.length > 0 && (
                 <Surface className="flex flex-col gap-2 px-3 py-2.5">
-                  <CardHeading title="花在哪" />
+                  <CardHeading title={t.review.time.byProject} />
                   <ul className="flex flex-col gap-1.5">
                     {byProject.map(([projectId, minutes]) => {
                       const project = projectId ? projectsById.get(projectId) : undefined
@@ -165,7 +168,7 @@ export function ReviewPage() {
                           ) : (
                             <span aria-hidden className="size-3.5 shrink-0 rounded-[4px] border border-dashed border-line-3" />
                           )}
-                          <span className="w-16 shrink-0 truncate text-fg">{project?.name ?? "个人事务"}</span>
+                          <span className="w-16 shrink-0 truncate text-fg">{project?.name ?? t.common.personal}</span>
                           <span aria-hidden className="h-1.5 flex-1 overflow-hidden rounded-full bg-pressed/50">
                             <span className="block h-full rounded-full bg-(--tier-2)" style={{ width: `${(minutes / maxProject) * 100}%` }} />
                           </span>
@@ -178,12 +181,12 @@ export function ReviewPage() {
               )}
             </BoardColumn>
 
-            <BoardColumn icon={<Wallet className="size-4 text-fg-2" aria-hidden />} title="钱" meta={formatSignedAmount(review.net)}>
+            <BoardColumn icon={<Wallet className="size-4 text-fg-2" aria-hidden />} title={t.review.money.title} meta={formatSignedAmount(review.net)}>
               <Surface className="grid grid-cols-3 divide-x divide-line">
                 {[
-                  { label: "收入", value: review.income },
-                  { label: "支出", value: review.expense },
-                  { label: "净收入", value: review.net },
+                  { label: t.review.money.income, value: review.income },
+                  { label: t.review.money.expense, value: review.expense },
+                  { label: t.review.money.net, value: review.net },
                 ].map((item) => (
                   <div key={item.label} className="flex min-w-0 flex-col gap-0.5 px-3 py-2">
                     <span className="text-xs text-fg-2">{item.label}</span>
@@ -218,7 +221,7 @@ export function ReviewPage() {
           {!future && <ReviewNotes week={week} />}
         </div>
 
-        <BoardColumn icon={<History className="size-4 text-fg-2" aria-hidden />} title="往期" className="self-start">
+        <BoardColumn icon={<History className="size-4 text-fg-2" aria-hidden />} title={t.review.past.title} className="self-start">
           <Surface className="overflow-hidden">
             <ul className="py-1">
               {past.map((item) => (
@@ -236,10 +239,10 @@ export function ReviewPage() {
                     <span className="flex items-center gap-1.5 text-sm">
                       <span className="truncate">{weekTitle(item.start, today)}</span>
                       <span className="text-xs text-fg-2 tabular">{formatDayShort(item.start)}</span>
-                      {item.noted && <Check className="ml-auto size-3.5 text-fg-2" aria-label="写了复盘" />}
+                      {item.noted && <Check className="ml-auto size-3.5 text-fg-2" aria-label={t.review.past.noted} />}
                     </span>
                     <span className="text-xs text-fg-2 tabular">
-                      完成 {item.done} · {formatHours(item.minutes)} · {formatAmount(item.net)}
+                      {t.review.past.stats(item.done, formatHours(item.minutes), formatAmount(item.net))}
                     </span>
                   </button>
                 </li>

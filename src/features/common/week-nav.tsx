@@ -6,6 +6,7 @@ import { useCallback } from "react"
 import { IconButton } from "@/components/base/icon-button"
 import { Button } from "@/components/ui/button"
 import { addDays, isoWeek, weekStart } from "@/domain/calendar"
+import { getT } from "@/i18n/runtime"
 import type { DayKey } from "@/domain/types"
 import { useUrlState } from "@/state/url-state"
 
@@ -21,24 +22,26 @@ export function useWeekParam(today: DayKey): [DayKey, (week: DayKey) => void] {
 
 /** 本周、上周、下周，其余写第几周 */
 export function weekTitle(week: DayKey, today: DayKey): string {
+  const words = getT().common.weekNav
   const current = weekStart(today)
-  if (week === current) return "本周"
-  if (week === addDays(current, -7)) return "上周"
-  if (week === addDays(current, 7)) return "下周"
-  return `第 ${isoWeek(week)} 周`
+  if (week === current) return words.current
+  if (week === addDays(current, -7)) return words.last
+  if (week === addDays(current, 7)) return words.next
+  return words.nth(isoWeek(week))
 }
 
 export function WeekNav({ week, today, onChange }: { week: DayKey; today: DayKey; onChange(week: DayKey): void }) {
   const current = weekStart(today)
+  const words = getT().common.weekNav
   return (
     <div className="flex items-center gap-0.5">
-      <IconButton label="上一周" onClick={() => onChange(addDays(week, -7))}>
+      <IconButton label={words.prev} onClick={() => onChange(addDays(week, -7))}>
         <ChevronLeft />
       </IconButton>
       <Button variant="ghost" size="sm" disabled={week === current} onClick={() => onChange(current)}>
-        本周
+        {words.current}
       </Button>
-      <IconButton label="下一周" onClick={() => onChange(addDays(week, 7))}>
+      <IconButton label={words.nextLabel} onClick={() => onChange(addDays(week, 7))}>
         <ChevronRight />
       </IconButton>
     </div>

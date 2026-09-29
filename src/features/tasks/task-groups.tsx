@@ -10,6 +10,8 @@ import {
   TASK_STATUS_ENDED,
   TASK_STATUS_ORDER,
 } from "@/data/catalog"
+import type { Messages } from "@/i18n/messages/types"
+import { getT } from "@/i18n/runtime"
 import type { Project, Task } from "@/domain/types"
 import type { TaskGroupBy } from "@/state/prefs"
 import type { TaskInput } from "@/state/store"
@@ -26,11 +28,14 @@ export interface TaskGroup {
   preset: Partial<TaskInput>
 }
 
-export const TASK_GROUP_OPTIONS: { value: TaskGroupBy; label: string }[] = [
-  { value: "status", label: "状态" },
-  { value: "project", label: "副业" },
-  { value: "priority", label: "优先级" },
-]
+/** 分组方式的可选项：名称沿用筛选字段的叫法 */
+export function taskGroupOptions(t: Messages): { value: TaskGroupBy; label: string }[] {
+  return [
+    { value: "status", label: t.common.fields.status },
+    { value: "project", label: t.common.fields.project },
+    { value: "priority", label: t.common.fields.priority },
+  ]
+}
 
 /** 按状态、副业或优先级分组；分组顺序固定，组内保持传入的排序 */
 export function groupTasks(tasks: Task[], by: TaskGroupBy, projects: Project[]): TaskGroup[] {
@@ -66,7 +71,7 @@ export function groupTasks(tasks: Task[], by: TaskGroupBy, projects: Project[]):
   }))
   groups.push({
     key: "none",
-    label: "个人事务",
+    label: getT().common.personal,
     icon: <span aria-hidden className="size-4 shrink-0 rounded-[4px] border border-dashed border-line-3" />,
     items: tasks.filter((task) => task.projectId === null),
     collapsed: false,

@@ -8,15 +8,17 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { useT } from "@/i18n/react"
 
 /** 「显示」设置：只改怎么看，不改数据（提炼补全：显示设置） */
 export function DisplayPopover({ children, onReset }: { children: ReactNode; onReset?: () => void }) {
+  const t = useT()
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm">
           <SlidersHorizontal />
-          显示
+          {t.frame.display.label}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[300px] gap-0 p-0">
@@ -24,7 +26,7 @@ export function DisplayPopover({ children, onReset }: { children: ReactNode; onR
         {onReset && (
           <div className="flex justify-end border-t border-line px-2 py-1.5">
             <Button variant="ghost" size="sm" onClick={onReset}>
-              恢复默认
+              {t.frame.display.reset}
             </Button>
           </div>
         )}

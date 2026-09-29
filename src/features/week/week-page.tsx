@@ -12,6 +12,7 @@ import { isOpen, isSlipped, minutesOf, sortTasks } from "@/domain/tasks"
 import type { Task } from "@/domain/types"
 import { DisplayPopover, DisplayRow, DisplaySwitch } from "@/features/shell/display-controls"
 import { FilterBar, PageFrame } from "@/features/shell/page-frame"
+import { useT } from "@/i18n/react"
 import { useToday } from "@/state/hooks"
 import { usePrefs } from "@/state/prefs"
 import { useWorkbench } from "@/state/store"
@@ -42,6 +43,7 @@ export function WeekPage() {
   const showDone = usePrefs((state) => state.week.showDone)
   const setPrefs = usePrefs((state) => state.set)
   const openTaskForm = useUi((state) => state.openTaskForm)
+  const t = useT()
 
   const days = useMemo<DayPlan[]>(() => {
     const logged = new Map<string, number>()
@@ -80,14 +82,14 @@ export function WeekPage() {
             <CapacityBar planned={planned} capacity={capacity} className="w-[260px] max-w-[55vw]" />
           )}
           <span className="shrink-0 text-xs text-fg-2 tabular">
-            完成 {doneCount}/{count} 件
-            {upcoming.length === 0 && ` · 投入 ${formatMinutes(days.reduce((sum, plan) => sum + plan.logged, 0))}`}
+            {t.week.progress(doneCount, count)}
+            {upcoming.length === 0 && ` · ${t.week.loggedTotal(formatMinutes(days.reduce((sum, plan) => sum + plan.logged, 0)))}`}
           </span>
         </>
       }
       right={
         <DisplayPopover onReset={() => setPrefs("week", { showDone: true })}>
-          <DisplayRow id="week-show-done" label="显示做完的任务">
+          <DisplayRow id="week-show-done" label={t.week.showDone}>
             <DisplaySwitch id="week-show-done" checked={showDone} onChange={(value) => setPrefs("week", { showDone: value })} />
           </DisplayRow>
         </DisplayPopover>
@@ -109,7 +111,7 @@ export function WeekPage() {
             onClick={() => openTaskForm({ mode: "create", preset: { plannedFor: week > today ? week : today } })}
           >
             <Plus />
-            新建任务
+            {t.today.page.newTask}
           </Button>
         </>
       }

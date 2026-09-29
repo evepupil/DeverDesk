@@ -5,6 +5,7 @@ import { Fragment, useEffect, useRef } from "react"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
+import { useT } from "@/i18n/react"
 import { isTypingTarget, useIsMac } from "@/lib/platform"
 import { usePrefs } from "@/state/prefs"
 import { useUi } from "@/state/ui"
@@ -87,19 +88,20 @@ export function ShortcutsDialog({ rows }: { rows: { label: string; keys: string[
   const setOpen = useUi((state) => state.setShortcutsOpen)
   const isMac = useIsMac()
   const mod = isMac ? "⌘" : "Ctrl"
+  const t = useT()
 
   const all = [
-    { label: "搜索", keys: [mod, "K"] },
+    { label: t.shell.shortcuts.search, keys: [mod, "K"] },
     ...rows,
-    { label: "收起或展开侧栏", keys: ["["] },
-    { label: "查看快捷键", keys: ["?"] },
+    { label: t.shell.shortcuts.toggleSidebar, keys: ["["] },
+    { label: t.shell.shortcuts.viewShortcuts, keys: ["?"] },
   ]
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="gap-3 sm:max-w-[380px]">
         <DialogHeader>
-          <DialogTitle>键盘快捷键</DialogTitle>
+          <DialogTitle>{t.shell.shortcuts.title}</DialogTitle>
         </DialogHeader>
         <dl className="grid grid-cols-[1fr_auto] gap-y-2">
           {all.map((row) => (

@@ -8,6 +8,7 @@ import { ProjectMark } from "@/components/base/marks"
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ESTIMATE_PRESETS, PRIORITY, PRIORITY_ORDER, TASK_STATUS, TASK_STATUS_ORDER } from "@/data/catalog"
 import { formatMinutes, formatMinutesLong } from "@/domain/format"
+import { useT } from "@/i18n/react"
 import type { Priority, Project, TaskStatus } from "@/domain/types"
 import { PriorityIcon } from "./task-bits"
 
@@ -65,10 +66,11 @@ export function PriorityOptions() {
 export const NO_PROJECT = "none"
 
 export function ProjectOptions({ projects }: { projects: Project[] }) {
+  const t = useT()
   const active = projects.filter((project) => project.stage !== "ended")
   return (
     <>
-      <SelectItem value={NO_PROJECT}>个人事务</SelectItem>
+      <SelectItem value={NO_PROJECT}>{t.common.personal}</SelectItem>
       <SelectSeparator />
       {active.map((project) => (
         <SelectItem key={project.id} value={project.id}>

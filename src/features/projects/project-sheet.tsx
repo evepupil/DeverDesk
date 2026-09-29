@@ -20,6 +20,7 @@ import { isOpen, sortTasks } from "@/domain/tasks"
 import type { ProjectStage } from "@/domain/types"
 import { validateTitle } from "@/domain/validation"
 import { focusRing, focusRingInset } from "@/lib/styles"
+import { useT } from "@/i18n/react"
 import { useToday, useWorkbenchData } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
@@ -40,6 +41,7 @@ function Figure({ label, value, tone }: { label: string; value: string; tone?: "
 }
 
 function MilestoneForm({ projectId, today }: { projectId: string; today: string }) {
+  const t = useT()
   const addMilestone = useWorkbench((state) => state.addMilestone)
   const [title, setTitle] = useState("")
   const [due, setDue] = useState(addDays(today, 14))
@@ -47,7 +49,7 @@ function MilestoneForm({ projectId, today }: { projectId: string; today: string 
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    const found = validateTitle(title, "里程碑", 40)
+    const found = validateTitle(title, t.projects.sheet.milestoneLabel, 40)
     setError(found)
     if (found || !due) return
     addMilestone(projectId, title, due)
@@ -64,12 +66,12 @@ function MilestoneForm({ projectId, today }: { projectId: string; today: string 
             setTitle(event.target.value)
             if (error) setError(undefined)
           }}
-          placeholder="添加里程碑，回车确认"
-          aria-label="新里程碑"
+          placeholder={t.projects.sheet.milestonePlaceholder}
+          aria-label={t.projects.sheet.milestoneNew}
           aria-invalid={error ? true : undefined}
           className="h-7 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-3 md:text-sm"
         />
-        <Input type="date" aria-label="目标日期" value={due} onChange={(event) => setDue(event.target.value)} className="h-7 w-[8.5rem]" />
+        <Input type="date" aria-label={t.projects.sheet.milestoneDue} value={due} onChange={(event) => setDue(event.target.value)} className="h-7 w-[8.5rem]" />
       </div>
       {error && (
         <p role="alert" className="pl-[22px] text-xs text-bad">
@@ -82,6 +84,7 @@ function MilestoneForm({ projectId, today }: { projectId: string; today: string 
 
 /** 副业详情：阶段、本月数字、最近 12 周走势、里程碑、待办和最近的收支 */
 export function ProjectSheet({ projectId, onClose }: { projectId: string | null; onClose(): void }) {
+  const t = useT()
   const data = useWorkbenchData()
   const today = useToday()
   const saveProject = useWorkbench((state) => state.saveProject)
@@ -111,23 +114,23 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-[520px]">
         {!project || !summary ? (
           <>
-            <SheetTitle className="sr-only">副业详情</SheetTitle>
-            <EmptyState title="没有找到这个副业" className="flex-1" />
+            <SheetTitle className="sr-only">{t.projects.sheet.title}</SheetTitle>
+            <EmptyState title={t.projects.sheet.notFound} className="flex-1" />
           </>
         ) : (
           <>
             <SheetHeader className="gap-2 pr-11">
               <div className="flex items-center gap-1.5 text-xs text-fg-2">
-                <span>{formatMonthDay(project.startedOn)}开始</span>
+                <span>{t.projects.sheet.started(formatMonthDay(project.startedOn))}</span>
                 {summary.lastActive && (
                   <>
                     <span aria-hidden>·</span>
-                    <span>最近活动 {formatMonthDay(summary.lastActive)}</span>
+                    <span>{t.projects.sheet.lastActive(formatMonthDay(summary.lastActive))}</span>
                   </>
                 )}
                 <Button variant="outline" size="sm" className="ml-auto" onClick={() => openProjectForm(project.id)}>
                   <Pencil />
-                  编辑
+                  {t.words.edit}
                 </Button>
               </div>
               <SheetTitle className="flex items-center gap-2 text-sm font-medium">
@@ -135,13 +138,13 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
                 <span className="min-w-0 break-words">{project.name}</span>
               </SheetTitle>
               <SheetDescription className={cn("text-sm", project.goal ? "text-fg-2" : "sr-only")}>
-                {project.goal || "副业详情"}
+                {project.goal || t.projects.sheet.title}
               </SheetDescription>
             </SheetHeader>
 
             <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
               <dl className="grid grid-cols-[76px_minmax(0,1fr)] gap-x-2 px-4 pb-3">
-                <SheetProperty label="阶段" htmlFor="project-sheet-stage">
+                <SheetProperty label={t.projects.sheet.stage} htmlFor="project-sheet-stage">
                   <PropertySelect
                     id="project-sheet-stage"
                     value={project.stage}
@@ -160,22 +163,22 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
                     ))}
                   </PropertySelect>
                 </SheetProperty>
-                <SheetProperty label="月目标">
+                <SheetProperty label={t.projects.sheet.monthlyTarget}>
                   <span className="px-2 text-sm tabular">{project.monthlyTarget ? formatAmount(project.monthlyTarget) : "—"}</span>
                 </SheetProperty>
               </dl>
 
-              <SheetSection title="本月">
+              <SheetSection title={t.projects.sheet.thisMonth}>
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                  <Figure label="净收入" value={formatAmount(summary.month.net)} tone={summary.month.net < 0 ? "bad" : undefined} />
-                  <Figure label="投入" value={formatHours(summary.month.minutes)} />
-                  <Figure label="时薪" value={summary.month.minutes > 0 ? formatAmount(Math.round(summary.month.rate)) : "—"} />
-                  <Figure label="累计净收入" value={formatAmount(summary.totalNet)} tone={summary.totalNet < 0 ? "bad" : undefined} />
+                  <Figure label={t.projects.sheet.net} value={formatAmount(summary.month.net)} tone={summary.month.net < 0 ? "bad" : undefined} />
+                  <Figure label={t.projects.sheet.invested} value={formatHours(summary.month.minutes)} />
+                  <Figure label={t.projects.sheet.hourly} value={summary.month.minutes > 0 ? formatAmount(Math.round(summary.month.rate)) : "—"} />
+                  <Figure label={t.projects.sheet.totalNet} value={formatAmount(summary.totalNet)} tone={summary.totalNet < 0 ? "bad" : undefined} />
                 </div>
               </SheetSection>
 
               <SheetSection
-                title="最近 12 周净收入"
+                title={t.projects.sheet.weeks}
                 aside={
                   <span className="text-xs text-fg-2 tabular">
                     {formatAmount(summary.weeks.reduce((sum, week) => sum + week.net, 0))}
@@ -187,13 +190,13 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
                     key: week.start,
                     label: formatDayShort(week.start),
                     value: week.net,
-                    title: `${formatMonthDay(week.start)} 那周：净收入 ${formatAmount(week.net)}，投入 ${formatHours(week.minutes)}`,
+                    title: t.projects.sheet.weekTitle(formatMonthDay(week.start), formatAmount(week.net), formatHours(week.minutes)),
                   }))}
                 />
               </SheetSection>
 
               <SheetSection
-                title="里程碑"
+                title={t.projects.sheet.milestones}
                 aside={
                   project.milestones.length > 0 ? (
                     <span className="text-xs text-fg-2 tabular">
@@ -217,7 +220,7 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
                           <StatusIcon glyph={milestone.doneOn ? "check" : "ring"} tone={milestone.doneOn ? "done" : "neutral"} />
                           <span className={cn("min-w-0 flex-1 truncate", milestone.doneOn && "text-fg-2")}>{milestone.title}</span>
                           <span className={cn("shrink-0 text-xs tabular", when?.late ? "text-bad" : "text-fg-2")}>
-                            {milestone.doneOn ? `${formatMonthDay(milestone.doneOn)}达成` : `${formatMonthDay(milestone.due)} · ${when?.text}`}
+                            {milestone.doneOn ? t.projects.sheet.milestoneDone(formatMonthDay(milestone.doneOn)) : `${formatMonthDay(milestone.due)} · ${when?.text}`}
                           </span>
                         </button>
                       </li>
@@ -228,11 +231,11 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
               </SheetSection>
 
               <SheetSection
-                title="待办"
+                title={t.projects.sheet.tasks}
                 aside={
                   openTasks.length > 0 ? (
                     <Link href={`/tasks?project=${project.id}`} className={cn("text-xs text-fg-2 hover:text-fg", focusRing)}>
-                      全部 {openTasks.length} 件
+                      {t.projects.sheet.allTasks(openTasks.length)}
                     </Link>
                   ) : undefined
                 }
@@ -241,20 +244,20 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
                   {openTasks.slice(0, 8).map((task) => (
                     <TaskRow key={task.id} task={task} today={today} showId={false} showProject={false} className="px-4" />
                   ))}
-                  <QuickAdd defaultDay={null} defaultProjectId={project.id} today={today} placeholder={`给「${project.name}」加一件事`} className="px-1" />
+                  <QuickAdd defaultDay={null} defaultProjectId={project.id} today={today} placeholder={t.projects.sheet.addTask(project.name)} className="px-1" />
                 </div>
               </SheetSection>
 
               <SheetSection
-                title="最近收支"
+                title={t.projects.sheet.recent}
                 aside={
                   <Link href={`/ledger?project=${project.id}`} className={cn("text-xs text-fg-2 hover:text-fg", focusRing)}>
-                    全部
+                    {t.projects.sheet.all}
                   </Link>
                 }
               >
                 {recent.length === 0 ? (
-                  <p className="text-sm text-fg-2">还没有收支记录</p>
+                  <p className="text-sm text-fg-2">{t.projects.sheet.recentEmpty}</p>
                 ) : (
                   <ul className="-mx-1 flex flex-col">
                     {recent.map((entry) => (

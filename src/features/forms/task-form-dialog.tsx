@@ -13,6 +13,7 @@ import { taskCode } from "@/domain/tasks"
 import { TASK_TITLE_MAX, validateTitle } from "@/domain/validation"
 import type { Priority, Task, TaskStatus } from "@/domain/types"
 import { EstimateOptions, NO_PROJECT, PriorityOptions, ProjectOptions, StatusOptions } from "@/features/common/property-controls"
+import { useT } from "@/i18n/react"
 import type { TaskInput } from "@/state/store"
 import { useWorkbench } from "@/state/store"
 import { useUi, type TaskFormState } from "@/state/ui"
@@ -48,6 +49,7 @@ function draftOf(task: Task | null, preset?: Partial<TaskInput>): TaskInput {
 }
 
 function Body({ form, task }: { form: TaskFormState; task: Task | null }) {
+  const t = useT()
   const close = useUi((state) => state.closeTaskForm)
   const openTask = useUi((state) => state.openTask)
   const projects = useWorkbench((state) => state.projects)
@@ -67,27 +69,27 @@ function Body({ form, task }: { form: TaskFormState; task: Task | null }) {
     if (task) {
       updateTask(task.id, input)
       close()
-      if (useWorkbench.getState().lastSaveOk) toast.success("已保存")
+      if (useWorkbench.getState().lastSaveOk) toast.success(t.forms.task.saved)
       return
     }
     const created = createTask(input)
     close()
     if (useWorkbench.getState().lastSaveOk) {
-      toast.success(`已新建 ${taskCode(created)}`, { description: created.title, action: { label: "查看", onClick: () => openTask(created.id) } })
+      toast.success(t.forms.task.created(taskCode(created)), { description: created.title, action: { label: t.forms.task.view, onClick: () => openTask(created.id) } })
     }
   }
 
   return (
     <form noValidate onSubmit={submit} className="contents">
       <div className="flex flex-col gap-3 px-4 py-4">
-        <Field id="task-title" label="任务" error={error}>
+        <Field id="task-title" label={t.forms.task.title} error={error}>
           <Input
             ref={titleRef}
             id="task-title"
             autoFocus
             autoComplete="off"
             maxLength={TASK_TITLE_MAX + 20}
-            placeholder="要做的一件事，动词开头最好"
+            placeholder={t.forms.task.titlePlaceholder}
             value={draft.title}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? "task-title-error" : undefined}
@@ -98,7 +100,7 @@ function Body({ form, task }: { form: TaskFormState; task: Task | null }) {
           />
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="task-form-project" label="副业">
+          <Field id="task-form-project" label={t.forms.task.project}>
             <FormSelect
               id="task-form-project"
               value={draft.projectId ?? NO_PROJECT}
@@ -107,22 +109,22 @@ function Body({ form, task }: { form: TaskFormState; task: Task | null }) {
               <ProjectOptions projects={projects} />
             </FormSelect>
           </Field>
-          <Field id="task-form-status" label="状态">
+          <Field id="task-form-status" label={t.forms.task.status}>
             <FormSelect id="task-form-status" value={draft.status} onChange={(value) => set("status", value as TaskStatus)}>
               <StatusOptions />
             </FormSelect>
           </Field>
-          <Field id="task-form-priority" label="优先级">
+          <Field id="task-form-priority" label={t.forms.task.priority}>
             <FormSelect id="task-form-priority" value={String(draft.priority)} onChange={(value) => set("priority", Number(value) as Priority)}>
               <PriorityOptions />
             </FormSelect>
           </Field>
-          <Field id="task-form-estimate" label="预估">
+          <Field id="task-form-estimate" label={t.forms.task.estimate}>
             <FormSelect id="task-form-estimate" value={String(draft.estimateMin)} onChange={(value) => set("estimateMin", Number(value))}>
               <EstimateOptions current={draft.estimateMin} />
             </FormSelect>
           </Field>
-          <Field id="task-form-plan" label="计划哪天做">
+          <Field id="task-form-plan" label={t.forms.task.planFor}>
             <Input
               id="task-form-plan"
               type="date"
@@ -130,7 +132,7 @@ function Body({ form, task }: { form: TaskFormState; task: Task | null }) {
               onChange={(event) => set("plannedFor", event.target.value || null)}
             />
           </Field>
-          <Field id="task-form-start" label="几点开始">
+          <Field id="task-form-start" label={t.forms.task.startAt}>
             <Input
               id="task-form-start"
               type="time"
@@ -140,19 +142,19 @@ function Body({ form, task }: { form: TaskFormState; task: Task | null }) {
               onChange={(event) => set("startAt", event.target.value || null)}
             />
           </Field>
-          <Field id="task-form-due" label="截止">
+          <Field id="task-form-due" label={t.forms.task.due}>
             <Input id="task-form-due" type="date" value={draft.dueOn ?? ""} onChange={(event) => set("dueOn", event.target.value || null)} />
           </Field>
         </div>
-        <Field id="task-form-notes" label="备注">
+        <Field id="task-form-notes" label={t.forms.task.notes}>
           <Textarea id="task-form-notes" rows={2} className="min-h-14" value={draft.notes} onChange={(event) => set("notes", event.target.value)} />
         </Field>
       </div>
       <DialogFooter className="border-t border-line px-4 py-3">
         <Button type="button" variant="ghost" onClick={close}>
-          取消
+          {t.words.cancel}
         </Button>
-        <Button type="submit">{task ? "保存" : "新建"}</Button>
+        <Button type="submit">{task ? t.words.save : t.forms.task.submitNew}</Button>
       </DialogFooter>
     </form>
   )
@@ -160,6 +162,7 @@ function Body({ form, task }: { form: TaskFormState; task: Task | null }) {
 
 /** 新建 / 编辑任务（提炼补全：编辑弹窗；名称为空就地提示） */
 export function TaskFormDialog() {
+  const t = useT()
   const form = useUi((state) => state.taskForm)
   const close = useUi((state) => state.closeTaskForm)
   const tasks = useWorkbench((state) => state.tasks)
@@ -170,8 +173,8 @@ export function TaskFormDialog() {
     <Dialog open={form !== null} onOpenChange={(open) => !open && close()}>
       <DialogContent className="gap-0 p-0 sm:max-w-[520px]">
         <DialogHeader className="border-b border-line px-4 py-3">
-          <DialogTitle>{task ? `编辑 ${taskCode(task)}` : "新建任务"}</DialogTitle>
-          <DialogDescription className="sr-only">填写任务信息</DialogDescription>
+          <DialogTitle>{task ? t.forms.task.editTitle(taskCode(task)) : t.forms.task.newTitle}</DialogTitle>
+          <DialogDescription className="sr-only">{t.forms.task.description}</DialogDescription>
         </DialogHeader>
         {form && <Body key={key} form={form} task={task} />}
       </DialogContent>

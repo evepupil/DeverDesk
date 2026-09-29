@@ -6,6 +6,7 @@ import { WorkbenchMark } from "@/components/base/marks"
 import { Field } from "@/components/base/field"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useT } from "@/i18n/react"
 import { ApiFailure, login } from "@/lib/api"
 
 /** 登录尝试太多时，秒数向上取整成分钟 */
@@ -24,12 +25,13 @@ export function LoginScreen({
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const t = useT()
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     // 只用去掉空格的结果判断有没有填；提交原样的输入，口令本身可能带首尾空格
     if (!password.trim()) {
-      setError("请输入访问口令")
+      setError(t.auth.login.empty)
       return
     }
     setSubmitting(true)
@@ -39,12 +41,15 @@ export function LoginScreen({
       onSuccess()
     } catch (cause) {
       const failure = cause instanceof ApiFailure ? cause : null
-      if (failure?.kind === "rate-limited") {
-        setError(`尝试太多次，${minutesOf(failure.retryAfter)} 分钟后再试`)
+      if (failure?.kind === "unauthorized") {
+        // 口令不对：不显示服务器返回的原文，按状态码换成当前语言的话
+        setError(t.auth.login.wrongPassword)
+      } else if (failure?.kind === "rate-limited") {
+        setError(t.auth.login.rateLimited(minutesOf(failure.retryAfter)))
       } else if (failure?.kind === "network") {
-        setError("连不上服务器")
+        setError(t.auth.login.network)
       } else {
-        setError(failure?.message ?? "登录失败，再试一次")
+        setError(t.auth.login.failed)
       }
       setSubmitting(false)
     }
@@ -59,7 +64,7 @@ export function LoginScreen({
         </div>
         {passwordEnabled ? (
           <form noValidate onSubmit={submit} className="flex flex-col gap-4">
-            <Field id="login-password" label="访问口令" error={error ?? undefined}>
+            <Field id="login-password" label={t.auth.login.passwordLabel} error={error ?? undefined}>
               <Input
                 id="login-password"
                 type="password"
@@ -76,11 +81,11 @@ export function LoginScreen({
               />
             </Field>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "登录中…" : "登录"}
+              {submitting ? t.auth.login.submitting : t.auth.login.submit}
             </Button>
           </form>
         ) : (
-          <p className="text-sm text-fg-2">这个站点还没有设置访问口令</p>
+          <p className="text-sm text-fg-2">{t.auth.login.noPassword}</p>
         )}
       </div>
     </main>

@@ -1,6 +1,9 @@
+"use client"
+
 import { cn } from "cn"
 
 import { formatMinutes } from "@/domain/format"
+import { useT } from "@/i18n/react"
 
 /**
  * 容量条：排了多少 / 能用多少。超出的部分用进行中黄色接在后面，
@@ -19,6 +22,7 @@ export function CapacityBar({
   className?: string
   showLabel?: boolean
 }) {
+  const t = useT()
   const scale = Math.max(planned, capacity, 1)
   const within = Math.min(planned, capacity)
   const over = Math.max(0, planned - capacity)
@@ -26,7 +30,7 @@ export function CapacityBar({
     <div className={cn("flex min-w-0 items-center gap-2", className)}>
       <div
         role="meter"
-        aria-label="当天已排时长"
+        aria-label={t.common.capacityBar.label}
         aria-valuemin={0}
         aria-valuemax={capacity}
         aria-valuenow={planned}
@@ -44,7 +48,7 @@ export function CapacityBar({
       {showLabel && (
         <span className="shrink-0 text-xs whitespace-nowrap text-fg-2 tabular">
           {formatMinutes(planned)} / {formatMinutes(capacity)}
-          {over > 0 && <span className="ml-1.5 text-warn">超出 {formatMinutes(over)}</span>}
+          {over > 0 && <span className="ml-1.5 text-warn">{t.common.capacityBar.over(formatMinutes(over))}</span>}
         </span>
       )}
     </div>

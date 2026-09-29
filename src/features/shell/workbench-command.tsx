@@ -17,6 +17,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command"
 import { ENTRY_STATUS, PROJECT_STAGE, TASK_STATUS } from "@/data/catalog"
+import { useT } from "@/i18n/react"
 import { formatMonthDay } from "@/domain/calendar"
 import { formatSignedAmount } from "@/domain/format"
 import { searchLedger, searchProjects, searchTasks } from "@/domain/search"
@@ -39,6 +40,7 @@ export function WorkbenchCommand() {
   const openEntryForm = useUi((state) => state.openEntryForm)
   const setProfileOpen = useUi((state) => state.setProfileOpen)
   const [query, setQuery] = useState("")
+  const t = useT()
 
   const q = query.trim()
   const taskHits = useMemo(() => searchTasks(tasks, q), [tasks, q])
@@ -70,17 +72,17 @@ export function WorkbenchCommand() {
         setOpen(next)
         if (!next) setQuery("")
       }}
-      title="搜索"
-      description="搜索任务、副业、收支或跳转页面"
+      title={t.shell.command.title}
+      description={t.shell.command.description}
       className="top-[18%] sm:max-w-[560px]"
     >
       <Command shouldFilter={false} className="rounded-none p-0">
-        <CommandInput placeholder="搜索任务、副业、收支说明或金额" value={query} onValueChange={setQuery} />
+        <CommandInput placeholder={t.shell.command.placeholder} value={query} onValueChange={setQuery} />
         <CommandList className="scroll-thin max-h-[min(440px,60vh)] p-1">
-          <CommandEmpty>没有找到“{q}”</CommandEmpty>
+          <CommandEmpty>{t.shell.command.noResults(q)}</CommandEmpty>
 
           {taskHits.length > 0 && (
-            <CommandGroup heading="任务">
+            <CommandGroup heading={t.shell.command.tasks}>
               {taskHits.map((task) => {
                 const status = TASK_STATUS[task.status]
                 return (
@@ -95,7 +97,7 @@ export function WorkbenchCommand() {
           )}
 
           {projectHits.length > 0 && (
-            <CommandGroup heading="副业">
+            <CommandGroup heading={t.shell.command.projects}>
               {projectHits.map((project) => (
                 <CommandItem
                   key={project.id}
@@ -111,7 +113,7 @@ export function WorkbenchCommand() {
           )}
 
           {entryHits.length > 0 && (
-            <CommandGroup heading="收支">
+            <CommandGroup heading={t.shell.command.ledger}>
               {entryHits.map((entry) => {
                 const status = ENTRY_STATUS[entry.status]
                 return (
@@ -133,7 +135,7 @@ export function WorkbenchCommand() {
           )}
 
           {pageHits.length > 0 && (
-            <CommandGroup heading="跳转">
+            <CommandGroup heading={t.shell.command.goTo}>
               {pageHits.map((page) => (
                 <CommandItem key={page.key} value={`page-${page.key}`} onSelect={() => go(page.href)}>
                   {page.icon && <page.icon />}
@@ -144,37 +146,37 @@ export function WorkbenchCommand() {
           )}
 
           {!q && (
-            <CommandGroup heading="操作">
+            <CommandGroup heading={t.shell.command.actions}>
               <CommandItem value="action-task" onSelect={() => run(() => openTaskForm({ mode: "create" }))}>
                 <SquarePen />
-                新建任务
+                {t.shell.menu.newTask}
                 <CommandShortcut>C</CommandShortcut>
               </CommandItem>
               <CommandItem value="action-entry" onSelect={() => run(() => openEntryForm({ mode: "create" }))}>
                 <Wallet />
-                记一笔
+                {t.shell.menu.logEntry}
                 <CommandShortcut>M</CommandShortcut>
               </CommandItem>
               <CommandItem value="action-profile" onSelect={() => run(() => setProfileOpen(true))}>
                 <Clock />
-                可用时间
+                {t.shell.menu.availableTime}
               </CommandItem>
               <CommandItem value="action-shortcuts" onSelect={() => run(() => setShortcutsOpen(true))}>
                 <Keyboard />
-                键盘快捷键
+                {t.shell.menu.shortcuts}
                 <CommandShortcut>?</CommandShortcut>
               </CommandItem>
             </CommandGroup>
           )}
 
           {q && taskHits.length === 0 && (
-            <CommandGroup heading="操作">
+            <CommandGroup heading={t.shell.command.actions}>
               <CommandItem
                 value="action-create-from-query"
                 onSelect={() => run(() => openTaskForm({ mode: "create", preset: { title: q } }))}
               >
                 <Plus />
-                <span className="truncate">新建任务「{q}」</span>
+                <span className="truncate">{t.shell.command.createTask(q)}</span>
               </CommandItem>
             </CommandGroup>
           )}

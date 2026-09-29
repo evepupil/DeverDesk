@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useT } from "@/i18n/react"
 import { focusRing } from "@/lib/styles"
 
 /** 右上角头像菜单：头像和菜单项由各工作区自己给 */
@@ -24,10 +25,11 @@ export function UserMenu({
   avatar: ReactNode
   children?: ReactNode
 }) {
+  const t = useT()
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={`账户：${name}`}
+        aria-label={t.shell.userMenu.account(name)}
         className={cn("ml-1 flex size-6 items-center justify-center rounded-full", focusRing)}
       >
         {avatar}

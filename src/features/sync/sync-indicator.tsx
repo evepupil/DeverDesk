@@ -5,6 +5,7 @@ import { Cloud, CloudOff, RefreshCw, TriangleAlert } from "lucide-react"
 import { useSyncExternalStore } from "react"
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useT } from "@/i18n/react"
 import { focusRing } from "@/lib/styles"
 import { syncNow, useSync } from "@/state/sync"
 
@@ -28,6 +29,7 @@ function useReducedMotion(): boolean {
  * idle、unauthorized 时不渲染。
  */
 export function SyncIndicator() {
+  const t = useT()
   const status = useSync((state) => state.status)
   const pending = useSync((state) => state.pending)
   const message = useSync((state) => state.message)
@@ -39,14 +41,14 @@ export function SyncIndicator() {
     status === "syncing" ? RefreshCw : status === "offline" ? CloudOff : status === "error" ? TriangleAlert : Cloud
   const hint =
     status === "syncing"
-      ? "正在同步"
+      ? t.sync.syncing
       : status === "synced"
-        ? "已同步"
+        ? t.sync.synced
         : status === "offline"
           ? pending > 0
-            ? `离线，${pending} 条改动联网后上传`
-            : "离线"
-          : `${message || "同步出错"}，点一下重试`
+            ? t.sync.offlinePending(pending)
+            : t.sync.offline
+          : t.sync.errorHint(message || t.sync.syncError)
 
   return (
     <Tooltip>

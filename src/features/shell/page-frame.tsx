@@ -4,6 +4,7 @@ import { cn } from "cn"
 import { ChevronRight } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { useT } from "@/i18n/react"
 import { focusRing } from "@/lib/styles"
 import { useShellCrumb } from "./shell-context"
 
@@ -38,6 +39,7 @@ export function PageFrame({
   children: ReactNode
   contentClassName?: string
 }) {
+  const t = useT()
   const crumb = useShellCrumb()
   return (
     <>
@@ -54,7 +56,7 @@ export function PageFrame({
           {meta && <div className="flex min-w-0 items-center gap-1.5 text-sm text-fg-2">{meta}</div>}
         </div>
         {tabs && tabs.length > 0 && (
-          <div role="tablist" aria-label="视图" className="no-scrollbar ml-1 flex min-w-0 items-center gap-0.5 overflow-x-auto">
+          <div role="tablist" aria-label={t.frame.pageFrame.views} className="no-scrollbar ml-1 flex min-w-0 items-center gap-0.5 overflow-x-auto">
             {tabs.map((tab) => {
               const selected = tab.key === activeTab
               return (

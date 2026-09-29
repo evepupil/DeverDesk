@@ -3,7 +3,7 @@
 import { cn } from "cn"
 import { FolderKanban, Timer, Wallet } from "lucide-react"
 import Link from "next/link"
-import type { ReactNode } from "react"
+import { Fragment, type ReactNode } from "react"
 
 import { BoardColumn, CardHeading, Surface } from "@/components/base/board"
 import { ProjectMark } from "@/components/base/marks"
@@ -11,9 +11,8 @@ import { categoryLabel } from "@/data/catalog"
 import { formatAmount, formatHours } from "@/domain/format"
 import type { ProjectStat } from "@/domain/insights"
 import type { Project } from "@/domain/types"
+import { useT } from "@/i18n/react"
 import { focusRingInset } from "@/lib/styles"
-
-const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"]
 
 function ShareRow({
   icon,
@@ -64,15 +63,16 @@ function percent(part: number, whole: number) {
 
 /** 副业：这段时间每个副业赚了多少、花了多少时间、时薪多少 */
 export function ProjectsBreakdown({ stats, projectsById }: { stats: ProjectStat[]; projectsById: Map<string, Project> }) {
+  const t = useT().insights
   const sorted = [...stats].sort((a, b) => b.net - a.net || b.minutes - a.minutes)
   const maxNet = Math.max(1, ...sorted.map((stat) => stat.net))
   const total = sorted.reduce((sum, stat) => sum + stat.net, 0)
 
   return (
-    <BoardColumn icon={<FolderKanban className="size-4 text-fg-2" aria-hidden />} title="副业" meta={formatAmount(total)}>
+    <BoardColumn icon={<FolderKanban className="size-4 text-fg-2" aria-hidden />} title={t.projects} meta={formatAmount(total)}>
       <Surface className="overflow-hidden">
         {sorted.length === 0 ? (
-          <p className="px-3 py-2.5 text-sm text-fg-2">这段时间没有记录</p>
+          <p className="px-3 py-2.5 text-sm text-fg-2">{t.projectsEmpty}</p>
         ) : (
           <ul className="py-1">
             {sorted.map((stat) => {
@@ -87,7 +87,7 @@ export function ProjectsBreakdown({ stats, projectsById }: { stats: ProjectStat[
                       <span aria-hidden className="size-4 shrink-0 rounded-[4px] border border-dashed border-line-3" />
                     )
                   }
-                  label={project?.name ?? "个人事务"}
+                  label={project?.name ?? t.personal}
                   value={stat.net !== 0 ? formatAmount(Math.round(stat.net)) : "—"}
                   ratio={stat.net / maxNet}
                   detail={`${formatHours(stat.minutes)}${stat.minutes > 0 && stat.net !== 0 ? ` · ${formatAmount(Math.round(stat.rate))}/h` : ""}`}
@@ -112,12 +112,13 @@ export function MoneyBreakdown({
 }) {
   const incomeTotal = income.reduce((sum, row) => sum + row.amount, 0)
   const expenseTotal = expense.reduce((sum, row) => sum + row.amount, 0)
+  const t = useT().insights
   return (
-    <BoardColumn icon={<Wallet className="size-4 text-fg-2" aria-hidden />} title="钱">
+    <BoardColumn icon={<Wallet className="size-4 text-fg-2" aria-hidden />} title={t.money}>
       <Surface className="overflow-hidden pt-2.5">
-        <CardHeading title="收入来源" aside={formatAmount(incomeTotal)} className="px-3" />
+        <CardHeading title={t.income} aside={formatAmount(incomeTotal)} className="px-3" />
         {income.length === 0 ? (
-          <p className="px-3 pt-1 pb-2.5 text-sm text-fg-2">没有收入</p>
+          <p className="px-3 pt-1 pb-2.5 text-sm text-fg-2">{t.incomeEmpty}</p>
         ) : (
           <ul className="py-1">
             {income.map((row) => (
@@ -133,9 +134,9 @@ export function MoneyBreakdown({
         )}
       </Surface>
       <Surface className="overflow-hidden pt-2.5">
-        <CardHeading title="支出去向" aside={formatAmount(expenseTotal)} className="px-3" />
+        <CardHeading title={t.expense} aside={formatAmount(expenseTotal)} className="px-3" />
         {expense.length === 0 ? (
-          <p className="px-3 pt-1 pb-2.5 text-sm text-fg-2">没有支出</p>
+          <p className="px-3 pt-1 pb-2.5 text-sm text-fg-2">{t.expenseEmpty}</p>
         ) : (
           <ul className="py-1">
             {expense.map((row) => (
@@ -170,12 +171,13 @@ export function TimeBreakdown({
   const total = byTime.reduce((sum, stat) => sum + stat.minutes, 0)
   const maxDay = Math.max(1, ...weekdays)
   const deviation = accuracy.ratio === null ? null : Math.round((accuracy.ratio - 1) * 100)
+  const { insights: t, calendar } = useT()
 
   return (
-    <BoardColumn icon={<Timer className="size-4 text-fg-2" aria-hidden />} title="时间" meta={formatHours(total)}>
+    <BoardColumn icon={<Timer className="size-4 text-fg-2" aria-hidden />} title={t.time} meta={formatHours(total)}>
       <Surface className="overflow-hidden">
         {byTime.length === 0 ? (
-          <p className="px-3 py-2.5 text-sm text-fg-2">这段时间没有投入记录</p>
+          <p className="px-3 py-2.5 text-sm text-fg-2">{t.timeEmpty}</p>
         ) : (
           <ul className="py-1">
             {byTime.map((stat) => {
@@ -190,7 +192,7 @@ export function TimeBreakdown({
                       <span aria-hidden className="size-4 shrink-0 rounded-[4px] border border-dashed border-line-3" />
                     )
                   }
-                  label={project?.name ?? "个人事务"}
+                  label={project?.name ?? t.personal}
                   value={formatHours(stat.minutes)}
                   ratio={stat.minutes / Math.max(1, byTime[0].minutes)}
                   detail={percent(stat.minutes, total)}
@@ -202,47 +204,47 @@ export function TimeBreakdown({
       </Surface>
       <Surface className="flex flex-col gap-2 px-3 py-2.5">
         <CardHeading
-          title="估时准不准"
+          title={t.accuracy}
           aside={
             deviation === null ? undefined : (
               <span className={cn(Math.abs(deviation) >= 20 && "text-warn")}>
-                {deviation === 0 ? "刚好" : `实际${deviation > 0 ? "多" : "少"} ${Math.abs(deviation)}%`}
+                {deviation === 0 ? t.exact : t.deviation(deviation > 0 ? "+" : "−", Math.abs(deviation))}
               </span>
             )
           }
         />
         {accuracy.ratio === null ? (
-          <p className="text-sm text-fg-2">完成的任务里还没有投入记录</p>
+          <p className="text-sm text-fg-2">{t.accuracyEmpty}</p>
         ) : (
-          <div className="flex flex-col gap-1.5 text-xs text-fg-2">
+          <div className="grid grid-cols-[max-content_1fr_3rem] items-center gap-x-2 gap-y-1.5 text-xs text-fg-2">
             {[
-              { label: "预估", value: accuracy.estimate },
-              { label: "实际", value: accuracy.actual },
+              { key: "estimate", label: t.estimated, value: accuracy.estimate },
+              { key: "actual", label: t.actual, value: accuracy.actual },
             ].map((row) => (
-              <div key={row.label} className="flex items-center gap-2">
-                <span className="w-7 shrink-0">{row.label}</span>
-                <span aria-hidden className="h-1.5 flex-1 overflow-hidden rounded-full bg-pressed/60">
+              <Fragment key={row.key}>
+                <span>{row.label}</span>
+                <span aria-hidden className="h-1.5 overflow-hidden rounded-full bg-pressed/60">
                   <span
-                    className={cn("block h-full rounded-full", row.label === "实际" ? "bg-ink" : "bg-(--tier-1)")}
+                    className={cn("block h-full rounded-full", row.key === "actual" ? "bg-ink" : "bg-(--tier-1)")}
                     style={{ width: `${(row.value / Math.max(accuracy.estimate, accuracy.actual, 1)) * 100}%` }}
                   />
                 </span>
-                <span className="w-12 shrink-0 text-right tabular">{formatHours(row.value)}</span>
-              </div>
+                <span className="text-right tabular">{formatHours(row.value)}</span>
+              </Fragment>
             ))}
           </div>
         )}
       </Surface>
       <Surface className="flex flex-col gap-2 px-3 py-2.5">
-        <CardHeading title="一周里哪天做得多" />
-        <div className="flex h-16 items-end gap-1.5" role="img" aria-label={`周一到周日投入：${weekdays.map((minutes) => formatHours(minutes)).join("、")}`}>
+        <CardHeading title={t.weekdaysHeading} />
+        <div className="flex h-16 items-end gap-1.5" role="img" aria-label={t.weekdaysAria(weekdays.map((minutes) => formatHours(minutes)))}>
           {weekdays.map((minutes, i) => (
-            <div key={WEEKDAYS[i]} className="flex h-full flex-1 flex-col items-center justify-end gap-1" title={`周${WEEKDAYS[i]}：${formatHours(minutes)}`}>
+            <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1" title={t.weekdayTitle(calendar.weekdays[(i + 1) % 7], formatHours(minutes))}>
               <span
                 className={cn("w-full rounded-[2px]", i >= 5 ? "bg-ink" : "bg-(--tier-1)")}
                 style={{ height: `${Math.max(2, (minutes / maxDay) * 44)}px` }}
               />
-              <span className="text-xs text-fg-2">{WEEKDAYS[i]}</span>
+              <span className="text-xs text-fg-2">{t.weekdayChars[i]}</span>
             </div>
           ))}
         </div>

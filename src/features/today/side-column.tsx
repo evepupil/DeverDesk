@@ -16,12 +16,16 @@ import { pendingIncome, totals } from "@/domain/ledger"
 import { isDone, isDueOn, streak } from "@/domain/routines"
 import { minutesOf } from "@/domain/tasks"
 import type { DayKey, Routine } from "@/domain/types"
+import { useT } from "@/i18n/react"
 import { focusRingInset } from "@/lib/styles"
 import { useNow, useProjectsById } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
 
-const STREAK_UNIT: Record<Routine["cadence"], string> = { daily: "天", weekdays: "天", weekly: "周", monthly: "个月" }
+/** 例行的连续计数单位：按周计的用周，按月计的用个月 */
+function streakUnit(t: ReturnType<typeof useT>, cadence: Routine["cadence"]): string {
+  return t.today.streakUnit[cadence]
+}
 
 /** 例行：今天该做的勾一下；每周、每月的在本期内任意一天做都算 */
 export function RoutinesCard({ today }: { today: DayKey }) {
@@ -29,6 +33,7 @@ export function RoutinesCard({ today }: { today: DayKey }) {
   const toggleRoutine = useWorkbench((state) => state.toggleRoutine)
   const openRoutineForm = useUi((state) => state.openRoutineForm)
   const projectsById = useProjectsById()
+  const t = useT()
 
   const due = useMemo(() => {
     const rank = (routine: Routine) => (routine.cadence === "daily" || routine.cadence === "weekdays" ? 0 : 1)
@@ -41,17 +46,17 @@ export function RoutinesCard({ today }: { today: DayKey }) {
   return (
     <BoardColumn
       icon={<Repeat className="size-4 text-fg-2" aria-hidden />}
-      title="例行"
+      title={t.today.routines.title}
       count={due.length > 0 ? `${doneCount}/${due.length}` : undefined}
       actions={
-        <IconButton label="新的例行事务" size="icon-xs" onClick={() => openRoutineForm(null)}>
+        <IconButton label={t.today.routines.new} size="icon-xs" onClick={() => openRoutineForm(null)}>
           <Plus />
         </IconButton>
       }
     >
       <Surface className="overflow-hidden">
         {due.length === 0 ? (
-          <p className="px-3 py-2.5 text-sm text-fg-2">今天没有例行事务</p>
+          <p className="px-3 py-2.5 text-sm text-fg-2">{t.today.routines.empty}</p>
         ) : (
           <ul className="py-1">
             {due.map((routine) => {
@@ -73,7 +78,7 @@ export function RoutinesCard({ today }: { today: DayKey }) {
                     {periodic && <span className="shrink-0 text-xs text-fg-2">{CADENCE[routine.cadence].period}</span>}
                     {project && <ProjectMark name={project.name} color={project.color} size={14} />}
                     <span className="min-w-10 shrink-0 text-right text-xs whitespace-nowrap text-fg-2 tabular">
-                      {days > 0 ? `连续 ${days} ${STREAK_UNIT[routine.cadence]}` : "—"}
+                      {days > 0 ? t.today.routines.streak(days, streakUnit(t, routine.cadence)) : "—"}
                     </span>
                   </button>
                 </li>
@@ -91,6 +96,7 @@ export function MoneyCard({ today }: { today: DayKey }) {
   const ledger = useWorkbench((state) => state.ledger)
   const projects = useWorkbench((state) => state.projects)
   const openEntryForm = useUi((state) => state.openEntryForm)
+  const t = useT()
 
   const todays = useMemo(
     () => ledger.filter((entry) => entry.date === today).sort((a, b) => b.createdAt - a.createdAt),
@@ -107,23 +113,23 @@ export function MoneyCard({ today }: { today: DayKey }) {
   return (
     <BoardColumn
       icon={<Wallet className="size-4 text-fg-2" aria-hidden />}
-      title="收支"
+      title={t.today.money.title}
       actions={
-        <IconButton label="记一笔" shortcut="M" size="icon-xs" onClick={() => openEntryForm({ mode: "create" })}>
+        <IconButton label={t.today.page.addEntry} shortcut="M" size="icon-xs" onClick={() => openEntryForm({ mode: "create" })}>
           <Plus />
         </IconButton>
       }
     >
       <Surface className="flex flex-col gap-2 px-3 py-2.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-xs text-fg-2">本月净收入</span>
+          <span className="text-xs text-fg-2">{t.today.money.netThisMonth}</span>
           <span className={cn("text-sm font-medium tabular", month.net < 0 && "text-bad")}>{formatAmount(month.net)}</span>
         </div>
         {target > 0 && (
           <div className="flex items-center gap-2">
             <div
               role="meter"
-              aria-label="本月净收入占月目标"
+              aria-label={t.today.money.meterAria}
               aria-valuemin={0}
               aria-valuemax={target}
               aria-valuenow={Math.max(0, month.net)}
@@ -131,7 +137,7 @@ export function MoneyCard({ today }: { today: DayKey }) {
             >
               <span className="block h-full rounded-full bg-ink" style={{ width: `${progress * 100}%` }} />
             </div>
-            <span className="shrink-0 text-xs text-fg-2 tabular">目标 {formatAmount(target)}</span>
+            <span className="shrink-0 text-xs text-fg-2 tabular">{t.today.money.target(formatAmount(target))}</span>
           </div>
         )}
         {pending.length > 0 && (
@@ -140,7 +146,7 @@ export function MoneyCard({ today }: { today: DayKey }) {
             className={cn("-mx-1 flex items-center gap-2 rounded-sm px-1 text-xs text-fg-2 hover:text-fg", focusRingInset)}
           >
             <StatusIcon glyph={ENTRY_STATUS.pending.glyph} tone={ENTRY_STATUS.pending.tone} />
-            待到账 {pending.length} 笔
+            {t.today.money.pending(pending.length)}
             <span className="ml-auto tabular">{formatAmount(pendingSum)}</span>
           </Link>
         )}
@@ -178,6 +184,7 @@ export function FocusCard({ today }: { today: DayKey }) {
   const openTask = useUi((state) => state.openTask)
   const projectsById = useProjectsById()
   const now = useNow(timer ? 1000 : 60_000)
+  const t = useT()
 
   const titles = useMemo(() => new Map(tasks.map((task) => [task.id, task.title])), [tasks])
   const todays = useMemo(
@@ -187,15 +194,15 @@ export function FocusCard({ today }: { today: DayKey }) {
   const total = todays.reduce((sum, entry) => sum + minutesOf(entry), 0) + (timer ? Math.floor((now - timer.startedAt) / 60_000) : 0)
 
   return (
-    <BoardColumn icon={<Timer className="size-4 text-fg-2" aria-hidden />} title="投入" meta={total > 0 ? formatMinutes(total) : undefined}>
+    <BoardColumn icon={<Timer className="size-4 text-fg-2" aria-hidden />} title={t.today.focus.title} meta={total > 0 ? formatMinutes(total) : undefined}>
       <Surface className="overflow-hidden">
         {todays.length === 0 && !timer ? (
-          <p className="px-3 py-2.5 text-sm text-fg-2">今天还没有投入记录</p>
+          <p className="px-3 py-2.5 text-sm text-fg-2">{t.today.focus.empty}</p>
         ) : (
           <ul>
             {timer && (
               <li className="flex h-8 min-w-0 items-center gap-2 border-b border-line bg-progress/[0.07] px-3 text-sm">
-                <span className="w-[4.75rem] shrink-0 text-xs text-warn tabular">{minutesToTime(minuteOfDay(timer.startedAt))} 开始</span>
+                <span className="w-[4.75rem] shrink-0 text-xs text-warn tabular">{t.common.taskSheet.startedAt(minutesToTime(minuteOfDay(timer.startedAt)))}</span>
                 <span className="min-w-0 flex-1 truncate">{timer.label}</span>
                 <span className="shrink-0 text-xs text-warn tabular">{formatClock(now - timer.startedAt)}</span>
               </li>
@@ -214,7 +221,7 @@ export function FocusCard({ today }: { today: DayKey }) {
                     <span className="w-[4.75rem] shrink-0 text-xs text-fg-2 tabular">
                       {minutesToTime(minuteOfDay(entry.start))}–{minutesToTime(minuteOfDay(entry.end))}
                     </span>
-                    <span className="min-w-0 flex-1 truncate">{title ?? project?.name ?? "个人事务"}</span>
+                    <span className="min-w-0 flex-1 truncate">{title ?? project?.name ?? t.common.personal}</span>
                     {project && <ProjectMark name={project.name} color={project.color} size={14} />}
                     <span className="w-10 shrink-0 text-right text-xs text-fg-2 tabular">{formatMinutes(minutesOf(entry))}</span>
                   </button>

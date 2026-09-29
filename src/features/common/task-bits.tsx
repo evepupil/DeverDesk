@@ -10,6 +10,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { PRIORITY, TASK_STATUS } from "@/data/catalog"
 import { diffDays, formatRelativeDay } from "@/domain/calendar"
 import { formatMinutes } from "@/domain/format"
+import { useT } from "@/i18n/react"
+import { getT } from "@/i18n/runtime"
 import type { DayKey, Priority, Project, Task } from "@/domain/types"
 import { focusRing } from "@/lib/styles"
 import { useWorkbench } from "@/state/store"
@@ -24,11 +26,12 @@ export function TaskStatusIcon({ task, className }: { task: Task; className?: st
 /** 点状态图形直接勾完成；已完成的再点一次回到待办 */
 export function StatusToggle({ task, className }: { task: Task; className?: string }) {
   const toggle = useWorkbench((state) => state.toggleTaskDone)
+  const t = useT()
   const done = task.status === "done"
   return (
     <button
       type="button"
-      aria-label={done ? `把「${task.title}」改回待办` : `完成「${task.title}」`}
+      aria-label={done ? t.common.taskBits.reopen(task.title) : t.common.taskBits.complete(task.title)}
       onClick={(event) => {
         event.stopPropagation()
         toggle(task.id)
@@ -80,7 +83,8 @@ export function PriorityLabel({ priority }: { priority: Priority }) {
 }
 
 export function ProjectLabel({ project, size = 14 }: { project: Project | null | undefined; size?: number }) {
-  if (!project) return <span className="text-fg-2">个人事务</span>
+  const t = useT()
+  if (!project) return <span className="text-fg-2">{t.common.personal}</span>
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
       <ProjectMark name={project.name} color={project.color} size={size} />
@@ -93,7 +97,7 @@ export function ProjectLabel({ project, size = 14 }: { project: Project | null |
 export function planText(task: Task, today: DayKey): { text: string; tone: "normal" | "warn" } | null {
   if (!task.plannedFor) return null
   if (task.status !== "done" && task.status !== "dropped" && task.plannedFor < today) {
-    return { text: `延期 ${diffDays(today, task.plannedFor)} 天`, tone: "warn" }
+    return { text: getT().common.taskBits.late(diffDays(today, task.plannedFor)), tone: "warn" }
   }
   return { text: formatRelativeDay(task.plannedFor, today), tone: "normal" }
 }
@@ -102,9 +106,9 @@ export function planText(task: Task, today: DayKey): { text: string; tone: "norm
 export function dueText(task: Task, today: DayKey): { text: string; tone: "normal" | "bad" } | null {
   if (!task.dueOn || task.status === "done" || task.status === "dropped") return null
   const left = diffDays(task.dueOn, today)
-  if (left < 0) return { text: `逾期 ${-left} 天`, tone: "bad" }
-  if (left === 0) return { text: "今天截止", tone: "bad" }
-  if (left <= 7) return { text: `${formatRelativeDay(task.dueOn, today)}截止`, tone: "normal" }
+  if (left < 0) return { text: getT().common.taskBits.overdue(-left), tone: "bad" }
+  if (left === 0) return { text: getT().common.taskBits.dueToday, tone: "bad" }
+  if (left <= 7) return { text: getT().common.taskBits.dueBy(formatRelativeDay(task.dueOn, today)), tone: "normal" }
   return null
 }
 
@@ -125,14 +129,15 @@ export function TimerButton({ task, className }: { task: Task; className?: strin
   const running = useWorkbench((state) => state.timer?.taskId === task.id)
   const start = useWorkbench((state) => state.startTimer)
   const stop = useWorkbench((state) => state.stopTimer)
+  const t = useT()
   if (task.status === "done" || task.status === "dropped") return null
-  const label = running ? "停止计时" : "开始计时"
+  const label = running ? t.common.timer.stop : t.common.timer.start
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label={`${label}：${task.title}`}
+          aria-label={running ? t.common.taskBits.stopAria(task.title) : t.common.taskBits.startAria(task.title)}
           onClick={(event) => {
             event.stopPropagation()
             if (running) stop()

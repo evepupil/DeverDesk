@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { PROJECT_STAGE, PROJECT_STAGE_ENDED, PROJECT_STAGE_ORDER } from "@/data/catalog"
 import { monthEnd, monthStart } from "@/domain/calendar"
 import { formatAmount, formatHours } from "@/domain/format"
+import { useT } from "@/i18n/react"
 import { hourlyRate, minutesIn } from "@/domain/insights"
 import { totals } from "@/domain/ledger"
 import { summarizeProject, type ProjectSummary } from "@/domain/projects"
@@ -33,6 +34,7 @@ interface StageGroup {
  * 点卡片在右侧打开详情；地址栏带 ?open= 时直接打开，侧栏的副业入口就是这样跳过来的。
  */
 export function ProjectsPage() {
+  const t = useT()
   const data = useWorkbenchData()
   const today = useToday()
   const openProjectForm = useUi((state) => state.openProjectForm)
@@ -73,14 +75,14 @@ export function ProjectsPage() {
       left={
         <span className="flex min-w-0 items-center gap-3 text-xs text-fg-2 tabular">
           <span>
-            本月净收入 <span className="text-fg">{formatAmount(month.net)}</span>
+            {t.projects.filter.net} <span className="text-fg">{formatAmount(month.net)}</span>
           </span>
           <span>
-            投入 <span className="text-fg">{formatHours(month.minutes)}</span>
+            {t.projects.filter.invested} <span className="text-fg">{formatHours(month.minutes)}</span>
           </span>
           {month.minutes > 0 && (
             <span className="hidden sm:inline">
-              时薪 <span className="text-fg">{formatAmount(Math.round(month.rate))}</span>
+              {t.projects.filter.hourly} <span className="text-fg">{formatAmount(Math.round(month.rate))}</span>
             </span>
           )}
         </span>
@@ -90,11 +92,11 @@ export function ProjectsPage() {
 
   return (
     <PageFrame
-      title="副业"
+      title={t.nav.pages.projects}
       actions={
         <Button variant="outline" size="sm" onClick={() => openProjectForm(null)}>
           <Plus />
-          新的副业
+          {t.projects.board.newProject}
         </Button>
       }
       filterBar={filterBar}
@@ -103,11 +105,11 @@ export function ProjectsPage() {
       {data.projects.length === 0 ? (
         <EmptyState
           icon={FolderPlus}
-          title="还没有副业"
+          title={t.projects.board.empty}
           className="h-full"
           action={
             <Button variant="outline" size="sm" onClick={() => openProjectForm(null)}>
-              新的副业
+              {t.projects.board.newProject}
             </Button>
           }
         />
@@ -121,22 +123,22 @@ export function ProjectsPage() {
                 icon={<StatusIcon glyph={PROJECT_STAGE[group.stage].glyph} tone={PROJECT_STAGE[group.stage].tone} />}
                 title={PROJECT_STAGE[group.stage].label}
                 count={group.items.length}
-                meta={net !== 0 ? `本月 ${formatAmount(net)}` : undefined}
+                meta={net !== 0 ? t.projects.board.monthNet(formatAmount(net)) : undefined}
                 className="max-h-full w-[300px] shrink-0 snap-start xl:w-auto xl:max-w-[400px] xl:min-w-[260px] xl:flex-1"
                 bodyClassName="scroll-thin overflow-y-auto"
                 actions={
                   <>
-                    <IconButton label="新的副业" size="icon-xs" onClick={() => openProjectForm(null)}>
+                    <IconButton label={t.projects.board.newProject} size="icon-xs" onClick={() => openProjectForm(null)}>
                       <Plus />
                     </IconButton>
-                    <IconButton label="收起这一列" size="icon-xs" onClick={() => flip(group.stage)}>
+                    <IconButton label={t.projects.board.collapseColumn} size="icon-xs" onClick={() => flip(group.stage)}>
                       <Minimize2 />
                     </IconButton>
                   </>
                 }
               >
                 {group.items.length === 0 ? (
-                  <p className="px-2 pb-2 text-sm text-fg-2">没有副业</p>
+                  <p className="px-2 pb-2 text-sm text-fg-2">{t.projects.board.columnEmpty}</p>
                 ) : (
                   group.items.map((summary) => (
                     <ProjectCard key={summary.project.id} summary={summary} today={today} onOpen={() => open(summary.project.id)} />
@@ -154,7 +156,7 @@ export function ProjectsPage() {
                   label={PROJECT_STAGE[group.stage].label}
                   count={group.items.length}
                   onClick={() => flip(group.stage)}
-                  aria-label={`展开「${PROJECT_STAGE[group.stage].label}」，${group.items.length} 个副业`}
+                  aria-label={t.projects.board.expandColumn(PROJECT_STAGE[group.stage].label, group.items.length)}
                 />
               ))}
             </div>
