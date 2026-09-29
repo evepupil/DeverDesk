@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 
-import { emptyWorkbench, generateWorkbench } from "@/data/seed"
+import { blankWorkbench, emptyWorkbench, generateWorkbench } from "@/data/seed"
 import { todayKey } from "@/domain/calendar"
 import { toggleDone } from "@/domain/routines"
 import { nextTaskSeq } from "@/domain/tasks"
@@ -54,6 +54,8 @@ function uid(prefix: string) {
 function initial(): Snapshot {
   const today = todayKey()
   const stored = storage.load()
+  // 在线版：存储层总会给出一份（缓存或空白），直接用，云端的数据不按日子重新生成
+  if (storage.kind === "cloud") return stored ?? { meta: { sample: false, seededOn: today, touched: false }, data: blankWorkbench() }
   if (stored && (!stored.meta.sample || stored.meta.touched || stored.meta.seededOn === today)) return stored
   return { meta: { sample: true, seededOn: today, touched: false }, data: generateWorkbench(today, Date.now()) }
 }
@@ -147,7 +149,8 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
       const tasks = get().tasks
       const seq = nextTaskSeq(tasks)
       const task: Task = {
-        id: `T-${seq}`,
+        // 内部编号跨设备不重复（在线版多台设备同时新建也不会撞）；显示编号用 seq
+        id: uid("t"),
         seq,
         title: input.title.trim(),
         projectId: input.projectId ?? null,
@@ -433,3 +436,9 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
 export function workbenchData(state: WorkbenchState): WorkbenchData {
   return dataOf(state)
 }
+
+storage.connect?.({
+  replace(next) {
+    useWorkbench.setState({ ...next.data, meta: next.meta })
+  },
+})

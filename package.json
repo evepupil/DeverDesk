@@ -13,14 +13,19 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:local": "node scripts/dev.mjs --local",
     "build": "node scripts/build.mjs",
     "build:local": "node scripts/build.mjs --edition local",
+    "deploy": "node scripts/deploy.mjs",
     "deploy:demo": "node scripts/build.mjs --edition local && wrangler deploy -c deploy/demo/wrangler.jsonc",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p worker/tsconfig.json",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "shots": "node scripts/acceptance/shots.mjs",
-    "probe": "node scripts/acceptance/probe.mjs"
+    "probe": "node scripts/acceptance/probe.mjs",
+    "e2e": "node scripts/acceptance/e2e-cloud.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
@@ -48,6 +53,7 @@
     "playwright-core": "1.63.0",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vitest": "^5.0.2",
     "wrangler": "^4.143.1"
   }
 }

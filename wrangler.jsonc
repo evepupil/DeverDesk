@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Worker 接口与静态页面共用一个部署单元。
+  "name": "deverdesk",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  // 仅 /api/* 进入 Worker；其它路径由静态资源绑定提供。Access 可选变量 ACCESS_TEAM_DOMAIN、ACCESS_AUD 可写在本文件的 vars 中，本地测试也可写入 .dev.vars。
+  "assets": {
+    "directory": "./out",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  // D1 在线版数据；首次部署时 Wrangler 按数据库名创建实例。迁移文件位于 worker/migrations。
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "deverdesk",
+      "migrations_dir": "worker/migrations"
+    }
+  ],
+  // Wrangler 本地和线上运行时日志、指标观测。
+  "observability": {
+    "enabled": true
+  }
+}

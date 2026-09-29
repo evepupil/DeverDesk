@@ -4,7 +4,7 @@ import { create } from "zustand"
 
 import type { EntryInput, TaskInput } from "./store"
 
-/** 浮层开合：搜索、快捷键说明、手机侧栏、任务详情、各种表单、手机快速记录、本地版说明，以及提醒已读 */
+/** 浮层开合：搜索、快捷键说明、手机侧栏、任务详情、各种表单、手机快速记录、访问令牌、本地版说明，以及提醒已读 */
 
 export type TaskFormState = { mode: "create"; preset?: Partial<TaskInput> } | { mode: "edit"; taskId: string }
 export type EntryFormState = { mode: "create"; preset?: Partial<EntryInput> } | { mode: "edit"; entryId: string }
@@ -20,6 +20,7 @@ interface UiState {
   projectForm: { projectId: string | null } | null
   quickAddOpen: boolean
   profileOpen: boolean
+  tokensOpen: boolean
   localNoticeOpen: boolean
   readAlertIds: string[]
   setCommandOpen(open: boolean): void
@@ -37,6 +38,7 @@ interface UiState {
   closeProjectForm(): void
   setQuickAddOpen(open: boolean): void
   setProfileOpen(open: boolean): void
+  setTokensOpen(open: boolean): void
   setLocalNoticeOpen(open: boolean): void
   markAlertsRead(ids: string[]): void
 }
@@ -52,6 +54,7 @@ export const useUi = create<UiState>()((set) => ({
   projectForm: null,
   quickAddOpen: false,
   profileOpen: false,
+  tokensOpen: false,
   localNoticeOpen: false,
   readAlertIds: [],
   setCommandOpen: (open) => set({ commandOpen: open }),
@@ -69,6 +72,7 @@ export const useUi = create<UiState>()((set) => ({
   closeProjectForm: () => set({ projectForm: null }),
   setQuickAddOpen: (open) => set({ quickAddOpen: open }),
   setProfileOpen: (open) => set({ profileOpen: open }),
+  setTokensOpen: (open) => set({ tokensOpen: open }),
   setLocalNoticeOpen: (open) => set({ localNoticeOpen: open }),
   markAlertsRead: (ids) => set((state) => ({ readAlertIds: Array.from(new Set([...state.readAlertIds, ...ids])) })),
 }))

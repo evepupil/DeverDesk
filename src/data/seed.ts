@@ -672,3 +672,17 @@ export function emptyWorkbench(template: WorkbenchData): WorkbenchData {
   }
 }
 
+/** 在线版首次打开时使用的空白工作台 */
+export function blankWorkbench(): WorkbenchData {
+  return {
+    profile: { name: "我", weekdayMin: 180, weekendMin: 360, dayStartHour: 8, dayEndHour: 24 },
+    projects: [],
+    tasks: [],
+    entries: [],
+    ledger: [],
+    routines: [],
+    notes: [],
+    timer: null,
+  }
+}
+

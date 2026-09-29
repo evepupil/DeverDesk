@@ -113,6 +113,11 @@ export function suggestForDay(tasks: Task[], day: DayKey, limit = 6): Task[] {
     .slice(0, limit)
 }
 
+/** 界面上显示的任务编号：T-123。两台设备离线各建一件时显示编号可能相同，内部编号不会 */
+export function taskCode(task: Pick<Task, "seq">): string {
+  return `T-${task.seq}`
+}
+
 export function nextTaskSeq(tasks: Task[]): number {
   return tasks.reduce((max, task) => Math.max(max, task.seq), 100) + 1
 }

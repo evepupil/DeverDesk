@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { taskCode } from "@/domain/tasks"
 import { TASK_TITLE_MAX, validateTitle } from "@/domain/validation"
 import type { Priority, Task, TaskStatus } from "@/domain/types"
 import { EstimateOptions, NO_PROJECT, PriorityOptions, ProjectOptions, StatusOptions } from "@/features/common/property-controls"
@@ -72,7 +73,7 @@ function Body({ form, task }: { form: TaskFormState; task: Task | null }) {
     const created = createTask(input)
     close()
     if (useWorkbench.getState().lastSaveOk) {
-      toast.success(`已新建 ${created.id}`, { description: created.title, action: { label: "查看", onClick: () => openTask(created.id) } })
+      toast.success(`已新建 ${taskCode(created)}`, { description: created.title, action: { label: "查看", onClick: () => openTask(created.id) } })
     }
   }
 
@@ -169,7 +170,7 @@ export function TaskFormDialog() {
     <Dialog open={form !== null} onOpenChange={(open) => !open && close()}>
       <DialogContent className="gap-0 p-0 sm:max-w-[520px]">
         <DialogHeader className="border-b border-line px-4 py-3">
-          <DialogTitle>{task ? `编辑 ${task.id}` : "新建任务"}</DialogTitle>
+          <DialogTitle>{task ? `编辑 ${taskCode(task)}` : "新建任务"}</DialogTitle>
           <DialogDescription className="sr-only">填写任务信息</DialogDescription>
         </DialogHeader>
         {form && <Body key={key} form={form} task={task} />}

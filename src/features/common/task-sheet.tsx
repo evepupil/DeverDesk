@@ -18,7 +18,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Textarea } from "@/components/ui/textarea"
 import { dayKeyOf, formatDayLong, formatMonthDay, minutesToTime, minuteOfDay } from "@/domain/calendar"
 import { formatClock, formatMinutes, formatMinutesLong } from "@/domain/format"
-import { minutesOf } from "@/domain/tasks"
+import { minutesOf, taskCode } from "@/domain/tasks"
 import type { Priority, TaskStatus } from "@/domain/types"
 import { focusRing } from "@/lib/styles"
 import { useNow, useToday } from "@/state/hooks"
@@ -74,7 +74,7 @@ export function TaskSheet() {
           <>
             <SheetHeader className="gap-2 pr-11">
               <div className="flex items-center gap-1.5 text-xs text-fg-2">
-                <span className="tabular">{task.id}</span>
+                <span className="tabular">{taskCode(task)}</span>
                 <span aria-hidden>·</span>
                 <span>{formatMonthDay(dayKeyOf(new Date(task.createdAt)))}创建</span>
                 <div className="ml-auto flex items-center gap-1">

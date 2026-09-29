@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { ProjectMark } from "@/components/base/marks"
 import { parseQuickAdd, type QuickToken } from "@/domain/quick-add"
+import { taskCode } from "@/domain/tasks"
 import type { DayKey } from "@/domain/types"
 import { useProjectsById } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
@@ -71,7 +72,7 @@ export function QuickAdd({
     setValue("")
     setError(null)
     onCreated?.()
-    if (useWorkbench.getState().lastSaveOk) toast.success(`已添加 ${task.id}`, { description: task.title, duration: 2000 })
+    if (useWorkbench.getState().lastSaveOk) toast.success(`已添加 ${taskCode(task)}`, { description: task.title, duration: 2000 })
   }
 
   return (

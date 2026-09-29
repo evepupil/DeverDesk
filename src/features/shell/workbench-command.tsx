@@ -20,6 +20,7 @@ import { ENTRY_STATUS, PROJECT_STAGE, TASK_STATUS } from "@/data/catalog"
 import { formatMonthDay } from "@/domain/calendar"
 import { formatSignedAmount } from "@/domain/format"
 import { searchLedger, searchProjects, searchTasks } from "@/domain/search"
+import { taskCode } from "@/domain/tasks"
 import { useUi } from "@/state/ui"
 import { useWorkbench } from "@/state/store"
 import { WORKBENCH_PAGES, WORKBENCH_VIEWS, viewHref } from "./nav"
@@ -86,7 +87,7 @@ export function WorkbenchCommand() {
                   <CommandItem key={task.id} value={`task-${task.id}`} onSelect={() => run(() => openTask(task.id))}>
                     <StatusIcon glyph={status.glyph} tone={status.tone} />
                     <span className="truncate">{task.title}</span>
-                    <CommandShortcut className="tabular">{task.id}</CommandShortcut>
+                    <CommandShortcut className="tabular">{taskCode(task)}</CommandShortcut>
                   </CommandItem>
                 )
               })}

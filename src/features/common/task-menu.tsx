@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { PRIORITY, PRIORITY_ORDER, TASK_STATUS, TASK_STATUS_ORDER } from "@/data/catalog"
 import { addDays, formatDayShort, weekDays, weekStart, weekdayLabel } from "@/domain/calendar"
+import { taskCode } from "@/domain/tasks"
 import type { DayKey, Priority, Task, TaskStatus } from "@/domain/types"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
@@ -128,7 +129,7 @@ export function TaskMenu({ task, today, trigger }: { task: Task; today: DayKey; 
           variant="destructive"
           onSelect={() => {
             deleteTask(task.id)
-            toast(`已删除 ${task.id}`, {
+            toast(`已删除 ${taskCode(task)}`, {
               description: task.title,
               action: { label: "撤销", onClick: () => restoreTask(task) },
             })

@@ -7,6 +7,7 @@ import type { DragEvent } from "react"
 import { LabelChip } from "@/components/base/label-chip"
 import { ProjectMark } from "@/components/base/marks"
 import { PRIORITY } from "@/data/catalog"
+import { taskCode } from "@/domain/tasks"
 import type { DayKey, Task } from "@/domain/types"
 import { focusRing } from "@/lib/styles"
 import { useLoggedByTask, useProjectsById } from "@/state/hooks"
@@ -82,7 +83,7 @@ export function TaskCard({
     >
       <div className="flex h-[18px] min-w-0 items-center gap-2 text-xs text-fg-2">
         {showTime && task.startAt && <span className="text-fg tabular">{task.startAt}</span>}
-        {show("id") && <span className="tabular">{task.id}</span>}
+        {show("id") && <span className="tabular">{taskCode(task)}</span>}
         {show("estimate") && <EstimateText task={task} logged={logged} />}
         {running && <RunningDot />}
         <span className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 max-lg:opacity-100">

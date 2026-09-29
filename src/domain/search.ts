@@ -1,4 +1,5 @@
 import type { LedgerEntry, Project, Task } from "./types"
+import { taskCode } from "./tasks"
 
 /** 全局搜索：任务按编号和标题、副业按名称和目标、收支按说明和金额 */
 
@@ -6,16 +7,16 @@ function isEnded(task: Task) {
   return task.status === "done" || task.status === "dropped"
 }
 
-/** 编号完全相同排最前，其次标题开头相同、标题包含、备注包含；没做完的排在做完的前面 */
+/** 显示编号完全相同排最前（支持输入 t-123 或 123），其次标题开头相同、标题包含、备注包含；没做完的排在做完的前面 */
 export function searchTasks(tasks: Task[], q: string, limit = 8): Task[] {
   const query = q.trim().toLowerCase()
   if (!query) return []
   const hits: { task: Task; score: number }[] = []
   for (const task of tasks) {
-    const id = task.id.toLowerCase()
+    const code = taskCode(task).toLowerCase()
     const title = task.title.toLowerCase()
     let score = -1
-    if (id === query || id === `t-${query}`) score = 0
+    if (code === query || code === `t-${query}`) score = 0
     else if (title.startsWith(query)) score = 1
     else if (title.includes(query)) score = 2
     else if (task.notes.toLowerCase().includes(query)) score = 3

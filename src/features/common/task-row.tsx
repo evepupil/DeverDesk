@@ -4,6 +4,7 @@ import { cn } from "cn"
 
 import { LabelChip } from "@/components/base/label-chip"
 import { ProjectMark } from "@/components/base/marks"
+import { taskCode } from "@/domain/tasks"
 import type { DayKey, Task } from "@/domain/types"
 import { focusRing } from "@/lib/styles"
 import { useLoggedByTask, useProjectsById } from "@/state/hooks"
@@ -58,7 +59,7 @@ export function TaskRow({
       )}
     >
       <StatusToggle task={task} />
-      {showId && <span className="hidden w-12 shrink-0 text-xs text-fg-2 tabular @md:inline">{task.id}</span>}
+      {showId && <span className="hidden w-12 shrink-0 text-xs text-fg-2 tabular @md:inline">{taskCode(task)}</span>}
       {showTime && (
         <span className={cn("w-10 shrink-0 text-xs tabular", task.startAt ? "text-fg" : "text-fg-3")}>
           {task.startAt ?? "—"}
