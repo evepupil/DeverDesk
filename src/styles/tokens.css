@@ -1,0 +1,151 @@
+/*
+ * 设计规则层：换配色、换密度只改这个文件。
+ * 注释里标「提炼」的数值来自 sonder-board/docs/设计提炼.md，标「推导」的是按提炼规则补出来的。
+ */
+
+@theme {
+  /* 字族（推导）：拉丁字母和数字用 Inter，中文回落到系统黑体 */
+  --font-sans:
+    "Inter Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI",
+    "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  --font-heading: var(--font-sans);
+
+  /* 字号：正文 13/17、辅助 12/16（提炼）；关键数字 20/24（推导，只用在主图页签） */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 17px;
+  --text-xl: 20px;
+  --text-xl--line-height: 24px;
+
+  /* 字重只用 400/500（提炼）：600、700 统一收敛到 500 */
+  --font-weight-semibold: 500;
+  --font-weight-bold: 500;
+
+  /* 圆角：控件 5px、卡片 6px（提炼）；弹窗 8px（推导） */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 8px;
+  --radius-3xl: 8px;
+  --radius-4xl: 8px;
+
+  /* 阴影：很浅（提炼），按层级分开 */
+  --shadow-2xs: 0 1px 0 rgb(16 16 24 / 0.02);
+  --shadow-xs: 0 1px 1px rgb(16 16 24 / 0.03);
+  --shadow-sm: 0 1px 1px rgb(16 16 24 / 0.03), 0 1px 3px rgb(16 16 24 / 0.035);
+  --shadow-md: 0 8px 24px rgb(16 16 24 / 0.08), 0 2px 6px rgb(16 16 24 / 0.04);
+  --shadow-lg: 0 16px 48px rgb(16 16 24 / 0.14), 0 4px 12px rgb(16 16 24 / 0.05);
+  --shadow-xl: 0 8px 24px rgb(16 16 24 / 0.08), 0 2px 6px rgb(16 16 24 / 0.04);
+}
+
+:root {
+  /* 表面：窗口浅灰 → 面板近白 → 卡片白（提炼），列比面板略深一点 */
+  --surface-window: #f2f2f3;
+  --surface-panel: #fbfbfb;
+  --surface-column: #f4f4f5;
+  --surface-card: #ffffff;
+  --surface-raised: #f7f7f8;
+
+  /* 文字：正文对比度 ≥ 4.5:1，第三级只给图标、占位和禁用 */
+  --text-primary: #1c1c20;
+  --text-secondary: #62626b;
+  --text-tertiary: #8f8f98;
+
+  /* 线条：1px 低对比（提炼） */
+  --line-subtle: #ebebee;
+  --line-default: #e2e2e6;
+  --line-strong: #d0d0d6;
+
+  /* 交互状态：半透明叠加，放在任何一层表面上都成立 */
+  --state-hover: rgb(24 24 32 / 0.045);
+  --state-pressed: rgb(24 24 32 / 0.08);
+  --state-selected: rgb(24 24 32 / 0.065);
+  --focus-ring: #85858f;
+  --overlay: rgb(16 16 24 / 0.22);
+
+  /* 识别色：绿色团队、黄色进行中、紫色已结束（提炼）；风险红、闲置灰（推导） */
+  --team: #2f9e62;
+  --progress: #e5a50a;
+  --done: #6e56cf;
+  --risk: #e5484d;
+  --idle: #a1a1a9;
+
+  /* 涨跌（推导）：只用在小号文字上 */
+  --good: #1f8a53;
+  --bad: #cf3035;
+  /* 进行中黄色太浅，做文字时用这个加深版（白底对比度约 5.5:1） */
+  --warn: #8a6100;
+
+  /* 标签：只出现在 6px 小色点上（提炼：彩色标签） */
+  --label-red: #e5484d;
+  --label-orange: #f76b15;
+  --label-amber: #e8a317;
+  --label-green: #30a46c;
+  --label-teal: #12a594;
+  --label-blue: #0588f0;
+  --label-indigo: #3e63dd;
+  --label-violet: #8e4ec6;
+  --label-pink: #d6409f;
+  --label-gray: #8d8d96;
+
+  /* 图表（推导）：主线中性深灰，对比期浅灰虚线，套餐用灰阶深浅区分 */
+  --chart-ink: #2b2b31;
+  --chart-area: rgb(43 43 49 / 0.07);
+  --chart-compare: #b4b4bc;
+  --chart-grid: #eeeef0;
+  --chart-negative: #cbcbd1;
+  --tier-3: #2b2b31;
+  --tier-2: #74747d;
+  --tier-1: #b2b2ba;
+
+  /* 骨架尺寸（提炼） */
+  --h-windowbar: 38px;
+  --w-sidebar: 240px;
+  --h-viewbar: 40px;
+  --h-filterbar: 40px;
+  --gap-card: 8px;
+  --icon-stroke: 1.7;
+
+  /* 动效（推导） */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+
+  /* shadcn 组件读取的语义变量 */
+  --radius: 6px;
+  --background: var(--surface-card);
+  --foreground: var(--text-primary);
+  --card: var(--surface-card);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-card);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--text-primary);
+  --primary-foreground: #ffffff;
+  --secondary: #efeff1;
+  --secondary-foreground: var(--text-primary);
+  --muted: #f0f0f2;
+  --muted-foreground: var(--text-secondary);
+  --accent: #efeff1;
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--bad);
+  --border: var(--line-subtle);
+  --input: var(--line-default);
+  --ring: var(--focus-ring);
+  --chart-1: var(--tier-3);
+  --chart-2: var(--tier-2);
+  --chart-3: var(--tier-1);
+  --chart-4: var(--chart-compare);
+  --chart-5: var(--chart-grid);
+  --sidebar: var(--surface-window);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--text-primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--state-selected);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--line-subtle);
+  --sidebar-ring: var(--focus-ring);
+}
