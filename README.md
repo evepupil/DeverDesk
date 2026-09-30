@@ -1,137 +1,212 @@
+<div align="center">
+
+<img src="docs/assets/logo.svg" width="72" height="72" alt="DeverDesk logo" />
+
 # DeverDesk
 
-独立开发者的一人公司控制台：任务、时间和副业收支放在一起，算出每个副业每小时到底赚多少。
+**The one-person company console for indie developers.**
 
-![今天](docs/截图/01-今天-1440.png)
+Tasks, time and side-project money in one place — and the real hourly rate of every project.
 
-## 能做什么
+[![CI](https://github.com/evepupil/DeverDesk/actions/workflows/ci.yml/badge.svg)](https://github.com/evepupil/DeverDesk/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![Live demo](https://img.shields.io/badge/demo-deverdesk.com-1c1c20.svg)](https://deverdesk.com)
+[![Self-host on Cloudflare](https://img.shields.io/badge/self--host-Cloudflare-F38020.svg?logo=cloudflare&logoColor=white)](#deploy-your-own)
 
-| 页面 | 做什么 |
+**English** · [简体中文](README.zh-CN.md)
+
+</div>
+
+![DeverDesk — the Today view](docs/assets/screenshots/en/today.jpg)
+
+## Why DeverDesk
+
+Most indie developers run several things at once: a template store, an API relay, a blog, a consulting gig. Task apps know nothing about money, and bookkeeping apps know nothing about time — so it is hard to tell which project deserves your evenings.
+
+DeverDesk keeps tasks, time and income together and connects them. Every task, time block and payment belongs to a project, so the app can show each project's net income, hours spent and resulting **hourly rate**.
+
+- **Open source and self-hosted.** Run it on your own Cloudflare account. Your financial data never sits on someone else's server.
+- **Free to run.** The Cloudflare free tier is more than enough for one person.
+- **Fast to use.** Keyboard-first, with a command palette and one-line quick add, and it keeps working offline.
+
+## Features
+
+| View | What it does |
 | --- | --- |
-| 今天 | 今天的计划、之前没做完的一键挪到今天、可以加进今天的建议；时间线上拖动改时间、拖下边改时长、点空白处排任务、一键自动排；例行打卡、本月净收入对照目标、今天的投入记录 |
-| 本周 | 七天从上往下排，每天一个容量条看出哪天排满；任务在日子之间拖动，右边是还没排日子的任务 |
-| 任务 | 看板或列表；按状态、副业、优先级分组；筛选、排序；卡片拖到别的列就改成那一列的状态 / 副业 / 优先级 |
-| 副业 | 按构思、搭建中、运营中排成看板；每个副业的本月净收入、投入、时薪、月目标进度、下个里程碑；详情里看 12 周走势 |
-| 收支 | 待到账单独放最上面，其余按月（或副业、分类）分组；标记到账、退款；导出表格 |
-| 概览 | 净收入、投入时间、时薪、完成任务四个指标切换同一张走势图；按副业、钱、时间拆开看 |
-| 回顾 | 每周自动写一段小结；完成的事、每天投入、钱；三段复盘笔记 |
-| 例行 | 每天、每周、每月的例行事务，连续期数和打卡格子 |
+| **Today** | Today's plan; move unfinished work to today in one click; drag tasks onto a timeline, resize blocks to change duration, or auto-schedule the day; routines, net income this month vs. target, and time tracked today |
+| **Week** | Seven days top to bottom with a capacity bar per day; drag tasks between days; unscheduled tasks on the side |
+| **Tasks** | Board or list; group by status, project or priority; filter and sort; drag a card to another column to change it |
+| **Projects** | A board by stage (idea, building, running); net income, hours, hourly rate, monthly goal progress and next milestone per project; a 12-week trend |
+| **Ledger** | Pending payments pinned on top, everything else grouped by month, project or category; mark entries as received or refunded; CSV export |
+| **Insights** | Net income, time tracked, hourly rate and tasks done on one trend chart, with breakdowns by project, money and time |
+| **Review** | An auto-written weekly summary, what got done, where the time went, and three reflection notes |
+| **Routines** | Daily, weekly and monthly routines with streaks and a check-in grid |
 
-界面有中文和英文两种语言（头像菜单里切换，第一次打开按浏览器语言选），金额按个人设置里的记账币种显示。
+Everywhere: a command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd>), alerts for overbooked days, overdue tasks and late payments, a running timer, one-line quick add (`Write report 30m #blog tomorrow !!`), a quick-capture button on phones, backup export and import, and keyboard shortcuts (<kbd>?</kbd>).
 
-全局：Ctrl/⌘ K 搜任务、副业、收支；右上角提醒（排超了、逾期、钱过了约定日没到）；计时条；一行快速添加（`写周报 30m #技术博客 明天 !!`，也认 `Write report 30m #blog tomorrow !!`）；手机右下角快速记录；导出 / 导入备份；按 `?` 看快捷键。
+The interface comes in **English and Chinese** — picked from your browser language and switchable from the avatar menu — and amounts are shown in the currency you choose.
 
-## 本地版和在线版
+<table>
+  <tr>
+    <td width="33%"><img src="docs/assets/screenshots/en/tasks.jpg" alt="Tasks board" /></td>
+    <td width="33%"><img src="docs/assets/screenshots/en/insights.jpg" alt="Insights" /></td>
+    <td width="33%"><img src="docs/assets/screenshots/en/ledger.jpg" alt="Ledger" /></td>
+  </tr>
+  <tr>
+    <td align="center">Tasks</td>
+    <td align="center">Insights</td>
+    <td align="center">Ledger</td>
+  </tr>
+</table>
 
-| | 本地版 | 在线版 |
+## Two editions
+
+|  | Local edition | Cloud edition |
 | --- | --- | --- |
-| 数据存在哪 | 这台设备的浏览器里 | 你自己 Cloudflare 账号里的数据库 |
-| 多设备同步 | 不同步 | 手机、电脑自动同步 |
-| 怎么用 | 打开 [deverdesk.com](https://deverdesk.com) 直接用，或者自己部署 | 部署到自己的 Cloudflare，免费额度个人用不完 |
+| Where your data lives | In this browser only | A D1 database in your own Cloudflare account |
+| Sync across devices | — | Automatic, record by record; works offline |
+| Sign-in | None | A passcode, or Cloudflare Access |
+| How to get it | Open [deverdesk.com](https://deverdesk.com) | [Deploy your own](#deploy-your-own) |
 
-两个版本是同一套代码，打包时用环境变量切换，默认打包在线版。
+Both editions are built from the same code; a build-time switch picks one. Moving from the local edition to the cloud edition is a backup export and import.
 
-## 运行
+## Try it
 
-```bash
-pnpm install
-pnpm dev             # 开发在线版：页面 + 接口一起跑，访问口令见终端
-pnpm dev:local       # 只开本地版页面，不需要接口和数据库
-pnpm build           # 打包在线版，导出静态文件到 out/
-pnpm build:local     # 打包本地版
-pnpm deploy:demo     # 打包本地版并部署成演示站（需要先登录 wrangler，域名在同一个 Cloudflare 账号里）
-pnpm test            # 跑单元测试（vitest，一个测试框架）
-pnpm db:migrate:local  # 单独执行本地数据库迁移（migration，建表和改表结构的 SQL 脚本）
-```
+Open **[deverdesk.com](https://deverdesk.com)**. It runs the local edition with sample data. Nothing is sent to a server, and everything you change stays in your browser.
 
-`pnpm dev` 默认页面在 3000、接口在 8787，用环境变量 `PORT`、`API_PORT` 改（PowerShell 里写 `$env:PORT=3100; pnpm dev`）。第一次 `pnpm dev` 会自动从 `.dev.vars.example` 复制出 `.dev.vars` 并把口令设为 `dev`，终端会提示「本地访问口令：dev」；`.dev.vars` 已被 git 忽略，改口令直接编辑它。
+## Deploy your own
 
-| 环境变量 | 作用 |
-| --- | --- |
-| `NEXT_PUBLIC_DEVERDESK_EDITION` | `local` 打包本地版，其余打包在线版 |
-| `NEXT_PUBLIC_DEVERDESK_REPO_URL` | 本地版右上角 GitHub 图标指向的仓库，fork 后可以换成自己的 |
-| `NEXT_PUBLIC_DEVERDESK_ANALYTICS_TOKEN` | Cloudflare 网页统计令牌，只在本地版生效 |
+The cloud edition is a static Next.js export plus a Cloudflare Worker (the API) and a D1 database, deployed together as a single Worker.
 
-地址后面加 `?fail=save`，第一次保存会故意失败，用来看失败提示和重试。
-
-## 在线版部署
-
-在线版 = Next.js 静态页面 + Cloudflare Worker（接口）+ D1（数据库）。Worker 是 Cloudflare 的服务端程序，D1 是它家的 SQLite 数据库，免费额度个人用不完。
-
-### 一键部署
-
-点下面的按钮，把整个应用部署到你自己的 Cloudflare 账号（仓库需要保持公开）：
+### One-click deploy
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/evepupil/DeverDesk)
 
-点完之后会发生这些事：
+1. Authorize GitHub. Cloudflare creates a copy of this repository in your account and redeploys whenever you push to it.
+2. A D1 database is created for you.
+3. Set `DEVERDESK_PASSWORD`: the passcode you type to open your workspace.
+4. When the build finishes, open the `*.workers.dev` address and sign in.
 
-1. 授权你的 GitHub 账号，Cloudflare 会在你的账号下复制一份仓库（以后在这个副本上推送代码，Cloudflare 会自动重新部署）。
-2. 自动建好 D1 数据库。
-3. 让你填访问口令（对应 `.dev.vars.example` 里的 `DEVERDESK_PASSWORD`，打开网站时要输入的口令）。
-4. 部署完成后给你一个 `*.workers.dev` 的网址，打开输入口令就能用。
+To use your own domain, add it to the Worker in the Cloudflare dashboard (**Workers & Pages → your Worker → Settings → Domains & Routes**).
 
-部署完成后想换自己的域名：在 Cloudflare 后台找到这个 Worker（在 Workers & Pages 里），在它的设置里加自定义域名即可。
+### Manual deploy
 
-想用 Cloudflare Access（Cloudflare 的登录网关，可以用公司账号统一登录）代替口令的，在 Worker 的设置里加两个变量：`ACCESS_TEAM_DOMAIN` 和 `ACCESS_AUD`，不填不影响口令登录。
+Requires Node.js 22+ and pnpm 10.
 
-### 手动部署
+```bash
+git clone https://github.com/evepupil/DeverDesk.git
+cd DeverDesk
+pnpm install
+pnpm exec wrangler login                          # sign in to Cloudflare
+pnpm build
+pnpm run deploy                                   # create the tables, then deploy the Worker
+pnpm exec wrangler secret put DEVERDESK_PASSWORD  # set your passcode (input is hidden)
+```
 
-不方便用按钮的话，命令行也能部署：
+`pnpm run deploy` applies database migrations before deploying. On a brand-new account it deploys once first so that Wrangler creates the database, then applies the migrations. Note the `run`: `pnpm deploy` on its own is an unrelated built-in pnpm command.
+
+To update later, pull the latest code and run `pnpm build && pnpm run deploy` again.
+
+### Sign-in options
+
+- **Passcode** (default), set with `DEVERDESK_PASSWORD`. Sessions last 30 days. After 10 failed attempts from the same IP, sign-in is locked for 15 minutes. Changing the passcode signs out every device.
+- **Cloudflare Access.** Put the Worker behind [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) and set `ACCESS_TEAM_DOMAIN` (for example `your-team.cloudflareaccess.com`) and `ACCESS_AUD` (the application's audience tag). People signed in through Access skip the passcode.
+
+### Move data from the local edition
+
+In the local edition, choose **Export backup** from the avatar menu. In your cloud edition, choose **Import backup** and pick that file.
+
+## Automation API
+
+The cloud edition has a small HTTP API for scripts and AI assistants; it is the groundwork for an upcoming MCP server. Create a personal access token from the avatar menu → **Access tokens**. Each token is shown only once and stored only as a hash.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/tasks` | Create a task. Fields: `title` (required), `plannedFor` (`YYYY-MM-DD`), `estimateMin`, `priority` (0–4), `projectId`, `notes` |
+| `POST /api/ledger` | Record income or an expense. Fields: `kind` (`income` / `expense`) and `amount` (required), `category`, `channel`, `projectId`, `status`, `date`, `expectedOn`, `note` |
+| `GET /api/summary?month=YYYY-MM` | Income, expenses, net, minutes tracked and tasks done for one month |
+
+```bash
+curl -X POST https://your-workspace.example.com/api/tasks \
+  -H "Authorization: Bearer dd_your_token" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Write the launch post","plannedFor":"2026-10-01","estimateMin":45}'
+```
+
+Records created through the API sync to every device like any other change.
+
+## Development
+
+Requirements: Node.js 22+ and pnpm 10. Development works on Windows, macOS and Linux.
 
 ```bash
 pnpm install
-pnpm exec wrangler login                          # 登录你的 Cloudflare 账号
-pnpm build
-pnpm run deploy                                   # 建表并部署（pnpm 自带一个 deploy 命令，这里要写 run）
-pnpm exec wrangler secret put DEVERDESK_PASSWORD  # 设访问口令，输入时不显示
+pnpm dev          # cloud edition: pages on :3000, API on :8787, local passcode "dev"
+pnpm dev:local    # local edition only, no API or database needed
 ```
 
-`pnpm run deploy` 先把数据库迁移应用到线上（建好表），再部署 Worker；新账号第一次部署还没有数据库时，会先部署一次让 wrangler 自动建好数据库，再建表。以后更新代码重复 `pnpm build` 和 `pnpm run deploy` 即可，口令只用设一次。
+The first `pnpm dev` creates `.dev.vars` from `.dev.vars.example` with the passcode `dev`, and applies the local database migrations. Use `PORT` and `API_PORT` to change the ports.
 
-### 从本地版搬数据
-
-已经在用本地版？在本地版右上角头像菜单里「导出备份」，再到在线版里「导入备份」就行。
-
-## 核对
-
-```bash
-pnpm typecheck && pnpm lint && pnpm test   # 类型检查、代码检查、单元测试
-```
-
-下面两个脚本用本机 Edge 直接读 `out/` 里的文件，不启动服务，先打包本地版 `pnpm build:local`：
-
-```bash
-pnpm probe        # 真的点一遍：快速添加、拖动排期、自动排、标记到账、例行、快捷键、计时、本地版说明，核对数字和刷新后是否还在
-pnpm shots        # 各页面、各宽度和交互状态截图，输出到 scripts/acceptance/.shots/
-```
-
-在线版的端到端核对会在本机起一个接口（用独立的临时数据库），两个浏览器窗口模拟两台设备，核对登录、互相同步、离线补传、同时修改、访问令牌和退出登录。先打包在线版，并且跑过一次 `pnpm dev` 生成本地口令：
-
-```bash
-pnpm build && pnpm e2e
-```
-
-## 目录
-
-| 位置 | 放什么 |
+| Command | What it does |
 | --- | --- |
-| `src/styles/tokens.css` | 设计令牌：配色、字号、圆角、阴影、密度 |
-| `src/domain/` | 只做计算、不碰界面：排期、例行、收支、指标、回顾、快速添加解析、搜索、备份校验 |
-| `src/data/` | 状态叫法、分类选项、样例数据生成 |
-| `src/state/` | 数据、界面偏好、浮层开合；`storage/` 是存储层（本地版写浏览器，在线版接云端） |
-| `src/lib/edition.ts` | 版本开关：本地版还是在线版 |
-| `src/i18n/` | 多语言：语言设置和中英文词条 |
-| `src/sync/protocol.ts`、`src/lib/api.ts` | 前后端共用的同步约定；浏览器调用接口 |
-| `worker/` | 在线版接口（Cloudflare Worker）：登录、同步、访问令牌、给 AI 助手用的操作接口；`migrations/` 是数据库建表语句 |
-| `src/components/` | 基础组件：shadcn 组件和状态图形、标签、看板列等 |
-| `src/features/` | 外框（`shell`）、各页面和共用部件 |
-| `src/app/` | 路由 |
-| `deploy/demo/` | 本地版演示站的部署配置 |
-| `scripts/` | 本地开发、按版本打包、核对脚本 |
+| `pnpm build` / `pnpm build:local` | Build the cloud / local edition into `out/` |
+| `pnpm typecheck` | Type-check the app and the Worker |
+| `pnpm lint` | Run ESLint |
+| `pnpm test` | Run the unit tests (Vitest) |
+| `pnpm probe` | Click through the core flows of the built local edition in Microsoft Edge, in Chinese and English (run `pnpm build:local` first) |
+| `pnpm e2e` | Start the API locally and simulate two devices signing in and syncing (run `pnpm build` first; it reads the passcode from `.dev.vars`) |
+| `pnpm shots` / `pnpm shots:readme` | Take screenshots for visual checks / for this README |
 
-设计规格见 [docs/前端设计.md](docs/前端设计.md)，各模块怎么工作见 [docs/模块设计/](docs/模块设计/)。
+Build-time variables:
 
-## 许可证
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_DEVERDESK_EDITION` | `local` builds the local edition; anything else builds the cloud edition |
+| `NEXT_PUBLIC_DEVERDESK_REPO_URL` | The repository the local edition links to (point it at your fork) |
+| `NEXT_PUBLIC_DEVERDESK_ANALYTICS_TOKEN` | Cloudflare Web Analytics token, used by the local edition only |
 
-[AGPL-3.0](LICENSE)。可以自由使用、修改和自己部署；改过的版本如果拿去对外提供在线服务，也需要公开源代码。
+## Tech stack
+
+- **App:** Next.js 16 (static export), React 19, TypeScript in strict mode, Tailwind CSS 4, shadcn/ui on Radix, Zustand, Recharts
+- **Backend:** Cloudflare Workers with static assets, D1 (SQLite), Web Crypto
+- **Quality:** Vitest, ESLint, and Playwright-driven acceptance scripts
+
+## Project structure
+
+```text
+src/
+  app/          routes
+  features/     the app shell and one folder per view
+  components/   UI primitives (shadcn/ui) and small building blocks
+  domain/       pure logic: scheduling, routines, money, insights, quick-add parsing, search, backups
+  state/        data store, preferences, sync status, and the storage layer (browser or cloud)
+  i18n/         language settings and the English and Chinese dictionaries
+  data/         catalogs and sample-data generation
+  sync/         the sync protocol shared by the browser and the Worker
+worker/         the Cloudflare Worker: sign-in, sync, tokens, automation API, D1 migrations
+scripts/        dev server, build, deploy and acceptance scripts
+deploy/demo/    configuration for the deverdesk.com demo
+docs/           design documents (in Chinese)
+```
+
+## Roadmap
+
+- [x] Local and cloud editions from one codebase
+- [x] Cloud backend: sign-in, record-level sync, offline support, one-click deploy
+- [x] English and Chinese interface, currency setting
+- [ ] Automatic income import from payment platforms
+- [ ] An MCP server so AI assistants can read and log your data
+
+Milestones and module designs (in Chinese) live in [docs/roadmap.md](docs/roadmap.md).
+
+## Contributing
+
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). All interface text lives in `src/i18n/messages`, so please add both English and Chinese when you add text.
+
+## Security
+
+Please report vulnerabilities privately; see [SECURITY.md](SECURITY.md).
+
+## License
+
+[GNU AGPL v3.0](LICENSE). You are free to use, modify and self-host DeverDesk. If you offer a modified version to others as a network service, you must also make its source code available to them.
