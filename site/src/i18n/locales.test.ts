@@ -1,5 +1,40 @@
 import { describe, expect, it } from "vitest"
-import { isLocale, localePath, pickLocale, swapLocale } from "./locales"
+import { isLocale, localeCookie, localePath, parseAcceptLanguage, pickLocale, readLocaleCookie, swapLocale } from "./locales"
+
+describe("localeCookie", () => {
+  it("全站有效、记一年", () => {
+    expect(localeCookie("en")).toBe("deverdesk-site-locale=en; Path=/; Max-Age=31536000; SameSite=Lax")
+  })
+})
+
+describe("readLocaleCookie", () => {
+  it("从一串 Cookie 里取出记住的语言", () => {
+    expect(readLocaleCookie("deverdesk-site-locale=zh")).toBe("zh")
+    expect(readLocaleCookie("a=1; deverdesk-site-locale=en; b=2")).toBe("en")
+    expect(readLocaleCookie("a=1;deverdesk-site-locale=zh")).toBe("zh")
+  })
+
+  it("没有、为空或只是名字相近时是 null；同名取第一条", () => {
+    expect(readLocaleCookie(null)).toBeNull()
+    expect(readLocaleCookie("")).toBeNull()
+    expect(readLocaleCookie("x-deverdesk-site-locale=zh; deverdesk-site-locale-old=zh")).toBeNull()
+    expect(readLocaleCookie("deverdesk-site-locale=en; deverdesk-site-locale=zh")).toBe("en")
+  })
+})
+
+describe("parseAcceptLanguage", () => {
+  it("按原顺序拆出语言，去掉权重", () => {
+    expect(parseAcceptLanguage("zh-CN,zh;q=0.9,en;q=0.8")).toEqual(["zh-CN", "zh", "en"])
+    expect(parseAcceptLanguage("en-US, fr ;q=0.5")).toEqual(["en-US", "fr"])
+  })
+
+  it("q=0 表示不接受，去掉；没有请求头时是空列表", () => {
+    expect(parseAcceptLanguage("en, zh;q=0")).toEqual(["en"])
+    expect(parseAcceptLanguage("en, zh;q=0.000")).toEqual(["en"])
+    expect(parseAcceptLanguage(null)).toEqual([])
+    expect(parseAcceptLanguage("")).toEqual([])
+  })
+})
 
 describe("pickLocale", () => {
   it("存过的语言优先", () => {

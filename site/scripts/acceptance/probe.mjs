@@ -101,7 +101,8 @@ await check("语言下拉：打开、当前语言打勾、Esc 和点外面都能
 await check("语言切换：中文 → 英文并记住", { path: "/zh/", ...desk }, async (page) => {
   await page.locator("header [data-locale-toggle]").first().click()
   await Promise.all([page.waitForURL("**/en/"), page.locator('header [data-locale-menu] a[data-locale="en"]').click()])
-  assert((await page.evaluate(() => localStorage.getItem("deverdesk-site:locale"))) === "en", "没有记住语言")
+  const remembered = (await page.context().cookies()).find((cookie) => cookie.name === "deverdesk-site-locale")
+  assert(remembered?.value === "en", `没有记住语言（Cookie 是 ${remembered?.value}）`)
   assert((await text(page, "h1")) === "The professional workbench for indie developers", `英文标题是 ${await text(page, "h1")}`)
 })
 
@@ -265,13 +266,14 @@ await check("博客：英文列表", { path: "/en/blog/", ...desk, languages: ["
 })
 
 // ---------- 根地址与 404 ----------
+// 这里直接读 out/，根地址走的是页面里的兜底脚本；部署后由 Worker 在服务端跳，那部分由 src/i18n/root-redirect.test.ts 和 wrangler dev 核对
 await check("根地址：中文浏览器跳 /zh/", { path: "/", ...desk, languages: ["zh-CN"] }, async (page) => {
   await page.waitForURL("**/zh/")
 })
 await check("根地址：英文浏览器跳 /en/", { path: "/", ...desk, languages: ["en-US"] }, async (page) => {
   await page.waitForURL("**/en/")
 })
-await check("根地址：存过中文优先", { path: "/", ...desk, languages: ["en-US"], storage: { "deverdesk-site:locale": "zh" } }, async (page) => {
+await check("根地址：记过中文优先", { path: "/", ...desk, languages: ["en-US"], cookies: { "deverdesk-site-locale": "zh" } }, async (page) => {
   await page.waitForURL("**/zh/")
 })
 await check("404 页", { path: "/nope/", ...desk }, async (page) => {

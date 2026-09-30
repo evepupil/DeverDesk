@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { IconCheck, IconChevronDown, IconWorld } from "@tabler/icons-react"
 import { getMessages } from "@/i18n"
-import { HTML_LANG, LOCALE_NAMES, LOCALES, LOCALE_STORAGE_KEY, swapLocale, type Locale } from "@/i18n/locales"
+import { HTML_LANG, LOCALE_NAMES, LOCALES, localeCookie, swapLocale, type Locale } from "@/i18n/locales"
 import { cn } from "@/lib/cn"
 import { usePrefersReducedMotion } from "@/lib/motion"
 
@@ -20,7 +20,7 @@ type LocaleSwitchProps = {
 
 /**
  * 语言切换：经典下拉。按钮上是地球图标 + 当前语言 + 小箭头，点开列出全部语言，当前的打勾。
- * 选项是普通链接（换到另一种语言的同一页），点击时把选择记在浏览器里，下次打开根地址直接用它。
+ * 选项是普通链接（换到另一种语言的同一页），点击时把选择记进 Cookie，下次打开根地址时服务端直接跳到这种语言。
  * 键盘：按钮上 ↓ 打开并聚焦当前语言；菜单里 ↑ ↓ Home End 移动，Esc 关闭并回到按钮；点菜单外面也会关闭。
  */
 export function LocaleSwitch({ locale, direction = "down", align = "right", className }: LocaleSwitchProps) {
@@ -140,7 +140,7 @@ export function LocaleSwitch({ locale, direction = "down", align = "right", clas
                       return
                     }
                     try {
-                      localStorage.setItem(LOCALE_STORAGE_KEY, target)
+                      document.cookie = localeCookie(target)
                     } catch {}
                   }}
                   className={cn(

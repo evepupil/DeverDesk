@@ -1,10 +1,14 @@
 {
-  // 官网：纯静态页面（首页、更新日志、博客，中英文两套），部署成一个只有静态资源的 Worker。
-  // out/ 是 `pnpm build` 的产物（Next.js 静态导出），整个目录挂上去即可，没有服务端代码。
+  // 官网：静态页面（首页、更新日志、博客，中英文两套）+ 一个很小的 Worker。
+  // out/ 是 `pnpm build` 的产物（Next.js 静态导出），整个目录挂上去；Worker 只管根地址 / 的语言跳转（worker/index.ts）。
   "name": "deverdesk-site",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./out",
+    "binding": "ASSETS",
+    // 只有根地址先进 Worker：在服务端按语言 302 跳转，访客原来的来源才能带到 /zh/ 或 /en/；其余地址直接给静态文件，不调用 Worker
+    "run_worker_first": ["/"],
     // 每页导出成「目录/index.html」，/zh/blog 会自动找 /zh/blog/index.html
     "html_handling": "auto-trailing-slash",
     // 找不到的地址交给 out/404.html（中英双语）

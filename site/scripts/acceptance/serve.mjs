@@ -52,10 +52,11 @@ export async function launch() {
 }
 
 /**
- * 打开一页。width / height 是视口，mobile 为真时按手机仿真（触屏、3 倍像素），languages 是浏览器语言。
- * 站外请求（GitHub、演示站）一律拦掉，只返回空响应，核对不依赖外网。
+ * 打开一页。width / height 是视口，mobile 为真时按手机仿真（触屏、3 倍像素），languages 是浏览器语言，
+ * cookies 是打开前预先写好的 Cookie（名 → 值）。
+ * 站外请求（GitHub、演示站、统计脚本）一律拦掉，只返回空响应，核对不依赖外网，也不会往统计后台报数。
  */
-export async function openPage(browser, { path = "/zh/", width = 1440, height = 900, mobile = false, languages = ["zh-CN"], reducedMotion = "no-preference", storage } = {}) {
+export async function openPage(browser, { path = "/zh/", width = 1440, height = 900, mobile = false, languages = ["zh-CN"], reducedMotion = "no-preference", cookies } = {}) {
   const context = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: mobile ? 3 : 1,
@@ -64,10 +65,8 @@ export async function openPage(browser, { path = "/zh/", width = 1440, height = 
     locale: languages[0],
     reducedMotion,
   })
-  if (storage) {
-    await context.addInitScript((entries) => {
-      for (const [key, value] of Object.entries(entries)) window.localStorage.setItem(key, value)
-    }, storage)
+  if (cookies) {
+    await context.addCookies(Object.entries(cookies).map(([name, value]) => ({ name, value, url: ORIGIN })))
   }
   await context.route(`${ORIGIN}/**`, serve)
   await context.route((url) => !url.href.startsWith(ORIGIN) && !url.href.startsWith("data:"), (route) => route.fulfill({ status: 204, body: "" }))
