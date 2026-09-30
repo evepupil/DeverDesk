@@ -9,7 +9,10 @@
     "html_handling": "auto-trailing-slash",
     // 找不到的地址交给 out/404.html（中英双语）
     "not_found_handling": "404-page"
-  }
-  // 绑定域名：在下面加 routes（deverdesk.com 和 www.deverdesk.com，custom_domain: true），
-  // 或者部署后在 Cloudflare 后台给这个 Worker 加自定义域名。演示站在 app.deverdesk.com，是另一个 Worker。
+  },
+  // 自定义域名：部署时 Cloudflare 自动建好解析记录和证书。演示站在 app.deverdesk.com，是另一个 Worker（deploy/demo/）。
+  "routes": [
+    { "pattern": "deverdesk.com", "custom_domain": true },
+    { "pattern": "www.deverdesk.com", "custom_domain": true }
+  ]
 }

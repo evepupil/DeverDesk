@@ -4,7 +4,7 @@ import type { Locale } from "@/i18n/locales"
 import { CodeBlock } from "@/components/aceternity/code-block"
 import { NewTabHint } from "@/components/site/external-mark"
 import { TextLink } from "@/components/site/text-link"
-import { formatCount, formatDate, formatShortDate, isoDay } from "@/content/format"
+import { formatCount, formatDate, formatShortDate, isoDay, shouldShowStars } from "@/content/format"
 import { getRecentCommits, getRepoStats } from "@/content/github"
 import { CLONE_URL, DEPLOY_URL, LICENSE_NAME, LICENSE_URL, REPO_DIR, REPO_SLUG, REPO_URL } from "@/content/site"
 import { cn } from "@/lib/cn"
@@ -91,13 +91,14 @@ export async function OpenSourceSection({ locale }: { locale: Locale }) {
                 <span className="size-2.5 rounded-full bg-label-blue" />
                 {stats.language}
               </span>
-              {stats.stars !== null ? (
+              {/* 星数和顶栏同一个规则：少于 100 不显示数字；分支数为 0 时也不显示 */}
+              {shouldShowStars(stats.stars) ? (
                 <span data-stat="stars" className="flex items-center gap-1 tabular-nums">
                   <IconStar size={14} stroke={1.75} aria-hidden />
                   {formatCount(stats.stars)} {t.home.openSource.stars}
                 </span>
               ) : null}
-              {stats.forks !== null ? (
+              {stats.forks !== null && stats.forks > 0 ? (
                 <span className="flex items-center gap-1 tabular-nums">
                   <IconGitFork size={14} stroke={1.75} aria-hidden />
                   {formatCount(stats.forks)} {t.home.openSource.forks}
