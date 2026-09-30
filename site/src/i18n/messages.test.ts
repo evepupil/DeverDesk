@@ -40,7 +40,7 @@ describe("词条", () => {
   })
 
   it("首页插画的数据条数固定", () => {
-    expect(zh.home.features.rate.rows).toHaveLength(3)
+    expect(zh.home.features.projects.rows).toHaveLength(3)
     expect(zh.home.features.money.items).toHaveLength(3)
     expect(zh.home.features.quickAdd.chips).toHaveLength(4)
     expect(zh.home.features.today.blocks).toHaveLength(3)

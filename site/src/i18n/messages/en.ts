@@ -9,9 +9,9 @@ export const en: Messages = {
   meta: {
     siteName: "DeverDesk",
     home: {
-      title: "DeverDesk — The one-person company console for indie developers",
+      title: "DeverDesk — The professional workbench for one-person companies",
       description:
-        "Tasks, time and side-project money in one place — and the real hourly rate of every project. Open source, self-hosted on your own Cloudflare.",
+        "Tasks, projects, money, time and weekly reviews — everything a one-person company runs on, in one workbench. Open source and self-hostable on your own Cloudflare.",
     },
     changelog: {
       title: "Changelog — DeverDesk",
@@ -19,7 +19,7 @@ export const en: Messages = {
     },
     blog: {
       title: "Blog — DeverDesk",
-      description: "Notes on running a one-person company, pricing your time and self-hosting.",
+      description: "Notes on running a one-person company, managing projects and self-hosting.",
     },
     postTitle: "{title} — DeverDesk Blog",
   },
@@ -52,7 +52,7 @@ export const en: Messages = {
   },
 
   footer: {
-    tagline: "The one-person company console for indie developers: tasks, time and side-project money in one place.",
+    tagline: "The professional workbench for one-person companies: tasks, projects, money, time and reviews in one place.",
     copyright: "© 2026 DeverDesk · Open source under AGPL-3.0",
     edit: "Edit this page on GitHub",
     columns: {
@@ -86,8 +86,8 @@ export const en: Messages = {
   home: {
     hero: {
       pill: "100% open source · AGPL-3.0",
-      title: "See what every side project really pays per hour.",
-      lead: "Tasks, time and money in one place. Every hour and every payment belongs to a project, so you get its real hourly rate.",
+      title: "The professional workbench for indie developers",
+      lead: "Tasks, projects, money, time and reviews — everything a one-person company runs on, in one open-source workbench you can self-host on Cloudflare.",
       secondary: "Self-host on Cloudflare",
       note: "No sign-up. The demo keeps your data in your browser.",
       frameUrl: "app.deverdesk.com",
@@ -111,14 +111,14 @@ export const en: Messages = {
         dragging: "Investigate Claude API timeouts",
         capacity: "5h 30m of 6h planned",
       },
-      rate: {
-        title: "The real hourly rate of every project",
-        body: "Net income divided by hours tracked — see which project deserves your evenings.",
-        columns: ["Net this month", "Hours", "Per hour"],
+      projects: {
+        title: "Every project, from idea to running",
+        body: "Track each project by stage — this month's income, time spent, monthly goal and the next milestone at a glance.",
+        columns: ["Stage", "Net this month", "Goal"],
         rows: [
-          { name: "Template Store", net: "$3,200", hours: "26h", rate: "$123/h" },
-          { name: "API Relay", net: "$1,860", hours: "9h", rate: "$207/h" },
-          { name: "Developer Blog", net: "$420", hours: "14h", rate: "$30/h" },
+          { name: "Template Store", stage: "Running", net: "$3,200", goal: "80%" },
+          { name: "API Relay", stage: "Running", net: "$1,860", goal: "62%" },
+          { name: "Frontend Mini-Course", stage: "Building", net: "$420", goal: "21%" },
         ],
       },
       money: {
@@ -147,7 +147,7 @@ export const en: Messages = {
         backup: { title: "Export and import backups", body: "Take all your data in one file. It's also how you move from local to cloud." },
         search: { title: "Search everything with ⌘K", body: "Tasks, projects and ledger entries from a single search box." },
         alerts: { title: "Alerts that matter", body: "Overbooked days, overdue tasks and late payments show up in one place." },
-        timer: { title: "Timer and time logs", body: "Run a timer or log time afterwards — every minute counts toward the hourly rate." },
+        timer: { title: "Timer and time logs", body: "Run a timer or log time afterwards, so you always know where the hours went." },
       },
     },
 
@@ -174,7 +174,7 @@ export const en: Messages = {
         },
         projects: {
           label: "Projects",
-          title: "Projects: money and time for each one",
+          title: "Projects: every project, by stage",
           points: ["A board by stage: idea, building, running", "Net income, hours, hourly rate and monthly goal", "A 12-week trend and the next milestone in the details"],
         },
         ledger: {
@@ -226,7 +226,7 @@ export const en: Messages = {
       title: "Every line is on GitHub",
       body: "The app, the cloud backend and even this website live in one open repository. It's released under AGPL-3.0: use it, change it and host it yourself — and if you offer a modified version as a service, share your source too.",
       points: ["No paid tier, nothing locked away", "Your financial data never passes through our servers", "Issues and pull requests welcome"],
-      repoDescription: "The one-person company console for indie developers: tasks, time and side-project money in one place.",
+      repoDescription: "The professional workbench for one-person companies: tasks, projects, money, time and reviews in one place.",
       stars: "Stars",
       forks: "Forks",
       updated: "Last push {date}",
@@ -240,11 +240,11 @@ export const en: Messages = {
     },
 
     scenarios: {
-      title: "Questions DeverDesk answers for you",
-      subtitle: "Every indie developer has asked at least one of these.",
+      title: "DeverDesk keeps track of all of it",
+      subtitle: "Running a company on your own, you meet these every day.",
       cards: [
-        { q: "The template store made $3,200 this month — but how many hours did it take?", a: "Projects: net income, hours and hourly rate side by side" },
-        { q: "API relay or blog posts — which one deserves my weekend?", a: "Insights: hourly rate by project" },
+        { q: "Three projects at once — how far along is each one?", a: "Projects: a board by stage, from idea to running" },
+        { q: "Eight things on my plate. What comes first today?", a: "Today: sort by priority and drag onto the timeline" },
         { q: "The client said end of the month. What's the date today?", a: "Ledger: pending payments on top, with late alerts" },
         { q: "Nine hours of work planned, five hours available.", a: "Today: the capacity bar shows the overflow" },
         { q: "What did I actually do last week?", a: "Review: a summary written for you every week" },
@@ -265,16 +265,16 @@ export const en: Messages = {
           title: "Product",
           items: [
             {
+              q: "What can I manage with DeverDesk?",
+              a: "Tasks (board, list and a timeline for planning), projects (by stage, with monthly goals and milestones), money (pending, received, refunds and CSV export), time tracking, routines and weekly reviews — all in one connected workbench.",
+            },
+            {
               q: "How much does DeverDesk cost?",
               a: "Nothing. DeverDesk is open source under AGPL-3.0. The local edition runs right in your browser, and the cloud edition runs on your own Cloudflare account within the free tier for personal use.",
             },
             {
               q: "What's the difference between the local and cloud editions?",
               a: "The local edition keeps data in this browser only — no sign-up and no sync. The cloud edition runs on your own Cloudflare, syncs your phone and computer, and works offline. Both are built from the same code.",
-            },
-            {
-              q: "How is the hourly rate calculated?",
-              a: "Income received minus expenses in a period gives the net income, which is divided by the time tracked in the same period. Pending payments count once they are received.",
             },
             {
               q: "Which languages and currencies are supported?",
@@ -352,7 +352,7 @@ export const en: Messages = {
 
   blog: {
     title: "Blog",
-    subtitle: "Notes on running a one-person company, pricing your time and self-hosting.",
+    subtitle: "Notes on running a one-person company, managing projects and self-hosting.",
     featured: "Featured",
     more: "More posts",
     searchLabel: "Search posts",

@@ -150,8 +150,8 @@ export function SiteNavbar({ locale, current, stars }: SiteNavbarProps) {
                 </a>
               ))}
               <div className="my-2 h-px bg-neutral-100" />
-              <div className="px-2 py-2" onClick={() => setMenuOpen(false)}>
-                <LocaleSwitch locale={locale} variant="menu" />
+              <div className="px-2 py-2">
+                <LocaleSwitch locale={locale} align="left" />
               </div>
               <div className="mt-2 grid gap-2 p-2">
                 <a

@@ -83,6 +83,13 @@ const phone = { width: 390, height: 844, mobile: true }
 await state("mobile-menu", { path: "/zh/", ...phone }, async (page) => {
   await page.click("[data-nav-toggle]")
 })
+await state("locale-menu", { path: "/zh/", ...desk }, async (page) => {
+  await page.locator("header [data-locale-toggle]").first().click()
+})
+await state("locale-menu-footer", { path: "/en/", ...desk }, async (page) => {
+  await page.locator("footer [data-locale-toggle]").scrollIntoViewIfNeeded()
+  await page.locator("footer [data-locale-toggle]").click()
+})
 await state("nav-floating", { path: "/zh/", ...desk }, async (page) => {
   await page.mouse.wheel(0, 1500)
   await page.waitForTimeout(400)

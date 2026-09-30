@@ -5,10 +5,10 @@ import { useEffect, useState } from "react"
 import {
   IconArrowRight,
   IconCalendarWeek,
-  IconChartBar,
-  IconChartLine,
+  IconCircleDashed,
   IconDevices,
   IconLayoutKanban,
+  IconListCheck,
   IconReceipt,
   IconRepeat,
   IconShieldLock,
@@ -23,14 +23,15 @@ import { cn } from "@/lib/cn"
 import { usePrefersReducedMotion } from "@/lib/motion"
 import { buttonClass, CARD_FLOAT, SECTION_SUBTITLE, SECTION_TITLE } from "@/lib/styles"
 
+/** 十个问题各自对应的图标，顺序和词条里的问题一一对应：副业看板、今天的任务、收支、容量、回顾、例行、新副业构思、多设备、自己部署、月目标 */
 const SCENARIO_ICONS = [
-  IconChartBar,
-  IconChartLine,
+  IconLayoutKanban,
+  IconListCheck,
   IconReceipt,
   IconCalendarWeek,
   IconSparkles,
   IconRepeat,
-  IconLayoutKanban,
+  IconCircleDashed,
   IconDevices,
   IconShieldLock,
   IconTargetArrow,
@@ -58,7 +59,7 @@ export function ScenariosSection({ locale }: { locale: Locale }) {
   const [active, setActive] = useState(0)
   const [paused, setPaused] = useState(false)
   const [restartToken, setRestartToken] = useState(0)
-  const ActiveIcon = SCENARIO_ICONS[active] ?? IconChartBar
+  const ActiveIcon = SCENARIO_ICONS[active] ?? IconLayoutKanban
 
   // 单次定时器在切换、悬停和移出时重新计时，减少动态效果时不创建定时器。
   useEffect(() => {
@@ -153,7 +154,7 @@ export function ScenariosSection({ locale }: { locale: Locale }) {
         </div>
         <div className="mx-auto mt-10 max-w-xl space-y-4">
           {cards.slice(0, 3).map((card, index) => {
-            const Icon = SCENARIO_ICONS[index] ?? IconChartBar
+            const Icon = SCENARIO_ICONS[index] ?? IconLayoutKanban
             return (
               <figure key={index} className={cn(CARD_FLOAT, "p-6")}>
                 <blockquote className="text-lg leading-snug font-semibold text-neutral-800">“{card.q}”</blockquote>

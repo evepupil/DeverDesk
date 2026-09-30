@@ -15,11 +15,15 @@ export const SMALL_FEATURE_KEYS = ["review", "routines", "backup", "search", "al
 
 export type SmallFeatureKey = (typeof SMALL_FEATURE_KEYS)[number]
 
-/** 「每个副业的真实时薪」插画里三行副业的方块颜色，和产品样例数据一致（模板商城、接口中转、技术博客） */
-export const RATE_ROW_COLORS = ["indigo", "blue", "teal"] as const
-
-/** 时薪插画里每行右侧的横条长度（相对最高时薪的比例：123 / 207 / 30） */
-export const RATE_ROW_BARS = [0.59, 1, 0.14] as const
+/**
+ * 「每个副业，从构思到运营」插画里的三行副业：方块颜色和产品样例数据一致（模板商城、接口中转、前端小课），
+ * 阶段决定小圆点和进度条的颜色，goal 是月目标完成度（0～1，和词条里的百分比一致）。
+ */
+export const PROJECT_ROWS = [
+  { color: "indigo", stage: "running", goal: 0.8 },
+  { color: "blue", stage: "running", goal: 0.62 },
+  { color: "amber", stage: "building", goal: 0.21 },
+] as const
 
 /** 「钱到没到账」插画里三条消息的状态：待到账、已到账、过期未到 */
 export const MONEY_ITEM_TONES = ["pending", "received", "late"] as const

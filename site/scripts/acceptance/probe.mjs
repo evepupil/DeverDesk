@@ -28,7 +28,8 @@ async function check(name, options, run, { allow404 = false } = {}) {
 }
 
 const attr = (page, selector, name) => page.locator(selector).first().getAttribute(name)
-const text = (page, selector) => page.locator(selector).first().innerText()
+// 去掉标题里看不见的换行点（零宽空格），只比较看得见的字
+const text = async (page, selector) => (await page.locator(selector).first().innerText()).replace(/\u200b/g, "")
 const count = (page, selector) => page.locator(selector).count()
 const state = (page) => attr(page, "header[data-nav-state]", "data-nav-state")
 
@@ -44,7 +45,7 @@ const browser = await launch()
 // ---------- 首页 ----------
 await check("首页：语言标记、标题、hreflang", { path: "/zh/", ...desk }, async (page) => {
   assert((await attr(page, "html", "lang")) === "zh-CN", "html lang 不是 zh-CN")
-  assert((await page.title()) === "DeverDesk — 独立开发者的一人公司控制台", `标题是 ${await page.title()}`)
+  assert((await page.title()) === "DeverDesk — 一人公司的专业工作台", `标题是 ${await page.title()}`)
   const alternate = await attr(page, 'link[rel="alternate"][hreflang="en"]', "href")
   assert(alternate?.endsWith("/en/"), `英文 hreflang 是 ${alternate}`)
 })
@@ -78,10 +79,30 @@ await check("顶栏：手机菜单开合", { path: "/zh/", ...phone }, async (pa
   assert((await count(page, "#mobile-menu")) === 0, "按 Esc 后菜单还在")
 })
 
+await check("语言下拉：打开、当前语言打勾、Esc 和点外面都能关", { path: "/zh/", ...desk }, async (page) => {
+  const toggle = page.locator("header [data-locale-toggle]").first()
+  assert((await toggle.innerText()).includes("中文"), "下拉按钮没写当前语言")
+  await toggle.click()
+  await page.waitForTimeout(250)
+  assert(await page.locator("header [data-locale-menu]").isVisible(), "下拉菜单没出来")
+  assert((await toggle.getAttribute("aria-expanded")) === "true", "aria-expanded 不是 true")
+  assert((await attr(page, 'header [data-locale-menu] a[data-locale="zh"]', "aria-checked")) === "true", "当前语言没打勾")
+  assert((await attr(page, 'header [data-locale-menu] a[data-locale="en"]', "href")) === "/en/", "英文选项地址不对")
+  await page.keyboard.press("Escape")
+  await page.waitForTimeout(250)
+  assert((await count(page, "header [data-locale-menu]")) === 0, "按 Esc 后菜单还在")
+  await toggle.click()
+  await page.waitForTimeout(250)
+  await page.mouse.click(700, 500)
+  await page.waitForTimeout(250)
+  assert((await count(page, "header [data-locale-menu]")) === 0, "点外面后菜单还在")
+})
+
 await check("语言切换：中文 → 英文并记住", { path: "/zh/", ...desk }, async (page) => {
-  await Promise.all([page.waitForURL("**/en/"), page.locator('header a[data-locale="en"]').first().click()])
+  await page.locator("header [data-locale-toggle]").first().click()
+  await Promise.all([page.waitForURL("**/en/"), page.locator('header [data-locale-menu] a[data-locale="en"]').click()])
   assert((await page.evaluate(() => localStorage.getItem("deverdesk-site:locale"))) === "en", "没有记住语言")
-  assert((await text(page, "h1")) === "See what every side project really pays per hour.", `英文标题是 ${await text(page, "h1")}`)
+  assert((await text(page, "h1")) === "The professional workbench for indie developers", `英文标题是 ${await text(page, "h1")}`)
 })
 
 await check("GitHub 按钮：离线打包不显示星数", { path: "/zh/", ...desk }, async (page) => {
@@ -90,7 +111,7 @@ await check("GitHub 按钮：离线打包不显示星数", { path: "/zh/", ...de
 })
 
 await check("首屏：标题、按钮、截图、小字链接", { path: "/zh/", ...desk }, async (page) => {
-  assert((await text(page, "h1")) === "看清每个副业，每小时到底赚多少。", `标题是 ${await text(page, "h1")}`)
+  assert((await text(page, "h1")) === "独立开发者的专业工作台", `标题是 ${await text(page, "h1")}`)
   assert((await attr(page, 'a[data-cta="hero-try"]', "href")) === APP, "首屏试用按钮地址不对")
   assert((await attr(page, "#top img", "src"))?.endsWith("/screenshots/zh/today.webp"), "首屏截图不对")
   assert((await attr(page, "a[data-hero-pill]", "href")) === REPO, "小字链接不对")
@@ -100,7 +121,7 @@ await check("技术栈与功能：数量和顺序", { path: "/zh/", ...desk }, a
   assert((await count(page, "[data-tech]")) === 12, `技术栈 ${await count(page, "[data-tech]")} 个`)
   assert((await attr(page, "[data-tech]", "data-tech")) === "nextjs", "第一个技术栈不是 nextjs")
   const features = await page.locator("[data-feature]").evaluateAll((els) => els.map((el) => el.getAttribute("data-feature")))
-  assert(features.join() === "today,rate,money,quick-add", `功能卡是 ${features.join()}`)
+  assert(features.join() === "today,projects,money,quick-add", `功能卡是 ${features.join()}`)
   assert((await count(page, "[data-small-feature]")) === 6, "小功能不是 6 个")
 })
 
@@ -144,11 +165,11 @@ await check("场景墙：自动轮换和点圆点", { path: "/zh/", ...desk }, a
 })
 
 await check("常见问题：展开一题", { path: "/zh/", ...desk }, async (page) => {
-  await page.click('[data-faq-question="product-2"]')
+  await page.click('[data-faq-question="product-0"]')
   await page.waitForTimeout(500)
-  assert((await attr(page, '[data-faq-question="product-2"]', "aria-expanded")) === "true", "没展开")
-  assert(await page.locator("#faq-a-product-2").isVisible(), "答案不可见")
-  assert((await text(page, "#faq-a-product-2")).includes("待到账的钱先不算"), "答案文字不对")
+  assert((await attr(page, '[data-faq-question="product-0"]', "aria-expanded")) === "true", "没展开")
+  assert(await page.locator("#faq-a-product-0").isVisible(), "答案不可见")
+  assert((await text(page, "#faq-a-product-0")).includes("每周回顾"), "答案文字不对")
 })
 
 await check("页脚：编辑此页链接", { path: "/zh/", ...desk }, async (page) => {

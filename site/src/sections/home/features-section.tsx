@@ -6,7 +6,7 @@ import { SectionHeading } from "@/components/site/section-heading"
 import { SMALL_FEATURE_KEYS, type SmallFeatureKey } from "@/content/home"
 import { IconBell, IconClockHour4, IconCommand, IconDatabaseExport, IconRepeat, IconSparkles } from "@tabler/icons-react"
 import { FeaturesTodayArt } from "./features-today-art"
-import { FeaturesRateArt } from "./features-rate-art"
+import { FeaturesProjectsArt } from "./features-projects-art"
 import { FeaturesMoneyArt } from "./features-money-art"
 import { FeaturesQuickAddArt } from "./features-quick-add-art"
 
@@ -38,13 +38,13 @@ export function FeaturesSection({ locale }: { locale: Locale }) {
           </div>
         </article>
 
-        <article data-feature="rate" className={cn(CARD, "flex flex-col overflow-hidden")}>
+        <article data-feature="projects" className={cn(CARD, "flex flex-col overflow-hidden")}>
           <div className="p-6">
-            <h3 className={CARD_TITLE}>{features.rate.title}</h3>
-            <p className={cn(CARD_BODY, "max-w-sm")}>{features.rate.body}</p>
+            <h3 className={CARD_TITLE}>{features.projects.title}</h3>
+            <p className={cn(CARD_BODY, "max-w-sm")}>{features.projects.body}</p>
           </div>
           <div aria-hidden="true" className="relative flex flex-1 flex-col justify-end px-6 pb-6">
-            <FeaturesRateArt locale={locale} />
+            <FeaturesProjectsArt locale={locale} />
           </div>
         </article>
 

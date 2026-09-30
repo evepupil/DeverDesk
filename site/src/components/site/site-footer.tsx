@@ -61,7 +61,7 @@ export function SiteFooter({ locale, editPath }: { locale: Locale; editPath: str
                 <IconBrandGithub size={18} stroke={1.75} aria-hidden />
                 <NewTabHint locale={locale} />
               </a>
-              <LocaleSwitch locale={locale} />
+              <LocaleSwitch locale={locale} direction="up" align="left" />
             </div>
             <p className="mt-6 text-sm text-neutral-500">{t.footer.copyright}</p>
             <a

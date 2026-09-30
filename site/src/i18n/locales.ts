@@ -19,9 +19,6 @@ export const OG_LOCALE: Record<Locale, string> = { zh: "zh_CN", en: "en_US" }
 /** 语言名各用各的语言写，切换器里不跟着界面语言变 */
 export const LOCALE_NAMES: Record<Locale, string> = { zh: "中文", en: "English" }
 
-/** 切换器上的短写 */
-export const LOCALE_SHORT: Record<Locale, string> = { zh: "中", en: "EN" }
-
 /** 访客手动选过的语言记在浏览器里，下次打开根地址直接用它 */
 export const LOCALE_STORAGE_KEY = "deverdesk-site:locale"
 
