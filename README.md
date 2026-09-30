@@ -186,6 +186,7 @@ src/
 worker/         the Cloudflare Worker: sign-in, sync, tokens, automation API, D1 migrations
 scripts/        dev server, build, deploy and acceptance scripts
 deploy/demo/    configuration for the app.deverdesk.com demo
+site/           the website (deverdesk.com): a separate Next.js project
 docs/           design documents (in Chinese)
 ```
 

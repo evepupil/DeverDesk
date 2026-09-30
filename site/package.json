@@ -1,0 +1,60 @@
+{
+  "name": "deverdesk-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeverDesk 官网：首页、更新日志、博客，中英文两套",
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev --port 3200",
+    "build": "next build",
+    "start": "pnpm dlx serve@14 out",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "shots:app": "node scripts/app-shots.mjs",
+    "deploy": "pnpm build && pnpm dlx wrangler@4 deploy",
+    "shots": "node scripts/acceptance/shots.mjs",
+    "probe": "node scripts/acceptance/probe.mjs",
+    "og": "node scripts/og-images.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "@tabler/icons-react": "3.48.0",
+    "clsx": "2.1.1",
+    "dotted-map": "3.1.0",
+    "motion": "13.4.6",
+    "next": "16.3.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-syntax-highlighter": "16.1.1",
+    "tailwind-merge": "3.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@tailwindcss/typography": "0.5.20",
+    "@types/node": "20.19.43",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/react-syntax-highlighter": "15.5.13",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
+    "github-slugger": "2.0.0",
+    "mdast-util-to-string": "4.0.0",
+    "playwright-core": "1.63.0",
+    "rehype-slug": "6.0.0",
+    "rehype-stringify": "10.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "remark-rehype": "11.1.2",
+    "simple-icons": "16.33.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "unified": "11.0.5",
+    "vitest": "5.0.2",
+    "yaml": "2.9.1"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  // 官网：纯静态页面（首页、更新日志、博客，中英文两套），部署成一个只有静态资源的 Worker。
+  // out/ 是 `pnpm build` 的产物（Next.js 静态导出），整个目录挂上去即可，没有服务端代码。
+  "name": "deverdesk-site",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./out",
+    // 每页导出成「目录/index.html」，/zh/blog 会自动找 /zh/blog/index.html
+    "html_handling": "auto-trailing-slash",
+    // 找不到的地址交给 out/404.html（中英双语）
+    "not_found_handling": "404-page"
+  }
+  // 绑定域名：在下面加 routes（deverdesk.com 和 www.deverdesk.com，custom_domain: true），
+  // 或者部署后在 Cloudflare 后台给这个 Worker 加自定义域名。演示站在 app.deverdesk.com，是另一个 Worker。
+}

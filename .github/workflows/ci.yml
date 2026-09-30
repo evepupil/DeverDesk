@@ -42,3 +42,31 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm build:local
+
+  # 官网（site/）是独立的 pnpm 项目：单元测试、类型检查、代码检查，再离线打包一次（不向 GitHub 接口要星数）
+  site:
+    name: site
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: site/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: site/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm build
+        env:
+          SITE_OFFLINE: "1"

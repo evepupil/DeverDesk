@@ -186,6 +186,7 @@ src/
 worker/         Cloudflare Worker：登录、同步、访问令牌、自动化接口、D1 建表脚本
 scripts/        开发、打包、部署和核对脚本
 deploy/demo/    app.deverdesk.com 演示站的部署配置
+site/           官网（deverdesk.com）：独立的 Next.js 项目
 docs/           设计文档
 ```
 

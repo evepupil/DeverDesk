@@ -1,0 +1,16 @@
+# 依赖与构建产物
+/node_modules
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Cloudflare 本地
+/.wrangler/
+
+# 调试日志
+npm-debug.log*
+.pnpm-debug.log*
+
+# 核对截图
+/scripts/acceptance/.shots/

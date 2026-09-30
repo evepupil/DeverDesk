@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // wrangler 本地运行时生成的打包文件和 Worker 类型声明
     ".wrangler/**",
     "worker/worker-configuration.d.ts",
+    // 官网是独立的子项目，有自己的代码检查配置
+    "site/**",
   ]),
 ]);
 

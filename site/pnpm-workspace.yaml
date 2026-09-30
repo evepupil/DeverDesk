@@ -1,0 +1,5 @@
+# 官网是独立的 pnpm 项目：有这个文件，pnpm 就把 site/ 当成自己的根目录，
+# 依赖和锁文件都和仓库根目录的产品分开，互不影响。
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
