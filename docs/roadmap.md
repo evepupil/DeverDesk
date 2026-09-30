@@ -21,3 +21,4 @@
 - 2026-09-30：演示站改到 app.deverdesk.com，主域名留给官网。
 - 2026-09-30：新增 M5 官网：site/ 独立子项目，照 Aceternity Simplistic 模板复刻；更新日志用 Aceternity 时间线组件，博客照 Aceternity 博客区块的公开预览复刻；开发和核对完成，待用户验收和绑定域名上线。
 - 2026-09-30：M5 完成：用户验收后按意见改版（定位改成「独立开发者的专业工作台」、语言切换改成下拉），官网上线 deverdesk.com 和 www.deverdesk.com；演示站在 app.deverdesk.com。
+- 2026-10-01：按官网更新日志给仓库打了 v0.1.0 到 v0.4.1 五个标签，并在 GitHub 发了同名 Release，最新版 v0.4.1。
