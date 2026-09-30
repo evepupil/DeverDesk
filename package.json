@@ -24,6 +24,7 @@
     "test": "vitest run",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "shots": "node scripts/acceptance/shots.mjs",
+    "shots:readme": "node scripts/readme-shots.mjs",
     "probe": "node scripts/acceptance/probe.mjs",
     "e2e": "node scripts/acceptance/e2e-cloud.mjs"
   },

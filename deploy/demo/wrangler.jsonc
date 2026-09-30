@@ -16,8 +16,13 @@
   },
   "routes": [
     {
-      // 自定义域名绑到这个 Worker
+      // 自定义域名绑到这个 Worker；部署时 Cloudflare 自动建好 DNS 记录和证书
       "pattern": "deverdesk.com",
+      "custom_domain": true
+    },
+    {
+      // 带 www 的地址也能打开
+      "pattern": "www.deverdesk.com",
       "custom_domain": true
     }
   ]

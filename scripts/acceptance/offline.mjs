@@ -40,12 +40,12 @@ export async function launch() {
 
 export async function openPage(
   browser,
-  { width = 1440, height = 900, mobile = false, path = "/", showLocalNotice = false, locale = "zh-CN" } = {},
+  { width = 1440, height = 900, mobile = false, path = "/", showLocalNotice = false, locale = "zh-CN", scale } = {},
 ) {
-  // locale 是浏览器语言：没选过界面语言时，页面按它决定用中文还是英文
+  // locale 是浏览器语言：没选过界面语言时，页面按它决定用中文还是英文；scale 是像素倍数（README 截图用 2 倍）
   const context = await browser.newContext({
     viewport: { width, height },
-    deviceScaleFactor: mobile ? 3 : 1,
+    deviceScaleFactor: scale ?? (mobile ? 3 : 1),
     isMobile: mobile,
     hasTouch: mobile,
     locale,

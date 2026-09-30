@@ -12,6 +12,7 @@
  *   - 启动接口前先跑 `wrangler d1 migrations apply DB --local`（把数据库表建好 / 补齐）
  *   - 页面进程带 NEXT_PUBLIC_DEVERDESK_EDITION=cloud 和 DEVERDESK_API_PROXY，
  *     next.config.ts 会按后者把 /api 请求转发给接口进程
+ *   - 接口进程用单独的空目录 .wrangler/dev-assets 当静态资源目录，不占打包目录 out/，开着开发服务器也能打包
  *   - 任一个退出或按 Ctrl+C 时，把另一个（在 Windows 上连同整个子进程树）也结束
  *   - --local 时只启动 next dev，版本设为 local，不需要接口和数据库
  */
@@ -54,12 +55,10 @@ if (!existsSync(devVarsPath)) {
   console.log("dev: 本地访问口令：dev")
 }
 
-// wrangler dev 要求静态资源目录存在，没有就先建一个空的
-const outDir = join(ROOT, "out")
-if (!existsSync(outDir)) {
-  mkdirSync(outDir, { recursive: true })
-  console.log("dev: 已创建空的 out/ 目录（wrangler dev 需要）")
-}
+// 开发时页面由 next dev 提供，接口进程只管 /api。给它一个单独的空目录当静态资源目录：
+// 挂着打包目录 out/ 的话，Windows 上它会占着 out/，开着开发服务器时 pnpm build 会报 EBUSY
+const DEV_ASSETS = ".wrangler/dev-assets"
+mkdirSync(join(ROOT, DEV_ASSETS), { recursive: true })
 
 // 直接 node 运行本脚本时 PATH 里没有 node_modules/.bin，补进去让 `wrangler` 和 `next` 能被找到
 const env = {
@@ -167,7 +166,7 @@ if (edition === "local") {
   console.log(
     `dev: 启动在线版（页面 http://localhost:${pagePort}，接口 http://127.0.0.1:${apiPort}）`,
   )
-  children.push(startChild("wrangler dev ", API_PREFIX, `wrangler dev --port ${apiPort}`))
+  children.push(startChild("wrangler dev ", API_PREFIX, `wrangler dev --port ${apiPort} --assets ${DEV_ASSETS}`))
   children.push(
     startChild("next dev ", PAGE_PREFIX, `next dev --port ${pagePort}`, {
       NEXT_PUBLIC_DEVERDESK_EDITION: "cloud",

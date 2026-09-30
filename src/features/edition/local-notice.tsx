@@ -5,8 +5,8 @@ import { useEffect } from "react"
 import { GithubMark } from "@/components/base/marks"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { DEPLOY_GUIDE_URL, LOCAL_NOTICE_KEY } from "@/lib/edition"
-import { useT } from "@/i18n/react"
+import { LOCAL_NOTICE_KEY, deployGuideUrl } from "@/lib/edition"
+import { useLocale, useT } from "@/i18n/react"
 import { useUi } from "@/state/ui"
 
 /** 浏览器里有没有看过说明；读不到存储时当成看过，免得反复弹 */
@@ -29,6 +29,7 @@ function remember() {
 /** 本地版说明：第一次打开自动弹一次，之后从品牌菜单还能再打开 */
 export function LocalNotice() {
   const t = useT()
+  const locale = useLocale()
   const open = useUi((state) => state.localNoticeOpen)
   const setOpen = useUi((state) => state.setLocalNoticeOpen)
 
@@ -54,7 +55,7 @@ export function LocalNotice() {
         </div>
         <DialogFooter className="border-t border-line px-4 py-3">
           <Button asChild variant="outline">
-            <a href={DEPLOY_GUIDE_URL} target="_blank" rel="noreferrer">
+            <a href={deployGuideUrl(locale)} target="_blank" rel="noreferrer">
               <GithubMark />
               {t.edition.localNotice.deploy}
             </a>
