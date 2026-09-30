@@ -46,7 +46,7 @@ type AmountStyle = "full" | "compact"
 
 const AMOUNT_OPTIONS: Record<AmountStyle, Intl.NumberFormatOptions> = {
   full: { style: "currency", minimumFractionDigits: 0, maximumFractionDigits: 2 },
-  compact: { style: "currency", notation: "compact", maximumFractionDigits: 1 },
+  compact: { style: "currency", notation: "compact", minimumFractionDigits: 0, maximumFractionDigits: 1 },
 }
 
 /** 按当前语言和记账币种的金额格式，建一次缓存起来 */
