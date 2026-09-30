@@ -1,0 +1,38 @@
+# 每次推送到 main 和每个 Pull Request：类型检查、代码检查、单元测试，再把在线版和本地版各打包一次
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # 计算层按本地日历日算日期，测试固定在一个时区
+      TZ: Asia/Shanghai
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 版本读 package.json 里的 packageManager
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm build:local
