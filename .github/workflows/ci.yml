@@ -15,7 +15,13 @@ concurrency:
 
 jobs:
   check:
+    name: check (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 最低支持的 22 和当前的 24：金额格式化等依赖运行时自带的国际化数据，不同版本输出可能不同
+        node: [22, 24]
     env:
       # 计算层按本地日历日算日期，测试固定在一个时区
       TZ: Asia/Shanghai
@@ -27,7 +33,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
