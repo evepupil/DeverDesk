@@ -5,6 +5,7 @@ import { APP_URL, REPO_URL } from "@/content/site"
 import { NewTabHint } from "@/components/site/external-mark"
 import { cn } from "@/lib/cn"
 import { buttonClass, CARD, CONTAINER } from "@/lib/styles"
+import { externalRel } from "@/lib/links"
 
 /**
  * 收尾卡右上的小光带：首屏四道斜条的缩小版（同一套点坐标和颜色，不做淡出遮罩），
@@ -46,7 +47,7 @@ export function PostCta({ locale }: { locale: Locale }) {
             <a
               href={REPO_URL}
               target="_blank"
-              rel="noopener noreferrer"
+              rel={externalRel(REPO_URL)}
               className={buttonClass("secondary", "md")}
             >
               <IconBrandGithub size={18} stroke={1.75} aria-hidden />

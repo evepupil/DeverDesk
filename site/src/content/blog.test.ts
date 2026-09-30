@@ -18,7 +18,7 @@ describe("parseFrontmatter", () => {
 
 describe("renderMarkdown", () => {
   const { html, headings } = renderMarkdown(
-    ["# 大标题", "## 为什么要算时薪", "正文 [仓库](https://github.com/evepupil/DeverDesk) 和 [站内](/zh/)", "### Step one", "## 为什么要算时薪", "![截图](/blog/a.webp)", "| a | b |\n|---|---|\n| 1 | 2 |"].join("\n\n"),
+    ["# 大标题", "## 为什么要算时薪", "正文 [仓库](https://github.com/evepupil/DeverDesk)、[别家](https://nextjs.org) 和 [站内](/zh/)", "### Step one", "## 为什么要算时薪", "![截图](/blog/a.webp)", "| a | b |\n|---|---|\n| 1 | 2 |"].join("\n\n"),
   )
 
   it("目录只收二、三级标题，id 和正文锚点一致，重名加后缀", () => {
@@ -31,8 +31,9 @@ describe("renderMarkdown", () => {
     expect(html).toContain('<h2 id="为什么要算时薪-1">')
   })
 
-  it("站外链接新窗口打开，站内链接不变，图片延迟加载，表格可用", () => {
-    expect(html).toContain('<a href="https://github.com/evepupil/DeverDesk" target="_blank" rel="noopener noreferrer">')
+  it("站外链接新窗口打开（自家仓库留下来源），站内链接不变，图片延迟加载，表格可用", () => {
+    expect(html).toContain('<a href="https://github.com/evepupil/DeverDesk" target="_blank" rel="noopener">')
+    expect(html).toContain('<a href="https://nextjs.org" target="_blank" rel="noopener noreferrer">')
     expect(html).toContain('<a href="/zh/">')
     expect(html).toContain('loading="lazy"')
     expect(html).toContain("<table>")

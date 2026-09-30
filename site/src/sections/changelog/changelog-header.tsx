@@ -7,6 +7,7 @@ import { fill, getMessages } from "@/i18n"
 import type { Locale } from "@/i18n/locales"
 import { buttonClass, CONTAINER } from "@/lib/styles"
 import { cn } from "@/lib/cn"
+import { externalRel } from "@/lib/links"
 
 /** 版本锚点：v0.4.1 → release-v0-4-1（和时间线各写一份，不互相 import） */
 function releaseId(version: string): string {
@@ -65,7 +66,7 @@ export function ChangelogHeader({ locale }: { locale: Locale }) {
           <a
             href={WATCH_URL}
             target="_blank"
-            rel="noopener noreferrer"
+            rel={externalRel(WATCH_URL)}
             data-cta="changelog-watch"
             className={buttonClass("secondary", "sm")}
           >

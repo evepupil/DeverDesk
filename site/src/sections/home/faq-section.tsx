@@ -10,6 +10,7 @@ import { SectionHeading } from "@/components/site/section-heading"
 import { FAQ_GROUP_KEYS } from "@/content/home"
 import { NEW_ISSUE_URL } from "@/content/site"
 import { usePrefersReducedMotion } from "@/lib/motion"
+import { externalRel } from "@/lib/links"
 
 export function FaqSection({ locale }: { locale: Locale }) {
   const t = getMessages(locale)
@@ -34,7 +35,7 @@ export function FaqSection({ locale }: { locale: Locale }) {
         <a
           href={NEW_ISSUE_URL}
           target="_blank"
-          rel="noopener noreferrer"
+          rel={externalRel(NEW_ISSUE_URL)}
           data-faq-ask
           className="font-medium text-brand-deep underline-offset-4 hover:underline"
         >

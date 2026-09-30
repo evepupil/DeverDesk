@@ -1,6 +1,7 @@
 import "../globals.css"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { Analytics } from "@/components/site/analytics"
 import { getMessages } from "@/i18n"
 import { HTML_LANG, LOCALES, isLocale } from "@/i18n/locales"
 import { pageMetadata } from "@/lib/metadata"
@@ -23,7 +24,10 @@ export default async function LocaleLayout({ children, params }: Readonly<{ chil
   if (!isLocale(localeValue)) notFound()
   return (
     <html lang={HTML_LANG[localeValue]}>
-      <body className="bg-white font-sans text-neutral-700 antialiased">{children}</body>
+      <body className="bg-white font-sans text-neutral-700 antialiased">
+        {children}
+        <Analytics />
+      </body>
     </html>
   )
 }

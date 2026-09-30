@@ -5,6 +5,7 @@ import { IconGitCommit } from "@tabler/icons-react"
 import { commitUrl } from "@/content/site"
 import { fill, getMessages } from "@/i18n"
 import type { Locale } from "@/i18n/locales"
+import { externalRel } from "@/lib/links"
 
 /** 类型标签的底色：用对象映射完整类名，Tailwind 只认完整类名 */
 const KIND_BADGE: Record<ChangelogEntry["changes"][number]["kind"], string> = {
@@ -52,7 +53,7 @@ export function ChangelogRelease({ entry, locale }: { entry: ChangelogEntry; loc
             key={sha}
             href={commitUrl(sha)}
             target="_blank"
-            rel="noopener noreferrer"
+            rel={externalRel(commitUrl(sha))}
             data-release-commit={sha.slice(0, 7)}
             aria-label={fill(t.changelog.commitAria, { sha: sha.slice(0, 7) })}
             className="rounded-md bg-neutral-50 px-2 py-0.5 font-mono text-xs text-brand-deep ring-1 ring-neutral-200 transition-colors hover:bg-neutral-100"

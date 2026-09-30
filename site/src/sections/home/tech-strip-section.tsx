@@ -5,6 +5,7 @@ import { getMessages } from "@/i18n"
 import type { Locale } from "@/i18n/locales"
 import { cn } from "@/lib/cn"
 import { CONTAINER } from "@/lib/styles"
+import { externalRel } from "@/lib/links"
 
 /** H3 技术栈：两行居中标题 + 12 个开源项目图标。悬停时图标变品牌色、名字变深。 */
 export function TechStripSection({ locale }: { locale: Locale }) {
@@ -26,7 +27,7 @@ export function TechStripSection({ locale }: { locale: Locale }) {
             <a
               href={logo.href}
               target="_blank"
-              rel="noopener noreferrer"
+              rel={externalRel(logo.href)}
               data-tech={logo.id}
               style={{ "--brand": logo.hex } as React.CSSProperties}
               className="group flex h-16 items-center justify-center gap-2.5 rounded-lg text-neutral-500 transition-colors hover:text-neutral-900"

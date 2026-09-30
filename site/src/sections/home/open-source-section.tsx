@@ -9,6 +9,7 @@ import { getRecentCommits, getRepoStats } from "@/content/github"
 import { CLONE_URL, DEPLOY_URL, LICENSE_NAME, LICENSE_URL, REPO_DIR, REPO_SLUG, REPO_URL } from "@/content/site"
 import { cn } from "@/lib/cn"
 import { buttonClass, CARD, CONTAINER, SECTION_TITLE, SECTION_Y } from "@/lib/styles"
+import { externalRel } from "@/lib/links"
 
 export async function OpenSourceSection({ locale }: { locale: Locale }) {
   const [stats, commits] = await Promise.all([getRepoStats(), getRecentCommits(5)])
@@ -37,7 +38,7 @@ export async function OpenSourceSection({ locale }: { locale: Locale }) {
             <a
               href={REPO_URL}
               target="_blank"
-              rel="noopener noreferrer"
+              rel={externalRel(REPO_URL)}
               data-cta="os-github"
               className={buttonClass("primary", "md")}
             >
@@ -48,7 +49,7 @@ export async function OpenSourceSection({ locale }: { locale: Locale }) {
             <a
               href={DEPLOY_URL}
               target="_blank"
-              rel="noopener noreferrer"
+              rel={externalRel(DEPLOY_URL)}
               data-cta="os-deploy"
               className={buttonClass("secondary", "md")}
             >
@@ -62,7 +63,7 @@ export async function OpenSourceSection({ locale }: { locale: Locale }) {
             <a
               href={LICENSE_URL}
               target="_blank"
-              rel="noopener noreferrer"
+              rel={externalRel(LICENSE_URL)}
               className="underline-offset-4 hover:text-neutral-900 hover:underline"
             >
               {LICENSE_NAME}
@@ -78,7 +79,7 @@ export async function OpenSourceSection({ locale }: { locale: Locale }) {
               <a
                 href={REPO_URL}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel={externalRel(REPO_URL)}
                 className="truncate text-sm font-medium text-neutral-900 hover:underline"
               >
                 {owner}<span className="mx-0.5 text-neutral-400">/</span>{repository}
@@ -141,7 +142,7 @@ export async function OpenSourceSection({ locale }: { locale: Locale }) {
                     <a
                       href={commit.url}
                       target="_blank"
-                      rel="noopener noreferrer"
+                      rel={externalRel(commit.url)}
                       data-commit={commit.shortSha}
                       aria-label={fill(t.home.openSource.commitAria, { sha: commit.shortSha })}
                       className="group flex items-center gap-3 py-2.5"

@@ -1,5 +1,6 @@
 import "./globals.css"
 import { getMessages } from "@/i18n"
+import { Analytics } from "@/components/site/analytics"
 import { LogoMark } from "@/components/site/logo"
 import { buttonClass } from "@/lib/styles"
 
@@ -23,6 +24,8 @@ export default function GlobalNotFound() {
             <a href="/en/" lang="en" className={buttonClass("secondary", "md")}>{en.notFound.home}</a>
           </div>
         </main>
+        {/* 404 页也统计：能看出外面有哪些坏链接指进来 */}
+        <Analytics />
       </body>
     </html>
   )

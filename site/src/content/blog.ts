@@ -9,6 +9,7 @@ import { unified } from "unified"
 import { parse as parseYaml } from "yaml"
 import { LOCALES, type Locale } from "../i18n/locales"
 import { readingMinutes } from "./format"
+import { externalRel } from "../lib/links"
 
 /**
  * 博客：每篇文章一个目录 content/blog/<slug>/，里面 zh.md、en.md 各一份，slug 两种语言共用。
@@ -94,7 +95,7 @@ function decorateElements() {
       if (node.type === "element" && node.tagName === "a") {
         const href = node.properties?.href
         if (typeof href === "string" && /^https?:\/\//.test(href)) {
-          node.properties = { ...node.properties, target: "_blank", rel: "noopener noreferrer" }
+          node.properties = { ...node.properties, target: "_blank", rel: externalRel(href) }
         }
       }
       if (node.type === "element" && node.tagName === "img") {

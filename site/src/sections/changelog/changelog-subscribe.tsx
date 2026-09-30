@@ -5,6 +5,7 @@ import { getMessages } from "@/i18n"
 import type { Locale } from "@/i18n/locales"
 import { buttonClass, CARD, CONTAINER } from "@/lib/styles"
 import { cn } from "@/lib/cn"
+import { externalRel } from "@/lib/links"
 
 export function ChangelogSubscribe({ locale }: { locale: Locale }) {
   const t = getMessages(locale)
@@ -31,7 +32,7 @@ export function ChangelogSubscribe({ locale }: { locale: Locale }) {
           <a
             href={WATCH_URL}
             target="_blank"
-            rel="noopener noreferrer"
+            rel={externalRel(WATCH_URL)}
             data-cta="subscribe-watch"
             className={buttonClass("primary", "md")}
           >

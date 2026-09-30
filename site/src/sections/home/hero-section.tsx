@@ -8,6 +8,7 @@ import { getMessages } from "@/i18n"
 import { localePath, type Locale } from "@/i18n/locales"
 import { cn } from "@/lib/cn"
 import { CONTAINER, buttonClass } from "@/lib/styles"
+import { externalRel } from "@/lib/links"
 
 /**
  * H2 首屏：白底 + 右上斜向蓝色光带 + 浏览器框真截图。
@@ -50,7 +51,7 @@ export function HeroSection({ locale }: { locale: Locale }) {
         <a
           href={REPO_URL}
           target="_blank"
-          rel="noopener noreferrer"
+          rel={externalRel(REPO_URL)}
           data-hero-pill
           className="group inline-flex items-center gap-2 text-sm text-neutral-800 transition-colors hover:text-neutral-950"
         >

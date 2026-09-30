@@ -15,6 +15,7 @@ import { LocaleSwitch } from "./locale-switch"
 import { LogoMark } from "./logo"
 import { NewTabHint } from "./external-mark"
 import type { NavKey } from "./site-header"
+import { externalRel } from "@/lib/links"
 
 type SiteNavbarProps = {
   locale: Locale
@@ -165,7 +166,7 @@ export function SiteNavbar({ locale, current, stars }: SiteNavbarProps) {
                 <a
                   href={REPO_URL}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel={externalRel(REPO_URL)}
                   className={buttonClass("secondary", "md", "w-full")}
                   onClick={() => setMenuOpen(false)}
                 >

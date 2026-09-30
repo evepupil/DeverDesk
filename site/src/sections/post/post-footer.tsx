@@ -5,19 +5,21 @@ import { localePath, type Locale } from "@/i18n/locales"
 import { editUrl } from "@/content/site"
 import { NewTabHint } from "@/components/site/external-mark"
 import { cn } from "@/lib/cn"
+import { externalRel } from "@/lib/links"
 import { CARD_SOFT, CONTAINER } from "@/lib/styles"
 
 /** 文末：编辑链接 + 上一篇 / 下一篇；内容栏和正文右栏对齐（目录 220px + 间距 64px）。 */
 export function PostFooter({ locale, post, newer, older }: { locale: Locale; post: PostMeta; newer: PostMeta | null; older: PostMeta | null }) {
   const t = getMessages(locale)
+  const editHref = editUrl(`site/content/blog/${post.slug}/${locale}.md`)
 
   return (
     <section id="more" className={cn(CONTAINER, "pt-10")}>
       <div className="max-w-3xl lg:ml-[284px]">
         <a
-          href={editUrl(`site/content/blog/${post.slug}/${locale}.md`)}
+          href={editHref}
           target="_blank"
-          rel="noopener noreferrer"
+          rel={externalRel(editHref)}
           data-post-edit
           className="inline-flex items-center gap-1.5 text-sm text-neutral-500 transition-colors hover:text-neutral-900"
         >

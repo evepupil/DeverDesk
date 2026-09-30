@@ -7,6 +7,7 @@ import { CONTAINER } from "@/lib/styles"
 import { LocaleSwitch } from "./locale-switch"
 import { LogoMark } from "./logo"
 import { NewTabHint } from "./external-mark"
+import { externalRel } from "@/lib/links"
 
 type FooterLinkItem = {
   href: string
@@ -23,7 +24,7 @@ function FooterColumn({ title, links, locale }: { title: string; links: FooterLi
           <li key={`${link.href}-${link.label}`}>
             <a
               href={link.href}
-              {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              {...(link.external ? { target: "_blank", rel: externalRel(link.href) } : {})}
               className="text-sm text-neutral-600 transition-colors hover:text-neutral-900"
             >
               {link.label}
@@ -54,7 +55,7 @@ export function SiteFooter({ locale, editPath }: { locale: Locale; editPath: str
               <a
                 href={REPO_URL}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel={externalRel(REPO_URL)}
                 aria-label={t.common.githubAria}
                 className="flex size-9 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900"
               >
@@ -67,7 +68,7 @@ export function SiteFooter({ locale, editPath }: { locale: Locale; editPath: str
             <a
               href={editUrl(editPath)}
               target="_blank"
-              rel="noopener noreferrer"
+              rel={externalRel(editUrl(editPath))}
               data-edit-link
               className="mt-2 inline-flex items-center gap-1.5 text-sm text-neutral-500 transition-colors hover:text-neutral-900"
             >

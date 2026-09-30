@@ -8,6 +8,7 @@ import { CTA_COLLAGE } from "@/content/home"
 import { APP_URL, DEPLOY_URL, REPO_URL } from "@/content/site"
 import { cn } from "@/lib/cn"
 import { buttonClass, CONTAINER } from "@/lib/styles"
+import { externalRel } from "@/lib/links"
 
 export function CtaSection({ locale }: { locale: Locale }) {
   const t = getMessages(locale)
@@ -28,7 +29,7 @@ export function CtaSection({ locale }: { locale: Locale }) {
           <a
             href={DEPLOY_URL}
             target="_blank"
-            rel="noopener noreferrer"
+            rel={externalRel(DEPLOY_URL)}
             data-cta="cta-deploy"
             className={buttonClass("secondary", "md")}
           >

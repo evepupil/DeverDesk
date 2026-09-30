@@ -6,6 +6,7 @@ import { REPO_URL } from "@/content/site"
 import { cn } from "@/lib/cn"
 import { buttonClass, type ButtonSize } from "@/lib/styles"
 import { NewTabHint } from "./external-mark"
+import { externalRel } from "@/lib/links"
 
 export function GithubButton({
   locale,
@@ -24,7 +25,7 @@ export function GithubButton({
     <a
       href={REPO_URL}
       target="_blank"
-      rel="noopener noreferrer"
+      rel={externalRel(REPO_URL)}
       data-github-button
       aria-label={shouldShowStars(stars) ? fill(t.common.githubStarsAria, { n: stars }) : t.common.githubAria}
       className={buttonClass("secondary", size, cn("gap-2", className))}

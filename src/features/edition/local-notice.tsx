@@ -54,8 +54,9 @@ export function LocalNotice() {
           <p>{t.edition.localNotice.body2}</p>
         </div>
         <DialogFooter className="border-t border-line px-4 py-3">
+          {/* 自家仓库的 README：只写 noopener，留下来源，GitHub 流量页能看到从演示站来的人 */}
           <Button asChild variant="outline">
-            <a href={deployGuideUrl(locale)} target="_blank" rel="noreferrer">
+            <a href={deployGuideUrl(locale)} target="_blank" rel="noopener">
               <GithubMark />
               {t.edition.localNotice.deploy}
             </a>

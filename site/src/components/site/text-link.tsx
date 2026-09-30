@@ -1,5 +1,6 @@
 import { IconArrowRight } from "@tabler/icons-react"
 import { cn } from "@/lib/cn"
+import { externalRel } from "@/lib/links"
 
 type TextLinkProps = {
   href: string
@@ -12,7 +13,7 @@ export function TextLink({ href, children, external = false, className }: TextLi
   return (
     <a
       href={href}
-      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      {...(external ? { target: "_blank", rel: externalRel(href) } : {})}
       className={cn("group inline-flex items-center gap-1.5 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900", className)}
     >
       {children}
