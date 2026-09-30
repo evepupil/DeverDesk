@@ -10,7 +10,7 @@ Tasks, time and side-project money in one place — and the real hourly rate of 
 
 [![CI](https://github.com/evepupil/DeverDesk/actions/workflows/ci.yml/badge.svg)](https://github.com/evepupil/DeverDesk/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
-[![Live demo](https://img.shields.io/badge/demo-deverdesk.com-1c1c20.svg)](https://deverdesk.com)
+[![Live demo](https://img.shields.io/badge/demo-app.deverdesk.com-1c1c20.svg)](https://app.deverdesk.com)
 [![Self-host on Cloudflare](https://img.shields.io/badge/self--host-Cloudflare-F38020.svg?logo=cloudflare&logoColor=white)](#deploy-your-own)
 
 **English** · [简体中文](README.zh-CN.md)
@@ -66,13 +66,13 @@ The interface comes in **English and Chinese** — picked from your browser lang
 | Where your data lives | In this browser only | A D1 database in your own Cloudflare account |
 | Sync across devices | — | Automatic, record by record; works offline |
 | Sign-in | None | A passcode, or Cloudflare Access |
-| How to get it | Open [deverdesk.com](https://deverdesk.com) | [Deploy your own](#deploy-your-own) |
+| How to get it | Open [app.deverdesk.com](https://app.deverdesk.com) | [Deploy your own](#deploy-your-own) |
 
 Both editions are built from the same code; a build-time switch picks one. Moving from the local edition to the cloud edition is a backup export and import.
 
 ## Try it
 
-Open **[deverdesk.com](https://deverdesk.com)**. It runs the local edition with sample data. Nothing is sent to a server, and everything you change stays in your browser.
+Open **[app.deverdesk.com](https://app.deverdesk.com)**. It runs the local edition with sample data. Nothing is sent to a server, and everything you change stays in your browser.
 
 ## Deploy your own
 
@@ -185,7 +185,7 @@ src/
   sync/         the sync protocol shared by the browser and the Worker
 worker/         the Cloudflare Worker: sign-in, sync, tokens, automation API, D1 migrations
 scripts/        dev server, build, deploy and acceptance scripts
-deploy/demo/    configuration for the deverdesk.com demo
+deploy/demo/    configuration for the app.deverdesk.com demo
 docs/           design documents (in Chinese)
 ```
 

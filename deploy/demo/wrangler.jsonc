@@ -1,6 +1,6 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  // 本地版演示站：https://deverdesk.com
+  // 本地版演示站：https://app.deverdesk.com（主域名 deverdesk.com 和 www 留给官网）
   // 本地版的数据只存在访问者自己的浏览器里，服务端不存任何东西，
   // 所以这里只有静态资源、没有 Worker 代码（不配 main）：
   // out/ 是 `pnpm build:local`（Next.js 静态导出）的产物，直接整目录挂上去即可。
@@ -14,15 +14,11 @@
     // 找不到的路径交给 out/404.html
     "not_found_handling": "404-page"
   },
+  // 部署时按这里的列表整体替换这个 Worker 绑定的自定义域名：不在列表里的会被解绑
   "routes": [
     {
       // 自定义域名绑到这个 Worker；部署时 Cloudflare 自动建好 DNS 记录和证书
-      "pattern": "deverdesk.com",
-      "custom_domain": true
-    },
-    {
-      // 带 www 的地址也能打开
-      "pattern": "www.deverdesk.com",
+      "pattern": "app.deverdesk.com",
       "custom_domain": true
     }
   ]

@@ -10,7 +10,7 @@
 
 [![CI](https://github.com/evepupil/DeverDesk/actions/workflows/ci.yml/badge.svg)](https://github.com/evepupil/DeverDesk/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
-[![在线演示](https://img.shields.io/badge/demo-deverdesk.com-1c1c20.svg)](https://deverdesk.com)
+[![在线演示](https://img.shields.io/badge/demo-app.deverdesk.com-1c1c20.svg)](https://app.deverdesk.com)
 [![部署到 Cloudflare](https://img.shields.io/badge/self--host-Cloudflare-F38020.svg?logo=cloudflare&logoColor=white)](#部署在线版)
 
 [English](README.md) · **简体中文**
@@ -66,13 +66,13 @@ DeverDesk 把任务、时间和收支放在一起，并且连起来：每个任�
 | 数据存在哪 | 只在这个浏览器里 | 你自己 Cloudflare 账号里的 D1 数据库 |
 | 多设备同步 | 不同步 | 按条自动同步，断网也能用 |
 | 登录 | 不用登录 | 访问口令，或者 Cloudflare Access |
-| 怎么用 | 打开 [deverdesk.com](https://deverdesk.com) | [部署在线版](#部署在线版) |
+| 怎么用 | 打开 [app.deverdesk.com](https://app.deverdesk.com) | [部署在线版](#部署在线版) |
 
 两个版本是同一套代码，打包时选一个。从本地版换到在线版，只要导出一份备份再导入。
 
 ## 在线试用
 
-打开 **[deverdesk.com](https://deverdesk.com)**，这是带样例数据的本地版：什么都不会传到服务器，你的改动只留在自己的浏览器里。
+打开 **[app.deverdesk.com](https://app.deverdesk.com)**，这是带样例数据的本地版：什么都不会传到服务器，你的改动只留在自己的浏览器里。
 
 ## 部署在线版
 
@@ -185,7 +185,7 @@ src/
   sync/         浏览器和 Worker 共用的同步约定
 worker/         Cloudflare Worker：登录、同步、访问令牌、自动化接口、D1 建表脚本
 scripts/        开发、打包、部署和核对脚本
-deploy/demo/    deverdesk.com 演示站的部署配置
+deploy/demo/    app.deverdesk.com 演示站的部署配置
 docs/           设计文档
 ```
 
