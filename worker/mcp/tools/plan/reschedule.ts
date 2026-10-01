@@ -46,25 +46,23 @@ export const rescheduleTool: WriteTool<unknown> = {
   inputSchema: {
     type: "object",
     properties: {
-      tasks: { type: "array", minItems: 1, maxItems: 20, items: TASK_REF },
+      tasks: { type: "array", minItems: 1, maxItems: 20, items: TASK_REF, description: "Tasks to move. Give either tasks or selector, not both." },
       selector: {
         type: "object",
+        description: "Pick tasks by rule instead of listing them. Give either selector or tasks, not both; it needs at least one of overdue: true, plannedOn, plannedFrom.",
         properties: {
-          overdue: { type: "boolean" },
+          overdue: { type: "boolean", description: "true selects every overdue unfinished task." },
           plannedOn: { type: "string", description: "Select tasks planned on this local day." },
           plannedFrom: { type: "string", description: "Select tasks planned on or after this local day." },
         },
         additionalProperties: false,
-        anyOf: [{ properties: { overdue: { const: true } }, required: ["overdue"] }, { required: ["plannedOn"] }, { required: ["plannedFrom"] }],
       },
-      to: { type: "string", description: "Target local calendar day, YYYY-MM-DD." },
-      shiftDays: { type: "integer", minimum: -30, maximum: 30, not: { const: 0 } },
+      to: { type: "string", description: "Target local calendar day, YYYY-MM-DD. Give either to or shiftDays, not both." },
+      shiftDays: { type: "integer", minimum: -30, maximum: 30, description: "Move each task by this many days: a non-zero integer from -30 to 30 (tasks without a planned day are skipped). Give either shiftDays or to, not both." },
       keepTime: { type: "boolean", default: false },
       reason: REASON,
     },
     additionalProperties: false,
-    oneOf: [{ required: ["tasks"], not: { required: ["selector"] } }, { required: ["selector"], not: { required: ["tasks"] } }],
-    anyOf: [{ required: ["to"], not: { required: ["shiftDays"] } }, { required: ["shiftDays"], not: { required: ["to"] } }],
   },
   async plan(ctx, value) {
     const input = inputObject(value, "reschedule input")

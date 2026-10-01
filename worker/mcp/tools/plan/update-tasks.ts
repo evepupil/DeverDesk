@@ -121,6 +121,7 @@ export const updateTasksTool: WriteTool<unknown> = {
     properties: {
       updates: {
         type: "array", minItems: 1, maxItems: 20,
+        description: "Each update names a task and at least one field to change.",
         items: {
           type: "object",
           properties: {
@@ -135,7 +136,6 @@ export const updateTasksTool: WriteTool<unknown> = {
             removeSubtasks: subtaskRefs("remove"),
           },
           required: ["task"], additionalProperties: false,
-          anyOf: mutableFields.map((field) => ({ required: [field] })),
         },
       },
       reason: REASON,

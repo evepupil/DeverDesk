@@ -46,17 +46,13 @@ export const logTimeTool: WriteTool<unknown> = {
           type: "object",
           properties: {
             start: LOCAL_ENTRY_TIME,
-            end: LOCAL_ENTRY_TIME,
-            minutes: { type: "integer", minimum: 1, maximum: 1440 },
+            end: { ...LOCAL_ENTRY_TIME, description: `${LOCAL_ENTRY_TIME.description} Give either end or minutes, not both.` },
+            minutes: { type: "integer", minimum: 1, maximum: 1440, description: "Duration in minutes. Give either minutes or end, not both." },
             date: DAY,
             task: TASK_REF,
             project: PROJECT_REF,
           },
           required: ["start"],
-          oneOf: [
-            { required: ["end"], not: { required: ["minutes"] } },
-            { required: ["minutes"], not: { required: ["end"] } },
-          ],
           additionalProperties: false,
         },
       },
@@ -76,7 +72,8 @@ export const logTimeTool: WriteTool<unknown> = {
 
     for (const [index, candidate] of input.entries.entries()) {
       if ((candidate.end === undefined) === (candidate.minutes === undefined)) {
-        throw new ToolInputError(`entries[${index}] must provide exactly one of end or minutes.`)
+        const given = candidate.end === undefined ? "neither was given" : "both were given"
+        throw new ToolInputError(`entries[${index}] must provide exactly one of "end" or "minutes" (${given}).`)
       }
       const start = parseLocalDateTime(ctx, candidate.start, candidate.date, `entries[${index}].start`)
       const startDay = ctx.clock.dayOf(start)

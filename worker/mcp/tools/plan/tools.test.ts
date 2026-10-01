@@ -111,6 +111,29 @@ describe("plan tools", () => {
     })).rejects.toThrow("needs a planned day")
   })
 
+  it("explains field-combination mistakes in plain words", async () => {
+    const task = makeTask({ id: "t-msg", seq: 101 })
+    const ctx = () => toolContext(makeData({ tasks: [task], projects: [makeProject()], routines: [makeRoutine()] }))
+    await expect(rescheduleTool.plan(ctx(), { tasks: ["T-101"], selector: { overdue: true }, to: "2026-10-04" }))
+      .rejects.toThrow('Provide either "tasks" or "selector", but not both.')
+    await expect(rescheduleTool.plan(ctx(), { tasks: ["T-101"], to: "2026-10-04", shiftDays: 1 }))
+      .rejects.toThrow('Provide exactly one of "to" or "shiftDays".')
+    await expect(rescheduleTool.plan(ctx(), { tasks: ["T-101"] }))
+      .rejects.toThrow('Provide exactly one of "to" or "shiftDays".')
+    await expect(rescheduleTool.plan(ctx(), { selector: {}, to: "2026-10-04" }))
+      .rejects.toThrow("Selector must include overdue: true, plannedOn, or plannedFrom.")
+    await expect(rescheduleTool.plan(ctx(), { tasks: ["T-101"], shiftDays: 0 }))
+      .rejects.toThrow('"shiftDays" must be a non-zero integer from -30 to 30')
+    await expect(updateTasksTool.plan(ctx(), { updates: [{ task: "T-101" }] }))
+      .rejects.toThrow("must include at least one field to change")
+    await expect(manageRoutineTool.plan(ctx(), { action: "update", routine: "r-1" }))
+      .rejects.toThrow("at least one field to change")
+    await expect(manageProjectTool.plan(ctx(), { action: "update", project: "p-1" }))
+      .rejects.toThrow("at least one field to change")
+    await expect(manageProjectTool.plan(ctx(), { action: "update_milestone", project: "p-1", milestone: "m-1" }))
+      .rejects.toThrow('must include "title" or "due"')
+  })
+
   it("update_tasks accepts the subtask ids and titles that task reads show", async () => {
     const task = makeTask({
       id: "task-refs",

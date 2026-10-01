@@ -37,7 +37,11 @@ export const manageProjectTool: WriteTool<unknown> = {
   inputSchema: {
     type: "object",
     properties: {
-      action: { type: "string", enum: ["create", "update", "add_milestone", "update_milestone", "complete_milestone", "reopen_milestone", "remove_milestone"] },
+      action: {
+        type: "string",
+        enum: ["create", "update", "add_milestone", "update_milestone", "complete_milestone", "reopen_milestone", "remove_milestone"],
+        description: "Required fields per action: create (name); update (project and at least one of name, color, stage, goal, monthlyTarget); add_milestone (project, title, due); update_milestone (project, milestone and at least one of title, due); complete_milestone, reopen_milestone and remove_milestone (project, milestone).",
+      },
       project: { type: "string", minLength: 1 },
       name: { type: "string", minLength: 1, maxLength: 20 },
       color: { type: "string", enum: COLORS },
@@ -50,13 +54,6 @@ export const manageProjectTool: WriteTool<unknown> = {
       reason: REASON,
     },
     required: ["action"], additionalProperties: false,
-    allOf: [
-      { if: { properties: { action: { const: "create" } }, required: ["action"] }, then: { required: ["name"] } },
-      { if: { properties: { action: { const: "update" } }, required: ["action"] }, then: { required: ["project"], anyOf: [{ required: ["name"] }, { required: ["color"] }, { required: ["stage"] }, { required: ["goal"] }, { required: ["monthlyTarget"] }] } },
-      { if: { properties: { action: { const: "add_milestone" } }, required: ["action"] }, then: { required: ["project", "title", "due"] } },
-      { if: { properties: { action: { const: "update_milestone" } }, required: ["action"] }, then: { required: ["project", "milestone"], anyOf: [{ required: ["title"] }, { required: ["due"] }] } },
-      ...["complete_milestone", "reopen_milestone", "remove_milestone"].map((action) => ({ if: { properties: { action: { const: action } }, required: ["action"] }, then: { required: ["project", "milestone"] } })),
-    ],
   },
   async plan(ctx, value) {
     const input = inputObject(value, "manage_project input")
@@ -67,6 +64,12 @@ export const manageProjectTool: WriteTool<unknown> = {
     else if (action === "complete_milestone" || action === "reopen_milestone" || action === "remove_milestone") allowed.push("milestone")
     if (action === "update") allowed.push("name", "color", "stage", "goal", "monthlyTarget")
     assertOnlyKeys(input, allowed, action)
+    if (action === "update" && !["name", "color", "stage", "goal", "monthlyTarget"].some((field) => field in input)) {
+      throw new ToolInputError('An update must include at least one field to change: "name", "color", "stage", "goal", or "monthlyTarget".')
+    }
+    if (action === "update_milestone" && !("title" in input) && !("due" in input)) {
+      throw new ToolInputError('A milestone update must include "title" or "due".')
+    }
 
     const projects = await ctx.data.projects()
     const op = operationContext(ctx)

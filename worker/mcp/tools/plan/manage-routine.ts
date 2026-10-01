@@ -19,7 +19,11 @@ export const manageRoutineTool: WriteTool<unknown> = {
   inputSchema: {
     type: "object",
     properties: {
-      action: { type: "string", enum: ["create", "update", "archive", "unarchive"] },
+      action: {
+        type: "string",
+        enum: ["create", "update", "archive", "unarchive"],
+        description: "Required fields per action: create (title); update (routine and at least one of title, cadence, estimateMin, project); archive and unarchive (routine).",
+      },
       routine: ROUTINE_REF,
       title: { type: "string", minLength: 1, maxLength: 40 },
       cadence: { type: "string", enum: CADENCES },
@@ -28,11 +32,6 @@ export const manageRoutineTool: WriteTool<unknown> = {
       reason: REASON,
     },
     required: ["action"], additionalProperties: false,
-    allOf: [
-      { if: { properties: { action: { const: "create" } }, required: ["action"] }, then: { required: ["title"] } },
-      { if: { properties: { action: { const: "update" } }, required: ["action"] }, then: { required: ["routine"], anyOf: [{ required: ["title"] }, { required: ["cadence"] }, { required: ["estimateMin"] }, { required: ["project"] }] } },
-      ...["archive", "unarchive"].map((action) => ({ if: { properties: { action: { const: action } }, required: ["action"] }, then: { required: ["routine"] } })),
-    ],
   },
   async plan(ctx, value) {
     const input = inputObject(value, "manage_routine input")
@@ -46,6 +45,9 @@ export const manageRoutineTool: WriteTool<unknown> = {
         ? ["action", "reason", "routine", "title", "cadence", "estimateMin", "project"]
         : ["action", "reason", "routine"]
     assertOnlyKeys(input, allowed, action)
+    if (action === "update" && !["title", "cadence", "estimateMin", "project"].some((field) => field in input)) {
+      throw new ToolInputError('An update must include at least one field to change: "title", "cadence", "estimateMin", or "project".')
+    }
     if (input.project !== undefined && input.project !== null && typeof input.project !== "string") {
       throw new ToolInputError('Field "project" must be a project reference or null.')
     }

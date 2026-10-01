@@ -105,6 +105,16 @@ describe("log_time", () => {
     })
   })
 
+  it("says which of end and minutes is wrong when both or neither are given", async () => {
+    const ctx = captureContext()
+    await expect(logTimeTool.plan(ctx, {
+      entries: [{ start: "2026-10-01T10:00", minutes: 30, end: "2026-10-01T10:30" }],
+    })).rejects.toThrow('entries[0] must provide exactly one of "end" or "minutes" (both were given).')
+    await expect(logTimeTool.plan(ctx, {
+      entries: [{ start: "2026-10-01T10:00" }],
+    })).rejects.toThrow('exactly one of "end" or "minutes" (neither was given).')
+  })
+
   it("still rejects intervals longer than a day and ends in the future", async () => {
     const ctx = captureContext()
     await expect(logTimeTool.plan(ctx, {
