@@ -4,6 +4,7 @@ import { minutesOf, isOpen, sortTasks } from "../../../../src/domain/tasks"
 import type { DayKey, LedgerEntry, Project, Task, TimeEntry } from "../../../../src/domain/types"
 import { PROJECT_WEEKS } from "../../../../src/domain/projects"
 import type { ProjectSummary } from "../../../../src/domain/projects"
+import { roundMoney } from "../shared/numbers"
 import { PROJECT_REF } from "../shared/schema"
 import { resolveProject } from "../shared/refs"
 import { presentLedger, presentProject, presentTask, presentationContext, values } from "./common"
@@ -140,13 +141,13 @@ export const getProjectTool: ReadTool<GetProjectInput> = {
     return {
       project: presentProject(project),
       month: {
-        income: summary.month.income,
-        expense: summary.month.expense,
-        net: summary.month.net,
+        income: roundMoney(summary.month.income),
+        expense: roundMoney(summary.month.expense),
+        net: roundMoney(summary.month.net),
         minutes: summary.month.minutes,
-        hourlyRate: summary.month.rate,
+        hourlyRate: roundMoney(summary.month.rate),
       },
-      totalNet: summary.totalNet,
+      totalNet: roundMoney(summary.totalNet),
       totalMinutes: summary.totalMinutes,
       monthlyTargetProgressPercent: project.monthlyTarget === null || project.monthlyTarget === 0
         ? null
@@ -156,7 +157,7 @@ export const getProjectTool: ReadTool<GetProjectInput> = {
         total: project.milestones.length,
         next: summary.nextMilestone,
       },
-      weeks: summary.weeks,
+      weeks: summary.weeks.map((week) => ({ ...week, net: roundMoney(week.net) })),
       lastActive: summary.lastActive,
       openTasks: open.length,
       openTaskItems: open.slice(0, 30).map((task) => presentTask(task, present)),

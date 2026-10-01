@@ -56,6 +56,18 @@ describe("get_day", () => {
     expect(money.overduePending).toHaveLength(1)
   })
 
+  it("rounds the monthly money sums to cents", async () => {
+    const today = "2026-10-01"
+    const ledger = [
+      makeLedger({ id: "l-a", amount: 88.8, date: today }),
+      makeLedger({ id: "l-b", amount: 19.99, date: today }),
+      makeLedger({ id: "l-c", kind: "expense", category: "tools", amount: 47.5, date: today }),
+    ]
+    const result = await getDayTool.run(toolContext(makeWorkbench({ ledger })), {})
+
+    expect(result.money).toMatchObject({ income: 108.79, expense: 47.5, net: 61.29 })
+  })
+
   it("caps due, soon, and slipped candidates while preserving sorted visible rows", async () => {
     const overdue = Array.from({ length: 30 }, (_, index) => makeTask({
       id: `t-overdue-${index}`,

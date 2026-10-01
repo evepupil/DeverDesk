@@ -71,6 +71,19 @@ describe("get_week_review", () => {
     expect(estimateEntries).toHaveLength(6)
   })
 
+  it("rounds income, expense, net and the previous week's net to cents", async () => {
+    const ledger = [
+      makeLedger({ id: "l-a", amount: 88.8, date: "2026-09-29" }),
+      makeLedger({ id: "l-b", amount: 19.99, date: "2026-09-29" }),
+      makeLedger({ id: "l-c", kind: "expense", category: "tools", amount: 47.5, date: "2026-09-30" }),
+      makeLedger({ id: "l-prev-a", amount: 0.1, date: "2026-09-22" }),
+      makeLedger({ id: "l-prev-b", amount: 0.2, date: "2026-09-22" }),
+    ]
+    const result = await getWeekReviewTool.run(toolContext(makeWorkbench({ ledger })), {})
+
+    expect(result).toMatchObject({ income: 108.79, expense: 47.5, net: 61.29, previous: { net: 0.3 } })
+  })
+
   it("shows each completed task's real local completion time instead of shifting it a second time", async () => {
     // 2026-10-01 01:27 UTC 是东八区的 09:27；多平移一次会显示成 17:27
     const task = makeTask({ id: "t-done", seq: 301, status: "done", plannedFor: "2026-10-01", completedAt: Date.parse("2026-10-01T01:27:00Z") })

@@ -3,6 +3,7 @@ import { doneIn, estimateAccuracy, hourlyRate, minutesByWeekday, minutesIn, proj
 import { totals } from "../../../../src/domain/ledger"
 import { toWallWorkbench } from "../../data/wall"
 import { ToolInputError } from "../../types"
+import { roundMoney } from "../shared/numbers"
 import { getStatsTool } from "./get-stats"
 import { makeEntry, makeLedger, makeProject, makeTask, makeWorkbench, toolContext } from "./test-support"
 
@@ -53,7 +54,7 @@ describe("get_stats", () => {
     expect(result.current).toEqual({
       ...currentMoney,
       minutes: currentMinutes,
-      hourlyRate: hourlyRate(currentMoney.net, currentMinutes),
+      hourlyRate: roundMoney(hourlyRate(currentMoney.net, currentMinutes)),
       tasksDone: doneIn(wallCurrent.tasks, range, project.id).length,
     })
     expect(result.previous).toMatchObject({
@@ -61,17 +62,36 @@ describe("get_stats", () => {
       expense: previousMoney.expense,
       net: previousMoney.net,
       minutes: previousMinutes,
-      hourlyRate: hourlyRate(previousMoney.net, previousMinutes),
+      hourlyRate: roundMoney(hourlyRate(previousMoney.net, previousMinutes)),
       tasksDone: doneIn(wallPrevious.tasks, previousRange, project.id).length,
     })
     expect((result.byProject as Array<Record<string, unknown>>)[0]).toMatchObject({
       project: { id: project.id, name: project.name },
       minutes: currentProject.minutes,
-      hourlyRate: currentProject.rate,
+      hourlyRate: roundMoney(currentProject.rate),
       tasksDone: currentProject.done,
     })
     expect(result.estimateAccuracy).toEqual(estimateAccuracy(wallCurrent.tasks, wallEstimates, range))
     expect(result.minutesByWeekday).toEqual(minutesByWeekday(wallCurrent.entries, range))
+  })
+
+  it("rounds money sums and hourly rates to cents for both periods and each project", async () => {
+    const project = makeProject()
+    const ledger = [
+      makeLedger({ id: "l-a", projectId: project.id, amount: 88.8, date: "2026-10-01" }),
+      makeLedger({ id: "l-b", projectId: project.id, amount: 19.99, date: "2026-10-01" }),
+      makeLedger({ id: "l-c", projectId: project.id, kind: "expense", category: "tools", amount: 47.5, date: "2026-10-01" }),
+      makeLedger({ id: "l-prev-a", projectId: project.id, amount: 0.1, date: "2026-09-30" }),
+      makeLedger({ id: "l-prev-b", projectId: project.id, amount: 0.2, date: "2026-09-30" }),
+    ]
+    // 111 分钟 = 1.85 小时，净收入 61.29 除下来除不尽
+    const entries = [makeEntry({ id: "e-a", projectId: project.id, start: Date.parse("2026-10-01T01:00:00Z"), end: Date.parse("2026-10-01T02:51:00Z") })]
+    const ctx = toolContext(makeWorkbench({ projects: [project], ledger, entries }))
+    const result = await getStatsTool.run(ctx, { start: "2026-10-01", end: "2026-10-01" })
+
+    expect(result.current).toMatchObject({ income: 108.79, expense: 47.5, net: 61.29, minutes: 111, hourlyRate: 33.13 })
+    expect(result.previous).toMatchObject({ income: 0.3, net: 0.3 })
+    expect((result.byProject as Array<Record<string, unknown>>)[0]).toMatchObject({ income: 108.79, net: 61.29, hourlyRate: 33.13 })
   })
 
   it("rejects ranges over 366 inclusive days and conflicting range forms", async () => {

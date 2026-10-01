@@ -52,6 +52,26 @@ describe("project read tools", () => {
     expect(endedResult.projects).toHaveLength(2)
   })
 
+  it("rounds monthly money and hourly rates to cents in the list and the project card", async () => {
+    const project = makeProject()
+    const ledger = [
+      makeLedger({ id: "l-a", projectId: project.id, amount: 88.8, date: "2026-10-01" }),
+      makeLedger({ id: "l-b", projectId: project.id, amount: 19.99, date: "2026-10-01" }),
+      makeLedger({ id: "l-c", projectId: project.id, kind: "expense", category: "tools", amount: 47.5, date: "2026-10-01" }),
+    ]
+    // 111 分钟 = 1.85 小时，净收入 61.29 除下来除不尽
+    const entries = [makeEntry({ id: "e-a", projectId: project.id, start: Date.parse("2026-10-01T01:00:00Z"), end: Date.parse("2026-10-01T02:51:00Z") })]
+    const ctx = toolContext(makeWorkbench({ projects: [project], ledger, entries }))
+
+    const listed = (await listProjectsTool.run(ctx, {})).projects as Array<Record<string, unknown>>
+    expect(listed[0]).toMatchObject({ income: 108.79, expense: 47.5, net: 61.29, hourlyRate: 33.13 })
+
+    const card = await getProjectTool.run(ctx, { project: project.id })
+    expect(card.month).toEqual({ income: 108.79, expense: 47.5, net: 61.29, minutes: 111, hourlyRate: 33.13 })
+    expect(card.totalNet).toBe(61.29)
+    expect((card.weeks as Array<{ net: number }>).at(-1)?.net).toBe(61.29)
+  })
+
   it("matches the shared project card summary and marks capped lists", async () => {
     const project = makeProject({ monthlyTarget: 500 })
     const doneTasks = Array.from({ length: 12 }, (_, index) => makeTask({

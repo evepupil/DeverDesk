@@ -8,6 +8,7 @@ import type { Task } from "../../../../src/domain/types"
 import { toWallWorkbench } from "../../data/wall"
 import { DAY } from "../shared/schema"
 import { assertDay } from "../shared/dates"
+import { roundMoney } from "../shared/numbers"
 import { presentEntry, presentLedger, presentTask, presentationContext, scheduleOrder, taskMap, values, weekdayOf } from "./common"
 import type { ReadTool } from "../../types"
 
@@ -134,9 +135,9 @@ export const getDayTool: ReadTool<GetDayInput> = {
         runningMin: Math.max(0, Math.floor((ctx.clock.now - timerValue.startedAt) / 60_000)),
       },
       money: {
-        income: monthTotals.income,
-        expense: monthTotals.expense,
-        net: monthTotals.net,
+        income: roundMoney(monthTotals.income),
+        expense: roundMoney(monthTotals.expense),
+        net: roundMoney(monthTotals.net),
         pendingCount: pendingValues.length,
         overduePending: pendingOverdue.slice(0, 20).map((entry) => presentLedger(entry, present)),
         overduePendingTruncated: pendingOverdue.length > 20,

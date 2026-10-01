@@ -2,6 +2,7 @@ import { addDays, monthEnd, monthStart } from "../../../../src/domain/calendar"
 import { hourlyRate, projectStats } from "../../../../src/domain/insights"
 import { OPEN_STATUSES } from "../../../../src/domain/tasks"
 import { toWallWorkbench } from "../../data/wall"
+import { roundMoney } from "../shared/numbers"
 import { countTasksByProject, presentProject, values } from "./common"
 import type { ReadTool } from "../../types"
 
@@ -47,11 +48,11 @@ export const listProjectsTool: ReadTool<ListProjectsInput> = {
         const net = stat?.net ?? 0
         return {
           ...presentProject(project),
-          income: stat?.income ?? 0,
-          expense: stat?.expense ?? 0,
-          net,
+          income: roundMoney(stat?.income ?? 0),
+          expense: roundMoney(stat?.expense ?? 0),
+          net: roundMoney(net),
           minutes,
-          hourlyRate: hourlyRate(net, minutes),
+          hourlyRate: roundMoney(hourlyRate(net, minutes)),
           openTasks: openCounts.get(project.id) ?? 0,
           nextMilestone: milestones[0] ?? null,
         }

@@ -3,6 +3,7 @@ import { hourlyRate } from "../../../../src/domain/insights"
 import { minutesOf } from "../../../../src/domain/tasks"
 import type { DayKey, LedgerEntry, Task } from "../../../../src/domain/types"
 import { assertDay, assertRange } from "../shared/dates"
+import { roundMoney } from "../shared/numbers"
 import { resolveProject } from "../shared/refs"
 import { DAY, PROJECT_REF } from "../shared/schema"
 import { projectRef } from "../shared/present"
@@ -53,6 +54,19 @@ function addLedger(totals: StatsTotals, entry: LedgerEntry): void {
 
 function addTask(totals: StatsTotals): void {
   totals.tasksDone += 1
+}
+
+/** 一期（或一个副业）的汇总：金额和时薪一律取到分，避免浮点尾数 */
+function periodSummary(money: { income: number; expense: number }, minutes: number, tasksDone: number) {
+  const net = money.income - money.expense
+  return {
+    income: roundMoney(money.income),
+    expense: roundMoney(money.expense),
+    net: roundMoney(net),
+    minutes,
+    hourlyRate: roundMoney(hourlyRate(net, minutes)),
+    tasksDone,
+  }
 }
 
 function taskDateQuery(period: { start: DayKey; end: DayKey }, ctx: ToolContext, projectId: string | null | undefined): TaskQuery {
@@ -175,33 +189,14 @@ export const getStatsTool: ReadTool<GetStatsInput> = {
     const stats = [...projectStatsById].filter(([, value]) => value.income > 0 || value.expense > 0 || value.minutes > 0)
       .map(([projectIdForStats, value]) => ({
         project: projectRef(projectIdForStats, present),
-        income: value.income,
-        expense: value.expense,
-        net: value.income - value.expense,
-        minutes: value.minutes,
-        hourlyRate: hourlyRate(value.income - value.expense, value.minutes),
-        tasksDone: value.tasksDone,
+        ...periodSummary(value, value.minutes, value.tasksDone),
       }))
 
     return {
       range: { current, previous },
       ...(selected === undefined ? {} : { project: selected === null ? null : { id: selected.value.id, name: selected.value.name } }),
-      current: {
-        income: currentMoney.income,
-        expense: currentMoney.expense,
-        net: currentMoney.income - currentMoney.expense,
-        minutes: currentMinutes,
-        hourlyRate: hourlyRate(currentMoney.income - currentMoney.expense, currentMinutes),
-        tasksDone: currentDone,
-      },
-      previous: {
-        income: previousMoney.income,
-        expense: previousMoney.expense,
-        net: previousMoney.income - previousMoney.expense,
-        minutes: previousMinutes,
-        hourlyRate: hourlyRate(previousMoney.income - previousMoney.expense, previousMinutes),
-        tasksDone: previousDone,
-      },
+      current: periodSummary(currentMoney, currentMinutes, currentDone),
+      previous: periodSummary(previousMoney, previousMinutes, previousDone),
       byProject: stats,
       estimateAccuracy: accuracy,
       minutesByWeekday: weekdayMinutes,

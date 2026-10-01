@@ -2,6 +2,7 @@ import { addDays, weekStart } from "../../../../src/domain/calendar"
 import { weekReview } from "../../../../src/domain/review"
 import { toWallWorkbench } from "../../data/wall"
 import { assertDay } from "../shared/dates"
+import { roundMoney } from "../shared/numbers"
 import { DAY } from "../shared/schema"
 import { projectRef } from "../shared/present"
 import { presentTask, presentationContext, uniqueTasks, values, localDayBounds, sumEntryMinutesByTask } from "./common"
@@ -86,12 +87,12 @@ export const getWeekReviewTool: ReadTool<GetWeekReviewInput> = {
       minutes: review.minutes,
       minutesByProject: byProject,
       days: review.days,
-      income: review.income,
-      expense: review.expense,
-      net: review.net,
+      income: roundMoney(review.income),
+      expense: roundMoney(review.expense),
+      net: roundMoney(review.net),
       estimateAccuracy: review.accuracy,
       routines: review.routines,
-      previous: review.previous,
+      previous: { ...review.previous, net: roundMoney(review.previous.net) },
       partial: review.partial,
       truncated: review.done.length > DONE_LIMIT,
       notes: notesValue ? { wins: notesValue.wins, improve: notesValue.improve, next: notesValue.next } : { wins: "", improve: "", next: "" },
