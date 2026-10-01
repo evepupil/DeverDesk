@@ -69,6 +69,9 @@ export const getWeekReviewTool: ReadTool<GetWeekReviewInput> = {
     const actual = accuracyTasks.reduce((sum, task) => sum + (loggedByTask.get(task.id) ?? 0), 0)
     review.accuracy = { estimate, actual, ratio: estimate > 0 ? actual / estimate : null }
     const present = presentationContext(ctx, projectRecords)
+    // 回顾算出来的任务带的是「墙上时间」（统计用，时间戳已整体平移），展示要换回查到的原始任务，
+    // 否则完成时间会被时区再平移一次
+    const originalTasks = new Map(allTasks.map((task) => [task.id, task]))
     const byProject = [...review.minutesByProject.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([id, minutes]) => ({ project: projectRef(id, present), minutes }))
@@ -78,7 +81,7 @@ export const getWeekReviewTool: ReadTool<GetWeekReviewInput> = {
       weekStart: review.start,
       weekEnd: review.end,
       doneCount: review.done.length,
-      doneTasks: review.done.slice(0, DONE_LIMIT).map((task) => presentTask(task, present, loggedByTask.get(task.id) ?? 0)),
+      doneTasks: review.done.slice(0, DONE_LIMIT).map((task) => presentTask(originalTasks.get(task.id) ?? task, present, loggedByTask.get(task.id) ?? 0)),
       doneTasksTruncated: review.done.length > DONE_LIMIT,
       minutes: review.minutes,
       minutesByProject: byProject,

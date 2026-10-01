@@ -70,4 +70,14 @@ describe("get_week_review", () => {
     expect(result.notes).toEqual({ wins: "Shipped", improve: "Focus", next: "Review" })
     expect(estimateEntries).toHaveLength(6)
   })
+
+  it("shows each completed task's real local completion time instead of shifting it a second time", async () => {
+    // 2026-10-01 01:27 UTC 是东八区的 09:27；多平移一次会显示成 17:27
+    const task = makeTask({ id: "t-done", seq: 301, status: "done", plannedFor: "2026-10-01", completedAt: Date.parse("2026-10-01T01:27:00Z") })
+    const result = await getWeekReviewTool.run(toolContext(makeWorkbench({ tasks: [task] })), {})
+
+    expect((result.doneTasks as Array<{ code: string; completedAt: string }>)).toEqual([
+      expect.objectContaining({ code: "T-301", completedAt: "2026-10-01 09:27" }),
+    ])
+  })
 })
