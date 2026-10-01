@@ -116,9 +116,36 @@ To update later, pull the latest code and run `pnpm build && pnpm run deploy` ag
 
 In the local edition, choose **Export backup** from the avatar menu. In your cloud edition, choose **Import backup** and pick that file.
 
+## Connect an AI assistant (MCP)
+
+The cloud edition is also an [MCP](https://modelcontextprotocol.io) server at `https://your-workspace.example.com/mcp`, so assistants such as Claude Code, Codex, Cursor and VS Code can log and plan for you.
+
+1. Open the avatar menu → **Connect AI**, name the connection and pick what it may do:
+   - **Read only**: it can only read your data.
+   - **Propose** (default): its changes wait until you accept them in **AI activity**.
+   - **Write**: changes apply right away and can be undone.
+2. Copy the configuration shown for your client. The token is shown only once. For Claude Code it looks like this:
+
+```bash
+claude mcp add --transport http deverdesk https://your-workspace.example.com/mcp \
+  --header "Authorization: Bearer dd_your_token"
+```
+
+What the assistant can do:
+
+| Group | Tools |
+| --- | --- |
+| Capture | Add several tasks at once, record income and expenses (an external order ID skips duplicates), log time, start and stop the timer, check off routines, write weekly notes |
+| Check | Today, this week, every project, one project in depth, stats for any period, the weekly review, keyword search, flexible queries |
+| Plan | Edit tasks in bulk, schedule a day into free time slots, spread tasks over a week by capacity, reschedule, manage projects, milestones and routines, delete records |
+
+Every change an assistant makes is recorded. The sparkles icon in the top bar opens **AI activity**, where you accept or reject proposals and undo changes; records created by an assistant carry the same icon. Deleting, or changing more than ten records at once, is shown to you as a preview first. Dates and times follow the time zone in your schedule settings, which the browser fills in the first time you sign in.
+
+If the workspace sits behind Cloudflare Access, add an Access bypass rule for the `/mcp` path; DeverDesk checks the token itself. Claude on the web and in the mobile apps connects through OAuth, which isn't supported yet.
+
 ## Automation API
 
-The cloud edition has a small HTTP API for scripts and AI assistants; it is the groundwork for an upcoming MCP server. Create a personal access token from the avatar menu → **Access tokens**. Each token is shown only once and stored only as a hash.
+The cloud edition also has a small HTTP API for scripts. Create a token from the avatar menu → **Connect AI** with the **Write** permission. Each token is shown only once and stored only as a hash.
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -133,7 +160,7 @@ curl -X POST https://your-workspace.example.com/api/tasks \
   -d '{"title":"Write the launch post","plannedFor":"2026-10-01","estimateMin":45}'
 ```
 
-Records created through the API sync to every device like any other change.
+Records created through the API sync to every device like any other change, and show up in **AI activity**, where they can be undone.
 
 ## Development
 
@@ -183,7 +210,7 @@ src/
   i18n/         language settings and the English and Chinese dictionaries
   data/         catalogs and sample-data generation
   sync/         the sync protocol shared by the browser and the Worker
-worker/         the Cloudflare Worker: sign-in, sync, tokens, automation API, D1 migrations
+worker/         the Cloudflare Worker: sign-in, sync, tokens, the MCP server, the AI change log, automation API, D1 migrations
 scripts/        dev server, build, deploy and acceptance scripts
 deploy/demo/    configuration for the app.deverdesk.com demo
 site/           the website (deverdesk.com): a separate Next.js project
@@ -195,8 +222,10 @@ docs/           design documents (in Chinese)
 - [x] Local and cloud editions from one codebase
 - [x] Cloud backend: sign-in, record-level sync, offline support, one-click deploy
 - [x] English and Chinese interface, currency setting
+- [x] An MCP server so AI assistants can read, log and plan, with a change log you can review and undo
+- [ ] Log coding time and tasks automatically while you work with an AI coding assistant
+- [ ] OAuth sign-in for Claude on the web and mobile, and ChatGPT
 - [ ] Automatic income import from payment platforms
-- [ ] An MCP server so AI assistants can read and log your data
 
 Milestones and module designs (in Chinese) live in [docs/roadmap.md](docs/roadmap.md).
 
