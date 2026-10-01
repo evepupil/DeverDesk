@@ -68,7 +68,7 @@ AI 客户端 ──POST /mcp──→ ① 入口：Origin 检查 → 令牌校�
 | | `get_week` | 某周七天的负载和任务，加上没排日子的任务 | 全部 |
 | | `list_projects` | 全部副业和本月的收入、工时、时薪、下一个里程碑 | 全部 |
 | | `get_project` | 一个副业的完整档案 | 全部 |
-| | `get_stats` | 任意时间段的收入、工时、时薪、完成数，按副业拆分，和上一期对比 | 全部 |
+| | `get_stats` | 最近一周、一月、一季、一年或自己指定的一段时间的收入、工时、时薪、完成数，按副业拆分，和前面同样长的一段对比 | 全部 |
 | | `get_week_review` | 某周回顾的数据和已写的三段笔记 | 全部 |
 | | `search` | 按关键词找任务、副业、收支 | 全部 |
 | | `query_records` | 按种类、日期、状态、副业筛记录，给 AI 自己算 | 全部 |
@@ -95,15 +95,16 @@ AI 客户端 ──POST /mcp──→ ① 入口：Origin 检查 → 令牌校�
 - 引用任务：`task` 字段填内部编号（`t-…`）或显示编号（`T-123`，大小写不限）。
 - 引用副业：`project` 字段填内部编号或名称；名称按「完全相同（不分大小写）→ 唯一的开头匹配 → 唯一的包含匹配」找，找到多个就报错并列出候选；填 `null` 表示不属于任何副业（「个人」）。
 - 引用例行：内部编号或标题，规则同副业。
-- 输入校验：形状和取值范围写在 JSON Schema 里（SDK 校验，出错自动给 `isError`）；跨字段的规则（比如「有开始时间就必须有日子」）在执行时检查，出错抛 `ToolInputError`，统一转成 `isError` 结果，文字说清哪一条、为什么。
+- 输入校验：形状和取值范围写在 JSON Schema 里（SDK 校验，出错自动给 `isError`）；字段怎么搭配的规则（二选一、至少改一项、某个动作必填哪些字段、有开始时间就必须有日子）一律不写进参数定义，不用 `oneOf`、`allOf`、`if/then`、`not`，也不用要求必填字段的 `anyOf`。这类规则写进字段说明，在执行时检查，出错抛 `ToolInputError`，统一转成 `isError` 结果，文字说清哪一条、为什么。原因：写进参数定义后，SDK 只会报「没有恰好匹配一种写法」这类 AI 看不懂的话，工具自己写好的提示反而到不了；Claude Code 这类客户端也不支持顶层的 `oneOf`/`allOf`，会把它拍平成一段文字提示。`worker/mcp/registry.test.ts` 有守卫测试，新增工具违反这条会直接测不过。
 - 输出：结构化对象放 `structuredContent`，同时把它的 JSON 文本放进 `content`（规范建议，兼容老客户端）。列表有上限，超出时带 `truncated: true`。
+- 金额和时薪：收入、支出、净收入、时薪这些加减或相除之后的结果，输出前一律四舍五入到分（两位小数），避免 `108.78999999999999` 这样的浮点尾数。取整只在输出这一步做，不改领域层的计算。
 - 写工具的输出统一多一个 `changeset` 字段：`{ id, status, applied, conflicts, message }`，`status` 为 `applied` / `proposed` / `preview` / `no_change`；`message` 用一句英文告诉 AI 下一步（提议：等用户在 DeverDesk 的 AI 动态里采纳；预览：把清单给用户看，用户同意后用 `manage_changes` 确认）。
 
 ### 统一的输出形状
 
 | 名称 | 字段 |
 | --- | --- |
-| 任务 | `id`、`code`（T-123）、`title`、`status`、`priority`、`project`（`{id,name}` 或 `null`）、`estimateMin`、`plannedFor`、`startAt`、`dueOn`、`subtasks`（`{done,total}`）、`loggedMin`（已投入，只在查询带了投入记录时给）、`completedAt`（本地日期时间或 `null`）、`byAi`（AI 建的为 `true`，否则不给） |
+| 任务 | `id`、`code`（T-123）、`title`、`status`、`priority`、`project`（`{id,name}` 或 `null`）、`estimateMin`、`plannedFor`、`startAt`、`dueOn`、`subtasks`（`{done,total}`，有子任务时多一个 `items`，每条是 `{id,title,done}`）、`notes`（备注原文，没有备注不给这个键）、`loggedMin`（已投入，只在查询带了投入记录时给）、`completedAt`（本地日期时间或 `null`）、`byAi`（AI 建的为 `true`，否则不给） |
 | 收支 | `id`、`kind`、`amount`、`project`、`category`、`channel`、`status`、`date`、`expectedOn`、`note`、`externalId`、`byAi` |
 | 投入 | `id`、`start`、`end`（本地日期时间）、`minutes`、`project`、`task`（`{id,code,title}` 或 `null`）、`byAi` |
 | 副业 | `id`、`name`、`color`、`stage`、`goal`、`monthlyTarget`、`startedOn` |
@@ -119,9 +120,9 @@ AI 客户端 ──POST /mcp──→ ① 入口：Origin 检查 → 令牌校�
 
 **`get_project`**：输入 `project`。输出：副业页卡片上的全部数字（净收入、工时、时薪、月目标进度、里程碑、近 12 周走势，和界面同一个计算函数）+ 没做完的任务（最多 30）+ 最近完成的 10 个 + 最近 10 笔收支。
 
-**`get_stats`**：输入 `range?`（`week`/`month`/`quarter`/`year`，默认 `month`）或 `start`+`end`（最长 366 天），`project?`。输出：本期和上一期（同样长度）的 `income,expense,net,minutes,hourlyRate,tasksDone`；`byProject`；`estimateAccuracy`（预估和实际分钟、比值）；`minutesByWeekday`（周一到周日七个数）。
+**`get_stats`**：输入 `range?`（`week`/`month`/`quarter`/`year`，默认 `month`）或 `start`+`end`（最长 366 天），`project?`。`range` 取截止今天的最近 7、30、90、365 天（含今天，滚动的，不按自然周、自然月）；今天是 10 月 2 日时，`month` 的本期是 9 月 3 日到 10 月 2 日，上一期是 8 月 4 日到 9 月 2 日。自己指定起止日期时，上一期同样是紧挨在前面、同样长的一段。输出：本期和上一期的 `income,expense,net,minutes,hourlyRate,tasksDone`；`byProject`；`estimateAccuracy`（预估和实际分钟、比值）；`minutesByWeekday`（周一到周日七个数）。
 
-**`get_week_review`**：输入 `week?`（这周里任意一天，默认本周）。输出：回顾页同一套数据（完成的任务、投入和按副业分布、每天实际与计划、收支、估时准不准、例行完成率、和上周对比、这周是否还没过完）+ 已写的三段笔记。
+**`get_week_review`**：输入 `week?`（这周里任意一天，默认本周）。输出：回顾页同一套数据（完成的任务、投入和按副业分布、每天实际与计划、收支、估时准不准、例行完成率、和上周对比、这周是否还没过完）+ 已写的三段笔记。每天的计划时长是任务预估加上当天要做的例行事项，和今天页、本周页同一个容量算法。
 
 **`search`**：输入 `query`（1–80 字）、`limit?`（每类默认 8，最多 20）。按标题、名称、备注找，不分大小写。输出 `tasks`、`projects`、`ledger`。
 
@@ -139,7 +140,7 @@ AI 客户端 ──POST /mcp──→ ① 入口：Origin 检查 → 令牌校�
 
 **`write_week_notes`**：输入 `week?`（这周里任意一天）、`wins?`、`improve?`、`next?`（每段最多 2000 字）、`mode?`（`replace` 覆盖、`append` 接在后面另起一行，默认 `replace`）。
 
-**`update_tasks`**：输入 `updates`（1–20 个：`task` 加要改的字段：`title`、`status`、`priority`、`estimateMin`、`plannedFor`（`null` 取消计划）、`startAt`（`null` 从时间线拿下来）、`dueOn`、`project`、`notes`（覆盖）、`appendNotes`、`addSubtasks`、`completeSubtasks`、`reopenSubtasks`、`removeSubtasks`（子任务按编号或标题））、`reason?`。状态、计划日、开始时间的联动规则和界面完全一致（共用操作函数）：改状态走界面「切换状态」那条规则（改成完成时记完成时间、没计划日子的计划到今天、计时器在这个任务上就停下并记一段投入；改成搁置也停计时）；改了计划日没给开始时间就清掉开始时间。界面的编辑表单改状态时只记完成时间、不停计时，这是界面现有的另一条规则，第一期不动它。
+**`update_tasks`**：输入 `updates`（1–20 个：`task` 加要改的字段：`title`、`status`、`priority`、`estimateMin`、`plannedFor`（`null` 取消计划）、`startAt`（`null` 从时间线拿下来）、`dueOn`、`project`、`notes`（覆盖）、`appendNotes`、`addSubtasks`、`completeSubtasks`、`reopenSubtasks`、`removeSubtasks`（子任务按编号、序号或标题指定，读任务时的 `subtasks.items` 里都看得到））、`reason?`。状态、计划日、开始时间的联动规则和界面完全一致（共用操作函数）：改状态走界面「切换状态」那条规则（改成完成时记完成时间、没计划日子的计划到今天、计时器在这个任务上就停下并记一段投入；改成搁置也停计时）；改了计划日没给开始时间就清掉开始时间。界面的编辑表单改状态时只记完成时间、不停计时，这是界面现有的另一条规则，第一期不动它。
 
 **`plan_day`**：输入 `date?`（默认今天）、`tasks?`（按顺序给要排的任务；不给就排这天已计划但还没排开始时间的任务——和今天页「自动排进时间线」一致，按优先级、截止日、编号排序；这天一个都没有时才按界面「建议」的规则挑，并排除「想法」状态）、`from?`（从几点开始找空档；今天默认现在，其他日子默认作息设置的开始时间）、`busy?`（已被占用的时段，例如 AI 从日历读到的会议：`start,end,label`）、`dryRun?`。用界面「一键排进时间线」的同一个算法找空档；已经排在时间线上的任务和 `busy` 都算占用。输出 `placed`（任务、开始、结束）、`notPlaced`（放不下的和原因）、排完后的容量。`dryRun` 不产生改动。
 
@@ -193,7 +194,7 @@ D1 实现的约定：
 
 - 作息设置加一项 `timeZone`（IANA 名称，如 `Asia/Shanghai`）。在线版浏览器登录后发现没有时区时，自动写入浏览器的时区；作息设置弹窗里可以改（常用时区列表 + 当前值）。
 - `worker/mcp/clock.ts` 的 `createClock(timeZone, now)` 给出：今天、本地某天零点对应的真实时间、真实时间属于本地哪一天、本地日期时间和真实时间互转、现在是本地第几分钟。没有时区时按 UTC 并把 `timeZoneKnown` 设为 `false`。
-- 界面的计算函数（`src/domain/`）按「运行环境的本地时间」取日期，Worker 的本地时间是 UTC。读工具调用这些函数前，先把查回来的记录里的时间戳换成「墙上时间」（用 UTC 读出来正好是用户的本地时间），算完的日期就是用户的本地日期；写回的时间戳一律是真实时间。
+- 界面的计算函数（`src/domain/`）按「运行环境的本地时间」取日期，Worker 的本地时间是 UTC。读工具调用这些函数前，先把查回来的记录里的时间戳换成「墙上时间」（用 UTC 读出来正好是用户的本地时间），算完的日期就是用户的本地日期；写回的时间戳一律是真实时间。给 AI 看的本地日期时间（完成时间、计时开始、投入起止）一律用查回来的原始记录来格式化，不用换算过的墙上时间版本，否则会被平移两次（周复盘曾因此把完成时间多算 8 小时）。
 - 投入记录的开始和结束**按开始那一刻的偏移一起平移**，时长保持真实（夏令时切换那天跨过切换点的投入，不会多算或少算一小时）；其余单个时间戳（完成时间、创建时间、计时开始）各按自己那一刻的偏移平移。
 - 换算规则只在 `clock.ts` 里写一次；Worker 侧测试在 UTC 下跑（和线上一致），并覆盖东八区、西五区和夏令时切换日。
 - 现有 `GET /api/summary` 默认月份同样改成按用户时区算。
@@ -233,7 +234,7 @@ AI 连上时拿到的说明（英文，几百字以内）：DeverDesk 是什么�
 
 ## 验证方式
 
-- 现状：`pnpm test` 64 个文件 435 条通过；`pnpm e2e` 24/24 通过；本地版交互核对 41/41 通过；官方一致性测试里适用于「只提供工具」服务的场景全过，新版协议的关键检查直接对 Worker 测都正确；用 Claude Code（Haiku 模型）实连跑通「看今天 → 记一笔 → 建两个任务 → 排进时间线 → 标完成 → 撤销」，服务器上的改动记录和预期一致。Codex 实连留到用户验收时做（当时本机已有 Codex 在运行，按本机约定不能同时再起一个）。
+- 现状：`pnpm test` 67 个文件 457 条通过；`pnpm e2e` 24/24 通过（联调后修正之后重跑过）；联调后修正还在本机 dev 服务上用 Claude Code 实连逐项回测过；本地版交互核对 41/41 通过；官方一致性测试里适用于「只提供工具」服务的场景全过，新版协议的关键检查直接对 Worker 测都正确；用 Claude Code（Haiku 模型）实连跑通「看今天 → 记一笔 → 建两个任务 → 排进时间线 → 标完成 → 撤销」，服务器上的改动记录和预期一致。Codex 实连留到用户验收时做（当时本机已有 Codex 在运行，按本机约定不能同时再起一个）。
 - `pnpm test`：工具逐个测（用内存数据源，固定时间和时区）、时区换算、共用操作函数（含 store 改造前后行为一致）、协议入口（鉴权、Origin、权限过滤、新老两代请求各走一遍）。
 - `pnpm build && pnpm e2e`：本机起 wrangler，三档令牌各连一次，覆盖读工具、提议后在页面采纳、直接改后撤销、删除先预览再确认、只看档不能写、网页登录态不能用 `/mcp`。
 - 一致性测试：`npx @modelcontextprotocol/conformance server --url http://127.0.0.1:<端口>/mcp`（带令牌）；`npx @modelcontextprotocol/inspector --cli … --method tools/list`。
@@ -250,3 +251,4 @@ AI 连上时拿到的说明（英文，几百字以内）：DeverDesk 是什么�
 
 - 2026-10-01：首版设计：接入方式、权限三档、22 个工具、按需查询、时区、共用业务规则。规格评审后修改：投入记录换算墙上时间时按开始时刻的偏移整体平移；改任务状态明确走「切换状态」规则；写明搜索不建全文索引的取舍。
 - 2026-10-02：第一期实现完成。评审后修改：D1 关键词过滤改用 instr；时钟加按天的偏移缓存、重复的一小时统一取更早的一刻；坏数据行跳过；读工具减少查回来的行并加两个汇总查询（三年重度数据下 `get_day` 从 22 毫秒降到 3.7 毫秒）；写工具修了 14 处（已完成的任务再标完成会改完成时间、按序号删子任务删错、跨午夜补记被拒、`allowDuplicates` 连外部单号也放开、空字符串副业引用误匹配、同号任务不报歧义、`plan_day` 默认候选等）；改动全部冲突时的说明文字。
+- 2026-10-02（联调后修正）：用 Claude Code 实连把 22 个工具逐个测了一遍，据此修了：周复盘里已完成任务的完成时间被时区多平移一次（东八区晚 8 小时）；周复盘每天的计划时长算上例行事项，和今天页、本周页一致；金额合计和时薪统一取到分，不再带浮点尾数；统计的 `range` 改为最近 7/30/90/365 天滚动对比紧挨在前面的同样长的一段；读取接口带上任务备注和子任务的编号、标题、是否完成；字段搭配出错时报人话（跨字段规则从五个工具的参数定义移到执行时检查，补上缺失的「至少改一项」检查，加守卫测试保证新增工具也不能把搭配规则写进参数定义）。
