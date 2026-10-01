@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest"
-import { isOverdue, isSlipped, sortTasks, taskCode } from "./tasks"
-import type { Task } from "./types"
+import { isOverdue, isSlipped, minutesOf, sortTasks, taskCode } from "./tasks"
+import type { Task, TimeEntry } from "./types"
 
 beforeAll(() => {
   process.env.TZ = "Asia/Shanghai"
@@ -119,5 +119,40 @@ describe("sortTasks 按优先级", () => {
     const tasks = [makeTask({ id: "a", priority: 1 }), makeTask({ id: "b", priority: 4 })]
     sortTasks(tasks, "priority")
     expect(tasks.map((task) => task.id)).toEqual(["a", "b"])
+  })
+})
+
+describe("minutesOf", () => {
+  const entry = (overrides: Partial<TimeEntry> = {}): TimeEntry => ({
+    id: "E-1",
+    taskId: null,
+    projectId: null,
+    start: 0,
+    end: 40 * 60_000,
+    ...overrides,
+  })
+
+  it("没有 minutes 时按起止相减并四舍五入", () => {
+    expect(minutesOf(entry())).toBe(40)
+    expect(minutesOf(entry({ end: 29_000 }))).toBe(0)
+    expect(minutesOf(entry({ end: 30_000 }))).toBe(1)
+  })
+
+  it("有 minutes 时用它（并行平分后比起止之差短）", () => {
+    expect(minutesOf(entry({ minutes: 20 }))).toBe(20)
+    expect(minutesOf(entry({ minutes: 12.6 }))).toBe(13)
+  })
+
+  it("minutes 为 0 时就是 0，不退回起止相减", () => {
+    expect(minutesOf(entry({ minutes: 0 }))).toBe(0)
+  })
+
+  it("不合法的 minutes：负数按 0，非数字退回起止相减", () => {
+    expect(minutesOf(entry({ minutes: -5 }))).toBe(0)
+    expect(minutesOf(entry({ minutes: Number.NaN }))).toBe(40)
+  })
+
+  it("起止颠倒不会出负数", () => {
+    expect(minutesOf(entry({ start: 100 * 60_000, end: 0 }))).toBe(0)
   })
 })

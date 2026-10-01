@@ -30,7 +30,7 @@ export function projectRef(projectId: string | null, ctx: PresentContext): Proje
   return { id: projectId, name: "(deleted project)" }
 }
 
-function withByAi<T extends object>(output: T, task: { origin?: "ai" }): T & { byAi?: true } {
+function withByAi<T extends object>(output: T, task: { origin?: "ai" | "coding" }): T & { byAi?: true } {
   if (task.origin !== "ai") return output
   return { ...output, byAi: true as const }
 }

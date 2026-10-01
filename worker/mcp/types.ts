@@ -282,6 +282,11 @@ export interface SubmitInput {
   changes: PlannedChange[]
   /** 直接改档也先给预览 */
   forcePreview: boolean
+  /**
+   * 批量模式（只给本机记录器上传用）：要求直接改档；不触发预览阈值、不计入限速；
+   * 单次上限改为 MAX_BULK_CHANGES。其余（冲突检查、原子状态转换、留底、撤销）不变。
+   */
+  bulk?: boolean
 }
 
 /** 采纳、拒绝、确认、撤销、撤回的结果 */
@@ -317,6 +322,9 @@ export const MAX_CHANGES_PER_CALL = 25
 
 /** 直接改档超过这么多条先给预览 */
 export const PREVIEW_THRESHOLD = 10
+
+/** 批量模式单次上限：D1 免费版单次请求约 50 次查询，要给改动明细和状态更新留余量 */
+export const MAX_BULK_CHANGES = 40
 
 /**
  * 改动记录服务（实现在 worker/ai/changesets.ts 的 createChangesetService(db, now?)）。

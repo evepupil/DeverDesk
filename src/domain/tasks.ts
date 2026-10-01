@@ -19,7 +19,12 @@ export function isSlipped(task: Task, today: DayKey): boolean {
   return (task.status === "todo" || task.status === "doing") && task.plannedFor !== null && task.plannedFor < today
 }
 
+/**
+ * 一段投入实际计入的分钟数：所有统计、时薪、回顾、MCP 读工具都从这里取，不再自己用起止相减。
+ * 有 minutes（自动记录并行平分后比起止之差短）就用它，没有（手动计时、补记）按起止相减。
+ */
 export function minutesOf(entry: TimeEntry): number {
+  if (typeof entry.minutes === "number" && Number.isFinite(entry.minutes)) return Math.max(0, Math.round(entry.minutes))
   return Math.max(0, Math.round((entry.end - entry.start) / 60_000))
 }
 

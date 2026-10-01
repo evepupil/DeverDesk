@@ -50,10 +50,19 @@ export interface Project {
   /** 每月净收入目标，没有就不显示进度 */
   monthlyTarget: number | null
   milestones: Milestone[]
+  /**
+   * 目录名：本机记录器用它认出「在哪个文件夹写代码」属于这个副业。
+   * 最多 8 个，每个 1–60 字、不含 / 和 \，整份数据里不分大小写不重复。
+   */
+  dirNames?: string[]
 }
 
-/** 记录是怎么来的：没有这一项是人在界面里建的；"ai" 是 AI 助手经 MCP 或令牌接口建的（页面上画 AI 标记） */
-export type RecordOrigin = "ai"
+/**
+ * 记录是怎么来的：没有这一项是人在界面里建的；
+ * "ai" 是 AI 助手经 MCP 或令牌接口建的（页面上画 AI 标记）；
+ * "coding" 是本机记录器根据写代码的会话自动记的（页面上画「自动记录」标记）
+ */
+export type RecordOrigin = "ai" | "coding"
 
 export interface Subtask {
   id: string
@@ -90,6 +99,11 @@ export interface TimeEntry {
   projectId: string | null
   start: number
   end: number
+  /**
+   * 实际计入的分钟数（整数）。并行窗口平分后比 end − start 短；
+   * 没有这一项（手动计时、补记）按 end − start 算。统计一律经 minutesOf 取分钟。
+   */
+  minutes?: number
   origin?: RecordOrigin
 }
 
