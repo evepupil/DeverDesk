@@ -2,8 +2,8 @@ import { getT } from "../i18n/runtime"
 import { addDays, dayKeyOf } from "./calendar"
 import { doneIn, estimateAccuracy, minutesIn } from "./insights"
 import { totals } from "./ledger"
-import { capacityFor, tasksPlannedOn } from "./planning"
-import { completionRate } from "./routines"
+import { dayLoad } from "./planning"
+import { completionRate, routineMinutesOn } from "./routines"
 import { minutesOf } from "./tasks"
 import type { DayKey, Project, Task, WorkbenchData } from "./types"
 
@@ -15,6 +15,7 @@ export interface WeekReview {
   done: Task[]
   minutes: number
   minutesByProject: Map<string | null, number>
+  /** 每天实际投入、计划时长（任务预估 + 当天例行事项）和可用时间，单位分钟 */
   days: { day: DayKey; actual: number; planned: number; capacity: number }[]
   income: number
   expense: number
@@ -55,12 +56,9 @@ export function weekReview(data: WorkbenchData, start: DayKey, today?: DayKey): 
     minutesByProject,
     days: Array.from({ length: 7 }, (_, i) => {
       const day = addDays(start, i)
-      return {
-        day,
-        actual: actualByDay.get(day) ?? 0,
-        planned: tasksPlannedOn(data.tasks, day).reduce((sum, task) => sum + task.estimateMin, 0),
-        capacity: capacityFor(day, data.profile),
-      }
+      // 计划时长和今天页、本周页同一个口径：任务预估加上当天要做的例行事项
+      const load = dayLoad(data.tasks, day, data.profile, routineMinutesOn(data.routines, day))
+      return { day, actual: actualByDay.get(day) ?? 0, planned: load.planned, capacity: load.capacity }
     }),
     income: money.income,
     expense: money.expense,
