@@ -6,13 +6,45 @@ import { blankWorkbench, emptyWorkbench, generateWorkbench } from "@/data/seed"
 import { subscribeLocale } from "@/i18n/runtime"
 import { todayKey } from "@/domain/calendar"
 import { toggleDone } from "@/domain/routines"
+import {
+  addMilestone,
+  addSubtask,
+  archiveRoutine,
+  closeTimer,
+  logTimeEntry,
+  moveToDay,
+  newEntry,
+  newProject,
+  newRoutine,
+  newTask,
+  patchEntry,
+  patchNote,
+  patchProject,
+  patchRoutine,
+  patchTask,
+  planOn,
+  removeSubtask,
+  restoreRoutine,
+  scheduleAt,
+  startTimerOn,
+  timerStopsWith,
+  toggleMilestone,
+  toggleSubtask,
+  withEntryStatus,
+  withStatus,
+} from "@/domain/operations"
+import type {
+  EntryInput,
+  OpContext,
+  ProjectInput,
+  RoutineInput,
+  TaskInput,
+} from "@/domain/operations"
+export type { EntryInput, ProjectInput, RoutineInput, TaskInput } from "@/domain/operations"
 import { nextTaskSeq } from "@/domain/tasks"
 import type {
-  ActiveTimer,
   DayKey,
   LedgerEntry,
-  Milestone,
-  Priority,
   Profile,
   Project,
   Routine,
@@ -31,24 +63,13 @@ import { createStorage, type Snapshot, type StoredMeta } from "./storage"
 
 const storage = createStorage()
 
-export interface TaskInput {
-  title: string
-  projectId: string | null
-  status: TaskStatus
-  priority: Priority
-  estimateMin: number
-  plannedFor: DayKey | null
-  startAt: string | null
-  dueOn: DayKey | null
-  notes: string
-}
-
-export type EntryInput = Omit<LedgerEntry, "id" | "createdAt">
-export type RoutineInput = Pick<Routine, "title" | "cadence" | "estimateMin" | "projectId">
-export type ProjectInput = Pick<Project, "name" | "color" | "stage" | "goal" | "monthlyTarget">
-
 function uid(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+}
+
+function opContext(): OpContext {
+  const now = Date.now()
+  return { now, today: todayKey(now), newId: uid }
 }
 
 /** 没改过的样例数据，隔天打开时重新按今天生成，保证演示总是新鲜的 */
@@ -132,14 +153,6 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
   const mapTask = (id: string, change: (task: Task) => Task) =>
     commit({ tasks: get().tasks.map((task) => (task.id === id ? change(task) : task)) })
 
-  /** 停掉计时器，返回这段时间（不足一分钟不记） */
-  const closeTimer = (timer: ActiveTimer | null, now: number): TimeEntry | null => {
-    if (!timer) return null
-    const minutes = Math.round((now - timer.startedAt) / 60_000)
-    if (minutes < 1) return null
-    return { id: uid("E"), taskId: timer.taskId, projectId: timer.projectId, start: timer.startedAt, end: now }
-  }
-
   return {
     ...start.data,
     meta: start.meta,
@@ -148,57 +161,22 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
 
     createTask(input) {
       const tasks = get().tasks
-      const seq = nextTaskSeq(tasks)
-      const task: Task = {
-        // 内部编号跨设备不重复（在线版多台设备同时新建也不会撞）；显示编号用 seq
-        id: uid("t"),
-        seq,
-        title: input.title.trim(),
-        projectId: input.projectId ?? null,
-        status: input.status ?? "todo",
-        priority: input.priority ?? 0,
-        estimateMin: input.estimateMin ?? 30,
-        plannedFor: input.plannedFor ?? null,
-        startAt: input.plannedFor ? (input.startAt ?? null) : null,
-        dueOn: input.dueOn ?? null,
-        notes: input.notes ?? "",
-        subtasks: [],
-        createdAt: Date.now(),
-        completedAt: input.status === "done" ? Date.now() : null,
-      }
+      const task = newTask(input, nextTaskSeq(tasks), opContext())
       commit({ tasks: [...tasks, task] })
       return task
     },
 
     updateTask(id, patch) {
-      mapTask(id, (task) => {
-        const next: Task = { ...task, ...patch, title: patch.title !== undefined ? patch.title.trim() : task.title }
-        if (patch.plannedFor !== undefined && patch.plannedFor !== task.plannedFor && patch.startAt === undefined) {
-          next.startAt = null
-        }
-        if (!next.plannedFor) next.startAt = null
-        if (patch.status && patch.status !== task.status) {
-          next.completedAt = patch.status === "done" ? Date.now() : null
-        }
-        return next
-      })
+      mapTask(id, (task) => patchTask(task, patch, opContext()))
     },
 
     setTaskStatus(id, status) {
       const state = get()
-      const timerOnTask = state.timer?.taskId === id && (status === "done" || status === "dropped")
-      const entry = timerOnTask ? closeTimer(state.timer, Date.now()) : null
+      const ctx = opContext()
+      const timerOnTask = timerStopsWith(state.timer, id, status)
+      const entry = timerOnTask ? closeTimer(state.timer, ctx.now, ctx.newId) : null
       commit({
-        tasks: state.tasks.map((task) =>
-          task.id === id
-            ? {
-                ...task,
-                status,
-                completedAt: status === "done" ? Date.now() : null,
-                plannedFor: status === "done" && !task.plannedFor ? todayKey() : task.plannedFor,
-              }
-            : task
-        ),
+        tasks: state.tasks.map((task) => (task.id === id ? withStatus(task, status, ctx) : task)),
         ...(timerOnTask ? { timer: null, entries: entry ? [...state.entries, entry] : state.entries } : {}),
       })
     },
@@ -210,16 +188,12 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
     },
 
     planTask(id, day) {
-      mapTask(id, (task) => ({
-        ...task,
-        plannedFor: day,
-        startAt: day === task.plannedFor ? task.startAt : null,
-        status: task.status === "backlog" && day ? "todo" : task.status,
-      }))
+      mapTask(id, (task) => planOn(task, day))
     },
 
     scheduleTask(id, startAt) {
-      mapTask(id, (task) => ({ ...task, startAt, plannedFor: task.plannedFor ?? todayKey() }))
+      const ctx = opContext()
+      mapTask(id, (task) => scheduleAt(task, startAt, ctx))
     },
 
     scheduleMany(times) {
@@ -231,7 +205,7 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
     moveTasksToDay(ids, day) {
       const set = new Set(ids)
       commit({
-        tasks: get().tasks.map((task) => (set.has(task.id) ? { ...task, plannedFor: day, startAt: null } : task)),
+        tasks: get().tasks.map((task) => (set.has(task.id) ? moveToDay(task, day) : task)),
       })
     },
 
@@ -250,44 +224,35 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
     },
 
     addSubtask(taskId, title) {
-      mapTask(taskId, (task) => ({ ...task, subtasks: [...task.subtasks, { id: uid("s"), title: title.trim(), done: false }] }))
+      const ctx = opContext()
+      mapTask(taskId, (task) => addSubtask(task, title, ctx))
     },
 
     toggleSubtask(taskId, subtaskId) {
-      mapTask(taskId, (task) => ({
-        ...task,
-        subtasks: task.subtasks.map((sub) => (sub.id === subtaskId ? { ...sub, done: !sub.done } : sub)),
-      }))
+      mapTask(taskId, (task) => toggleSubtask(task, subtaskId))
     },
 
     removeSubtask(taskId, subtaskId) {
-      mapTask(taskId, (task) => ({ ...task, subtasks: task.subtasks.filter((sub) => sub.id !== subtaskId) }))
+      mapTask(taskId, (task) => removeSubtask(task, subtaskId))
     },
 
     startTimer(taskId) {
       const state = get()
       const task = state.tasks.find((item) => item.id === taskId)
       if (!task) return
-      const now = Date.now()
-      const entry = closeTimer(state.timer, now)
+      const ctx = opContext()
+      const result = startTimerOn(state.timer, task, ctx)
       commit({
-        timer: { taskId, projectId: task.projectId, label: task.title, startedAt: now },
-        entries: entry ? [...state.entries, entry] : state.entries,
-        tasks: state.tasks.map((item) =>
-          item.id === taskId
-            ? {
-                ...item,
-                status: item.status === "done" || item.status === "dropped" ? item.status : "doing",
-                plannedFor: item.plannedFor ?? todayKey(),
-              }
-            : item
-        ),
+        timer: result.timer,
+        entries: result.closedEntry ? [...state.entries, result.closedEntry] : state.entries,
+        tasks: state.tasks.map((item) => (item.id === taskId ? startTimerOn(null, item, ctx).task : item)),
       })
     },
 
     stopTimer() {
       const state = get()
-      const entry = closeTimer(state.timer, Date.now())
+      const ctx = opContext()
+      const entry = closeTimer(state.timer, ctx.now, ctx.newId)
       commit({ timer: null, entries: entry ? [...state.entries, entry] : state.entries })
       return entry
     },
@@ -295,21 +260,20 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
     logTime(taskId, minutes) {
       const state = get()
       const task = state.tasks.find((item) => item.id === taskId)
-      if (!task || minutes <= 0) return
-      const end = Date.now()
-      commit({
-        entries: [...state.entries, { id: uid("E"), taskId, projectId: task.projectId, start: end - minutes * 60_000, end }],
-      })
+      if (!task) return
+      const entry = logTimeEntry(task, minutes, opContext())
+      if (!entry) return
+      commit({ entries: [...state.entries, entry] })
     },
 
     saveEntry(input, id) {
       const ledger = get().ledger
       if (id) {
-        const updated = ledger.map((entry) => (entry.id === id ? { ...entry, ...input } : entry))
+        const updated = ledger.map((entry) => (entry.id === id ? patchEntry(entry, input) : entry))
         commit({ ledger: updated })
         return updated.find((entry) => entry.id === id) as LedgerEntry
       }
-      const entry: LedgerEntry = { ...input, id: uid("L"), createdAt: Date.now() }
+      const entry = newEntry(input, opContext())
       commit({ ledger: [...ledger, entry] })
       return entry
     },
@@ -325,56 +289,32 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
     },
 
     setEntryStatus(id, status) {
+      const ctx = opContext()
       commit({
-        ledger: get().ledger.map((entry) =>
-          entry.id === id
-            ? {
-                ...entry,
-                status,
-                date: status === "received" && entry.status === "pending" ? todayKey() : entry.date,
-                expectedOn: status === "pending" ? entry.expectedOn : null,
-              }
-            : entry
-        ),
+        ledger: get().ledger.map((entry) => (entry.id === id ? withEntryStatus(entry, status, ctx) : entry)),
       })
     },
 
     saveProject(input, id) {
       const projects = get().projects
       if (id) {
-        const updated = projects.map((project) => (project.id === id ? { ...project, ...input, name: input.name.trim() } : project))
+        const updated = projects.map((project) => (project.id === id ? patchProject(project, input) : project))
         commit({ projects: updated })
         return updated.find((project) => project.id === id) as Project
       }
-      const project: Project = { ...input, name: input.name.trim(), id: uid("p"), startedOn: todayKey(), milestones: [] }
+      const project = newProject(input, opContext())
       commit({ projects: [...projects, project] })
       return project
     },
 
     toggleMilestone(projectId, milestoneId) {
-      commit({
-        projects: get().projects.map((project) =>
-          project.id === projectId
-            ? {
-                ...project,
-                milestones: project.milestones.map((milestone) =>
-                  milestone.id === milestoneId ? { ...milestone, doneOn: milestone.doneOn ? null : todayKey() } : milestone
-                ),
-              }
-            : project
-        ),
-      })
+      const ctx = opContext()
+      commit({ projects: get().projects.map((project) => (project.id === projectId ? toggleMilestone(project, milestoneId, ctx) : project)) })
     },
 
     addMilestone(projectId, title, due) {
-      const milestone: Milestone = { id: uid("M"), title: title.trim(), due, doneOn: null }
-      commit({
-        projects: get().projects.map((project) =>
-          project.id === projectId
-            ? { ...project, milestones: [...project.milestones, milestone].sort((a, b) => a.due.localeCompare(b.due)) }
-            : project
-        ),
-      })
+      const ctx = opContext()
+      commit({ projects: get().projects.map((project) => (project.id === projectId ? addMilestone(project, title, due, ctx) : project)) })
     },
 
     toggleRoutine(id, day) {
@@ -384,27 +324,27 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
     saveRoutine(input, id) {
       const routines = get().routines
       if (id) {
-        const updated = routines.map((routine) => (routine.id === id ? { ...routine, ...input, title: input.title.trim() } : routine))
+        const updated = routines.map((routine) => (routine.id === id ? patchRoutine(routine, input) : routine))
         commit({ routines: updated })
         return updated.find((routine) => routine.id === id) as Routine
       }
-      const routine: Routine = { ...input, title: input.title.trim(), id: uid("r"), doneOn: [], createdOn: todayKey(), archived: false }
+      const routine = newRoutine(input, opContext())
       commit({ routines: [...routines, routine] })
       return routine
     },
 
     archiveRoutine(id) {
-      commit({ routines: get().routines.map((routine) => (routine.id === id ? { ...routine, archived: true } : routine)) })
+      commit({ routines: get().routines.map((routine) => (routine.id === id ? archiveRoutine(routine) : routine)) })
     },
 
     restoreRoutine(id) {
-      commit({ routines: get().routines.map((routine) => (routine.id === id ? { ...routine, archived: false } : routine)) })
+      commit({ routines: get().routines.map((routine) => (routine.id === id ? restoreRoutine(routine) : routine)) })
     },
 
     saveNote(week, patch) {
       const notes = get().notes
-      const existing = notes.find((note) => note.week === week) ?? { week, wins: "", improve: "", next: "" }
-      const next = { ...existing, ...patch }
+      const existing = notes.find((note) => note.week === week) ?? null
+      const next = patchNote(existing, week, patch)
       commit({ notes: [...notes.filter((note) => note.week !== week), next] })
     },
 
