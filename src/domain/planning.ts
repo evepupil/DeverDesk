@@ -129,3 +129,69 @@ export function autoSchedule(
   }
   return result
 }
+
+export interface WeekPlacement {
+  task: Task
+  day: DayKey
+  overbooked: boolean
+}
+
+export interface WeekNotPlaced {
+  task: Task
+  reason: string
+}
+
+export interface WeekDistribution {
+  placed: WeekPlacement[]
+  notPlaced: WeekNotPlaced[]
+}
+
+/** Distributes tasks in priority order without assigning them to a day before today. */
+export function distributeWeek(
+  tasks: Task[],
+  days: DayKey[],
+  remainingMinutes: Readonly<Record<DayKey, number>>,
+  today: DayKey
+): WeekDistribution {
+  const remaining = new Map(days.map((day) => [day, remainingMinutes[day] ?? 0]))
+  const availableDays = days.filter((day) => day >= today)
+  const ordered = [...tasks].sort((a, b) =>
+    (a.dueOn ?? "9999-12-31").localeCompare(b.dueOn ?? "9999-12-31") ||
+    b.priority - a.priority ||
+    a.seq - b.seq
+  )
+  const placed: WeekPlacement[] = []
+  const notPlaced: WeekNotPlaced[] = []
+
+  for (const task of ordered) {
+    const eligible = task.dueOn
+      ? availableDays.filter((day) => day <= task.dueOn!)
+      : availableDays
+    if (eligible.length === 0) {
+      notPlaced.push({ task, reason: task.dueOn
+        ? "No day in the selected week is on or before this task's due date."
+        : "No future day is available in the selected week." })
+      continue
+    }
+
+    const fittingDay = eligible.find((day) => (remaining.get(day) ?? 0) >= task.estimateMin)
+    if (fittingDay !== undefined) {
+      remaining.set(fittingDay, (remaining.get(fittingDay) ?? 0) - task.estimateMin)
+      placed.push({ task, day: fittingDay, overbooked: false })
+      continue
+    }
+
+    if (!task.dueOn) {
+      notPlaced.push({ task, reason: "No day in the selected week has enough remaining capacity." })
+      continue
+    }
+
+    const fallback = [...eligible].sort((a, b) =>
+      (remaining.get(b) ?? 0) - (remaining.get(a) ?? 0) || a.localeCompare(b)
+    )[0]
+    remaining.set(fallback, (remaining.get(fallback) ?? 0) - task.estimateMin)
+    placed.push({ task, day: fallback, overbooked: true })
+  }
+
+  return { placed, notPlaced }
+}

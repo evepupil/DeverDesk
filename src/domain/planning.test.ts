@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest"
-import { autoSchedule, capacityFor, dayLoad, findSlot, layoutBlocks } from "./planning"
+import { autoSchedule, capacityFor, dayLoad, distributeWeek, findSlot, layoutBlocks } from "./planning"
 import type { Block } from "./planning"
 import type { Profile, Task } from "./types"
 
@@ -164,5 +164,44 @@ describe("autoSchedule", () => {
     const result = autoSchedule(tasks, existing, 9 * 60, 11 * 60)
     expect(result.has("t1")).toBe(false)
     expect(result.get("t2")).toBe("10:00")
+  })
+})
+
+describe("distributeWeek", () => {
+  const days = ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"]
+  const today = "2026-09-30"
+
+  it("respects due dates and never uses days before today", () => {
+    const dueSoon = makeTask({ id: "due-soon", seq: 1, dueOn: "2026-10-01", estimateMin: 60 })
+    const expired = makeTask({ id: "expired", seq: 2, dueOn: "2026-09-29", estimateMin: 15 })
+    const result = distributeWeek([dueSoon, expired], days, {
+      "2026-09-28": 180, "2026-09-29": 180, "2026-09-30": 60, "2026-10-01": 60,
+      "2026-10-02": 60, "2026-10-03": 60, "2026-10-04": 60,
+    }, today)
+    expect(result.placed.map(({ task, day }) => [task.id, day])).toEqual([["due-soon", today]])
+    expect(result.notPlaced.map(({ task }) => task.id)).toEqual(["expired"])
+  })
+
+  it("orders by earliest due date, then higher priority, then lower sequence", () => {
+    const tasks = [
+      makeTask({ id: "seq-late", seq: 105, dueOn: "2026-10-02", priority: 4 }),
+      makeTask({ id: "low-priority", seq: 102, dueOn: "2026-10-01", priority: 1 }),
+      makeTask({ id: "seq-small", seq: 101, dueOn: "2026-10-01", priority: 3 }),
+      makeTask({ id: "high-priority", seq: 103, dueOn: "2026-10-01", priority: 4 }),
+    ]
+    const result = distributeWeek(tasks, days, Object.fromEntries(days.map((day) => [day, 30])), today)
+    expect(result.placed.map(({ task }) => task.id)).toEqual(["high-priority", "seq-small", "low-priority", "seq-late"])
+    expect(result.placed.map(({ day }) => day)).toEqual([today, "2026-10-01", today, "2026-10-02"])
+  })
+
+  it("overloads a deadline task on the day with the most remaining time and leaves undated tasks unplaced", () => {
+    const dated = makeTask({ id: "dated", seq: 1, dueOn: "2026-10-02", estimateMin: 90 })
+    const undated = makeTask({ id: "undated", seq: 2, dueOn: null, estimateMin: 90 })
+    const result = distributeWeek([dated, undated], days, {
+      "2026-09-28": 300, "2026-09-29": 300, "2026-09-30": 10, "2026-10-01": 45,
+      "2026-10-02": 60, "2026-10-03": 60, "2026-10-04": 60,
+    }, today)
+    expect(result.placed).toEqual([{ task: dated, day: "2026-10-02", overbooked: true }])
+    expect(result.notPlaced).toEqual([{ task: undated, reason: "No day in the selected week has enough remaining capacity." }])
   })
 })
