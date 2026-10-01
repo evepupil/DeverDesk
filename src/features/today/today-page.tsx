@@ -11,6 +11,9 @@ import { formatDayLong, minuteOfDay } from "@/domain/calendar"
 import { formatMinutes } from "@/domain/format"
 import { autoSchedule, blocksFor, tasksPlannedOn } from "@/domain/planning"
 import { useT } from "@/i18n/react"
+import { EDITION } from "@/lib/edition"
+import { useAiActivityStore } from "@/features/ai/use-ai-activity"
+import { ProposalCard } from "@/features/ai/proposal-card"
 import { FilterBar, PageFrame } from "@/features/shell/page-frame"
 import { focusRing } from "@/lib/styles"
 import { useToday } from "@/state/hooks"
@@ -36,6 +39,9 @@ export function TodayPage() {
   const openEntryForm = useUi((state) => state.openEntryForm)
   const setProfileOpen = useUi((state) => state.setProfileOpen)
   const t = useT()
+  const isCloud = EDITION === "cloud"
+  const proposal = useAiActivityStore((state) => state.pendingChangesets[0])
+  const pendingCount = useAiActivityStore((state) => state.pendingCount)
 
   const todayTasks = useMemo(() => tasksPlannedOn(tasks, today), [tasks, today])
   const scheduledCount = todayTasks.filter((task) => task.startAt).length
@@ -99,7 +105,12 @@ export function TodayPage() {
       filterBar={filterBar}
       contentClassName="xl:overflow-hidden"
     >
-      <div className="grid gap-(--gap-card) p-3 pb-20 lg:grid-cols-2 lg:pb-3 xl:h-full xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
+      <div className={cn("grid gap-(--gap-card) p-3 pb-20 lg:grid-cols-2 lg:pb-3 xl:h-full xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)]", isCloud && proposal && "xl:grid-rows-[auto_minmax(0,1fr)]")}>
+        {isCloud && proposal && (
+          <div className="min-w-0 lg:col-span-2 xl:col-span-3">
+            <ProposalCard changeset={proposal} pendingCount={pendingCount} />
+          </div>
+        )}
         <div className="scroll-thin flex min-w-0 flex-col gap-(--gap-card) xl:min-h-0 xl:overflow-y-auto">
           <PlanColumn today={today} plan={plan} />
           <SuggestionsColumn tasks={plan.suggestions} today={today} />

@@ -6,6 +6,7 @@ import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/base/empty-state"
+import { AiMark } from "@/features/ai/ai-mark"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -100,6 +101,7 @@ export function TaskSheet() {
               </div>
               <SheetTitle className="flex items-start gap-1.5 text-sm font-medium">
                 <StatusToggle task={task} className="mt-[-1.5px]" />
+                <AiMark origin={task.origin} />
                 <span className="min-w-0 break-words">{task.title}</span>
               </SheetTitle>
               <SheetDescription className="sr-only">{t.common.taskSheet.title}</SheetDescription>

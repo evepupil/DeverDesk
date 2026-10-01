@@ -1,6 +1,7 @@
 import {
   API_PATHS,
   type ApiError,
+  type CreateTokenRequest,
   type CreatedToken,
   type PullResponse,
   type PushRequest,
@@ -8,6 +9,8 @@ import {
   type SessionResponse,
   type SyncChange,
   type TokenInfo,
+  type TokenTier,
+  type UpdateTokenRequest,
 } from "@/sync/protocol"
 import { getT } from "@/i18n/runtime"
 
@@ -23,7 +26,9 @@ export class ApiFailure extends Error {
     readonly kind: FailureKind,
     message: string,
     /** 登录尝试太多时，多少秒后可以再试 */
-    readonly retryAfter?: number
+    readonly retryAfter?: number,
+    /** 服务器返回的状态码（连不上时没有） */
+    readonly status?: number
   ) {
     super(message)
     this.name = "ApiFailure"
@@ -42,7 +47,8 @@ async function readJson<T>(response: Response): Promise<T> {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** 调一个接口：别的接口文件（如 ai-api.ts）也用它，保证超时、登录过期、出错的处理一致 */
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const controller = new AbortController()
   // 超时要盖住读内容：服务器发完响应头就卡住时也按时放弃
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -61,9 +67,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (response.ok) return response.status === 204 ? (undefined as T) : await readJson<T>(response)
     // 服务器返回的错误原文是给程序看的，界面上按状态码换成当前语言的话；只取等待秒数
     const body = await readJson<ApiError>(response).catch(() => null)
-    if (response.status === 401) throw new ApiFailure("unauthorized", getT().auth.api.unauthorized)
-    if (response.status === 429) throw new ApiFailure("rate-limited", getT().auth.api.rateLimited, body?.retryAfter)
-    throw new ApiFailure("server", getT().auth.api.serverError(response.status))
+    if (response.status === 401) throw new ApiFailure("unauthorized", getT().auth.api.unauthorized, undefined, 401)
+    if (response.status === 429) throw new ApiFailure("rate-limited", getT().auth.api.rateLimited, body?.retryAfter, 429)
+    throw new ApiFailure("server", getT().auth.api.serverError(response.status), undefined, response.status)
   } finally {
     clearTimeout(timer)
   }
@@ -95,8 +101,14 @@ export function listTokens(): Promise<TokenInfo[]> {
   return request<TokenInfo[]>(API_PATHS.tokens)
 }
 
-export function createToken(name: string): Promise<CreatedToken> {
-  return request<CreatedToken>(API_PATHS.tokens, { method: "POST", body: JSON.stringify({ name }) })
+export function createToken(name: string, tier: TokenTier): Promise<CreatedToken> {
+  const body: CreateTokenRequest = { name, tier }
+  return request<CreatedToken>(API_PATHS.tokens, { method: "POST", body: JSON.stringify(body) })
+}
+
+export function updateTokenTier(id: string, tier: TokenTier): Promise<Pick<TokenInfo, "id" | "tier">> {
+  const body: UpdateTokenRequest = { tier }
+  return request<Pick<TokenInfo, "id" | "tier">>(`${API_PATHS.tokens}/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) })
 }
 
 export function revokeToken(id: string): Promise<void> {

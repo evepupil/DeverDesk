@@ -11,7 +11,7 @@ import { todayKey } from "@/domain/calendar"
 import { getT } from "@/i18n/runtime"
 import { ApiFailure, pull, push } from "@/lib/api"
 import { PULL_PAGE_SIZE, PUSH_BATCH_SIZE, type SyncChange, type SyncRecord } from "@/sync/protocol"
-import { registerSyncEngine, setSyncState } from "@/state/sync"
+import { registerSyncEngine, markFirstSyncComplete, setSyncState } from "@/state/sync"
 import { armFailureSimulation, loadVersioned, removeKey, saveVersioned } from "../persistence"
 import { applyRecords, diffData, recordKey, type DataChange } from "./records"
 import type { Snapshot, WorkbenchStorage } from "./types"
@@ -130,6 +130,7 @@ export function createCloudStorage(): WorkbenchStorage {
   async function synchronize(): Promise<void> {
     const runGeneration = generation
     let merged = false
+    let completedSuccessfully = false
     setSyncState({ status: "syncing", message: null, pending: pendingCount() })
 
     const stillActive = () => started && !authBlocked && generation === runGeneration
@@ -180,6 +181,7 @@ export function createCloudStorage(): WorkbenchStorage {
       retryIndex = 0
       retryTimer = clearTimer(retryTimer)
       setSyncState({ status: "synced", lastSyncedAt: Date.now(), message: null, pending: pendingCount() })
+      completedSuccessfully = true
     } catch (error) {
       if (!stillActive()) return
       if (error instanceof ApiFailure && error.kind === "unauthorized") {
@@ -197,6 +199,7 @@ export function createCloudStorage(): WorkbenchStorage {
       }
     } finally {
       if (sameRun() && merged && sink) sink.replace(base)
+      if (sameRun() && completedSuccessfully) markFirstSyncComplete()
     }
   }
 

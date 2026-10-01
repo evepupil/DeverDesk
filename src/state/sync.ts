@@ -58,6 +58,30 @@ let engine: SyncEngine | null = null
 /** 「开始同步」可能比引擎登记来得早（引擎跟数据仓库一起创建，工作台显示时才加载），先记下来 */
 let startRequested = false
 
+let firstSyncComplete = false
+const firstSyncListeners = new Set<() => void>()
+
+export function subscribeFirstSyncComplete(listener: () => void): () => void {
+  if (firstSyncComplete) {
+    listener()
+    return () => {}
+  }
+  firstSyncListeners.add(listener)
+  return () => firstSyncListeners.delete(listener)
+}
+
+export function markFirstSyncComplete() {
+  if (firstSyncComplete) return
+  firstSyncComplete = true
+  const listeners = [...firstSyncListeners]
+  firstSyncListeners.clear()
+  for (const listener of listeners) listener()
+}
+
+function resetFirstSyncComplete() {
+  firstSyncComplete = false
+}
+
 export function registerSyncEngine(next: SyncEngine) {
   engine = next
   if (startRequested) next.start()
@@ -71,6 +95,7 @@ export function startSync() {
 export function stopSync() {
   startRequested = false
   engine?.stop()
+  resetFirstSyncComplete()
 }
 
 export function syncNow(): Promise<void> {
@@ -78,5 +103,6 @@ export function syncNow(): Promise<void> {
 }
 
 export function clearLocalData() {
+  resetFirstSyncComplete()
   engine?.clearLocal()
 }

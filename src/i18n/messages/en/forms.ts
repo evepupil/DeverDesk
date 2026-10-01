@@ -39,6 +39,7 @@ export const forms: Messages["forms"] = {
     dayStart: "Timeline starts",
     dayEnd: "Timeline ends",
     currency: "Currency",
+    timeZone: "Time zone",
     saved: "Saved",
   },
   project: {

@@ -1,7 +1,7 @@
 "use client"
 
 import { TriangleAlert } from "lucide-react"
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import { EmptyState } from "@/components/base/empty-state"
 import { Button } from "@/components/ui/button"
@@ -9,8 +9,10 @@ import { ShellSkeleton } from "@/features/shell/shell-skeleton"
 import { useT } from "@/i18n/react"
 import { ApiFailure, getSession } from "@/lib/api"
 import { IS_LOCAL_EDITION } from "@/lib/edition"
-import { startSync, useSync } from "@/state/sync"
+import { startSync, subscribeFirstSyncComplete, useSync } from "@/state/sync"
+import { useWorkbench } from "@/state/store"
 import { LoginScreen } from "./login-screen"
+import { getTimeZoneAutoFillPatch } from "./time-zone-autofill"
 
 type Gate = "loading" | "ready" | "login" | "server-error"
 
@@ -24,6 +26,8 @@ function CloudGate({ children }: { children: ReactNode }) {
   const t = useT()
   const [gate, setGate] = useState<Gate>("loading")
   const [passwordEnabled, setPasswordEnabled] = useState(true)
+  const [timezoneEligible, setTimezoneEligible] = useState(false)
+  const timezoneChecked = useRef(false)
 
   // 查一次登录状态；连不上网就先用这台设备上的缓存，服务器出错才拦在门外
   const loadSession = () => {
@@ -32,6 +36,7 @@ function CloudGate({ children }: { children: ReactNode }) {
         setPasswordEnabled(session.passwordEnabled)
         if (session.authenticated) {
           startSync()
+          setTimezoneEligible(true)
           setGate("ready")
         } else {
           setGate("login")
@@ -60,8 +65,24 @@ function CloudGate({ children }: { children: ReactNode }) {
   // 登录成功：开始同步，进工作台
   const onLoggedIn = () => {
     startSync()
+    setTimezoneEligible(true)
     setGate("ready")
   }
+
+  useEffect(() => {
+    if (!timezoneEligible || timezoneChecked.current) return
+    return subscribeFirstSyncComplete(() => {
+      if (timezoneChecked.current) return
+      timezoneChecked.current = true
+      const { profile, updateProfile } = useWorkbench.getState()
+      const patch = getTimeZoneAutoFillPatch({
+        syncedProfileTimeZone: profile.timeZone,
+        browserTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        firstSyncSucceeded: true,
+      })
+      if (patch) updateProfile(patch)
+    })
+  }, [timezoneEligible])
 
   // 登录过期（同步时被 401）：切回登录页
   useEffect(

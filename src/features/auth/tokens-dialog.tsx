@@ -1,11 +1,11 @@
 "use client"
 
-import { Check, Copy, KeyRound, TriangleAlert } from "lucide-react"
+import { TriangleAlert } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/base/empty-state"
-import { useT } from "@/i18n/react"
+import { Segmented } from "@/components/base/segmented"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,16 +19,18 @@ import {
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { ApiFailure, createToken, listTokens, revokeToken } from "@/lib/api"
-import { copyText } from "@/lib/platform"
-import type { CreatedToken, TokenInfo } from "@/sync/protocol"
-import { getT } from "@/i18n/runtime"
+import { useT } from "@/i18n/react"
+import { ApiFailure, createToken, getSession, listTokens, revokeToken } from "@/lib/api"
+import type { CreatedToken, TokenInfo, TokenTier } from "@/sync/protocol"
+import { DEFAULT_TOKEN_TIER, TOKEN_TIERS } from "@/sync/protocol"
 import { syncNow } from "@/state/sync"
 import { useUi } from "@/state/ui"
+import { CreatedTokenDetails } from "./created-token-details"
+import { TokenRow } from "./token-row"
 
 const NAME_MAX = 40
 
-/** 登录过期：关掉弹窗，让同步去确认一次，登录门随后切回登录页 */
+/** Login expiration closes the dialog and lets sync refresh the gate state. */
 function sessionExpired(cause: unknown): boolean {
   if (!(cause instanceof ApiFailure) || cause.kind !== "unauthorized") return false
   useUi.getState().setTokensOpen(false)
@@ -36,43 +38,7 @@ function sessionExpired(cause: unknown): boolean {
   return true
 }
 
-/** 时间显示成「9月30日」 */
-function formatDay(at: number): string {
-  const date = new Date(at)
-  return getT().calendar.monthDay(date.getMonth() + 1, date.getDate())
-}
-
-/** 新建后的令牌：只显示这一次 */
-function CreatedTokenRow({ created }: { created: CreatedToken }) {
-  const [copied, setCopied] = useState(false)
-  const t = useT()
-  const copy = async () => {
-    if (await copyText(created.token)) {
-      setCopied(true)
-      toast.success(t.auth.tokens.created.copied)
-    }
-  }
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex gap-1.5">
-        <Input
-          readOnly
-          value={created.token}
-          aria-label={t.auth.tokens.created.label}
-          className="min-w-0 flex-1 font-mono"
-          onFocus={(event) => event.target.select()}
-        />
-        <Button type="button" variant="outline" onClick={() => void copy()}>
-          {copied ? <Check className="text-done" /> : <Copy />}
-          {t.auth.tokens.created.copy}
-        </Button>
-      </div>
-      <p className="text-xs text-fg-2">{t.auth.tokens.created.hint}</p>
-    </div>
-  )
-}
-
-/** 访问令牌：给以后的 AI 助手用 */
+/** Manage MCP credentials for AI clients. */
 export function TokensDialog() {
   const open = useUi((state) => state.tokensOpen)
   const setOpen = useUi((state) => state.setTokensOpen)
@@ -80,13 +46,29 @@ export function TokensDialog() {
   const [tokens, setTokens] = useState<TokenInfo[] | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [created, setCreated] = useState<CreatedToken | null>(null)
+  const [accessSession, setAccessSession] = useState(false)
   const [name, setName] = useState("")
+  const [tier, setTier] = useState<TokenTier>(DEFAULT_TOKEN_TIER)
   const [nameError, setNameError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [revoking, setRevoking] = useState<TokenInfo | null>(null)
   const [reload, setReload] = useState(0)
 
-  // 弹窗开着就读一遍列表（打开、重试时重新读）
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    void getSession()
+      .then((session) => {
+        if (!cancelled) setAccessSession(session.authenticated && session.via === "access")
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) sessionExpired(cause)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
+
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -108,14 +90,15 @@ export function TokensDialog() {
     setReload((current) => current + 1)
   }, [])
 
-  // 关掉就清空：新建的令牌不再显示，下次打开重新读
   const close = (next: boolean) => {
     setOpen(next)
     if (!next) {
       setTokens(null)
       setLoadError(false)
       setCreated(null)
+      setAccessSession(false)
       setName("")
+      setTier(DEFAULT_TOKEN_TIER)
       setNameError(null)
       setRevoking(null)
     }
@@ -134,7 +117,7 @@ export function TokensDialog() {
     setCreating(true)
     setNameError(null)
     try {
-      setCreated(await createToken(value))
+      setCreated(await createToken(value, tier))
       setName("")
       load()
     } catch (cause) {
@@ -156,20 +139,18 @@ export function TokensDialog() {
     }
   }
 
+  const tierOptions = TOKEN_TIERS.map((value) => ({ value, label: t.auth.tokens.tiers[value] }))
+
   return (
     <>
       <Dialog open={open} onOpenChange={close}>
-        <DialogContent className="gap-0 p-0 sm:max-w-[440px]">
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px]">
           <DialogHeader className="border-b border-line px-4 py-3">
             <DialogTitle>{t.auth.tokens.title}</DialogTitle>
             <DialogDescription className="sr-only">{t.auth.tokens.description}</DialogDescription>
           </DialogHeader>
-          <div className="px-4 py-4">
-            {created && (
-              <div className="mb-4">
-                <CreatedTokenRow created={created} />
-              </div>
-            )}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            {created && <CreatedTokenDetails created={created} accessSession={accessSession} />}
             {loadError ? (
               <EmptyState
                 icon={TriangleAlert}
@@ -191,19 +172,12 @@ export function TokensDialog() {
             ) : (
               <ul className="flex flex-col">
                 {tokens.map((token) => (
-                  <li key={token.id} className="flex items-center gap-2 py-1.5">
-                    <KeyRound className="size-4 shrink-0 text-fg-3" aria-hidden />
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-sm">{token.name}</span>
-                      <span className="text-xs text-fg-2">
-                        {t.auth.tokens.createdAt(formatDay(token.createdAt))} ·{" "}
-                        {token.lastUsedAt === null ? t.auth.tokens.neverUsed : t.auth.tokens.lastUsed(formatDay(token.lastUsedAt))}
-                      </span>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => setRevoking(token)}>
-                      {t.auth.tokens.revoke}
-                    </Button>
-                  </li>
+                  <TokenRow
+                    key={token.id}
+                    token={token}
+                    onRevoke={() => setRevoking(token)}
+                    onSessionExpired={sessionExpired}
+                  />
                 ))}
               </ul>
             )}
@@ -216,9 +190,10 @@ export function TokensDialog() {
             }}
             className="border-t border-line px-4 py-3"
           >
-            <div className="flex flex-col gap-1.5">
-              <div className="flex gap-1.5">
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
                 <Input
+                  className="min-w-0 flex-1"
                   value={name}
                   maxLength={NAME_MAX}
                   placeholder={t.auth.tokens.form.placeholder}
@@ -227,10 +202,18 @@ export function TokensDialog() {
                   aria-describedby={nameError ? "token-name-error" : undefined}
                   onChange={(event) => setName(event.target.value)}
                 />
-                <Button type="submit" disabled={creating}>
+                <Segmented<TokenTier>
+                  value={tier}
+                  options={tierOptions}
+                  onChange={setTier}
+                  label={t.auth.tokens.form.permission}
+                  className="w-max"
+                />
+                <Button type="submit" disabled={creating} className="self-start sm:self-auto">
                   {t.words.create}
                 </Button>
               </div>
+              <p className="text-xs text-fg-2">{t.auth.tokens.tierDescriptions[tier]}</p>
               {nameError && (
                 <p id="token-name-error" role="alert" className="text-xs text-bad">
                   {nameError}

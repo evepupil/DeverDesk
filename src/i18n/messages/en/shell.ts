@@ -7,7 +7,7 @@ export const shell: Messages["shell"] = {
     offlineSignOut: "Can't reach the server. Try signing out once you're back online",
     exportBackup: "Export backup",
     importBackup: "Import backup",
-    tokens: "Access tokens",
+    tokens: "Connect AI",
     signOut: "Sign out",
     signOutTitle: "Sign out?",
     signOutPending: (count) =>

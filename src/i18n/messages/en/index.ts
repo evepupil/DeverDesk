@@ -1,5 +1,6 @@
 import type { Messages } from "../types"
 import { app } from "./app"
+import { ai } from "./ai"
 import { auth } from "./auth"
 import { calendar } from "./calendar"
 import { catalog } from "./catalog"
@@ -31,6 +32,7 @@ export const en: Messages = {
   nav,
   quickAdd,
   app,
+  ai,
   auth,
   common,
   components,

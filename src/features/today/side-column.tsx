@@ -7,6 +7,7 @@ import { useMemo } from "react"
 
 import { BoardColumn, Surface } from "@/components/base/board"
 import { IconButton } from "@/components/base/icon-button"
+import { AiMark } from "@/features/ai/ai-mark"
 import { ProjectMark } from "@/components/base/marks"
 import { StatusIcon } from "@/components/base/status-icon"
 import { CADENCE, ENTRY_STATUS } from "@/data/catalog"
@@ -221,7 +222,10 @@ export function FocusCard({ today }: { today: DayKey }) {
                     <span className="w-[4.75rem] shrink-0 text-xs text-fg-2 tabular">
                       {minutesToTime(minuteOfDay(entry.start))}–{minutesToTime(minuteOfDay(entry.end))}
                     </span>
-                    <span className="min-w-0 flex-1 truncate">{title ?? project?.name ?? t.common.personal}</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-1">
+                      <AiMark origin={entry.origin} />
+                      <span className="min-w-0 truncate">{title ?? project?.name ?? t.common.personal}</span>
+                    </span>
                     {project && <ProjectMark name={project.name} color={project.color} size={14} />}
                     <span className="w-10 shrink-0 text-right text-xs text-fg-2 tabular">{formatMinutes(minutesOf(entry))}</span>
                   </button>

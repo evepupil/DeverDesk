@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CURRENCIES, currencyLabel } from "@/data/catalog"
 import { formatMinutesLong, profileCurrency } from "@/domain/format"
+import { IS_LOCAL_EDITION } from "@/lib/edition"
+import { buildTimeZoneOptions, formatTimeZoneOffset } from "./time-zones"
 import type { Profile } from "@/domain/types"
 import { validateTitle } from "@/domain/validation"
 import { useT } from "@/i18n/react"
@@ -60,6 +62,8 @@ function Body() {
   const setOpen = useUi((state) => state.setProfileOpen)
   const [draft, setDraft] = useState<Profile>(profile)
   const [error, setError] = useState<string>()
+  const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const timeZoneOptions = buildTimeZoneOptions(draft.timeZone, browserTimeZone)
   const set = <K extends keyof Profile>(key: K, value: Profile[K]) => setDraft((current) => ({ ...current, [key]: value }))
 
   const submit = (event: FormEvent) => {
@@ -67,7 +71,9 @@ function Body() {
     const found = validateTitle(draft.name, t.forms.profile.name, 12)
     setError(found)
     if (found) return
-    updateProfile({ ...draft, name: draft.name.trim() })
+    const nextProfile = { ...draft, name: draft.name.trim() }
+    if (!IS_LOCAL_EDITION && !nextProfile.timeZone && browserTimeZone) nextProfile.timeZone = browserTimeZone
+    updateProfile(nextProfile)
     setOpen(false)
     if (useWorkbench.getState().lastSaveOk) toast.success(t.forms.profile.saved)
   }
@@ -104,6 +110,25 @@ function Body() {
             </SelectContent>
           </Select>
         </Field>
+        {!IS_LOCAL_EDITION && (
+          <Field id="profile-time-zone" label={t.forms.profile.timeZone} className="sm:col-span-2">
+            <Select value={draft.timeZone || browserTimeZone} onValueChange={(value) => set("timeZone", value)}>
+              <SelectTrigger id="profile-time-zone" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {timeZoneOptions.map((zone) => {
+                  const offset = formatTimeZoneOffset(zone)
+                  return (
+                    <SelectItem key={zone} value={zone}>
+                      {zone}{offset ? ` (${offset})` : ""}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
       </div>
       <DialogFooter className="border-t border-line px-4 py-3">
         <Button type="button" variant="ghost" onClick={() => setOpen(false)}>

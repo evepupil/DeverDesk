@@ -6,6 +6,7 @@ import type { DragEvent } from "react"
 
 import { LabelChip } from "@/components/base/label-chip"
 import { ProjectMark } from "@/components/base/marks"
+import { AiMark } from "@/features/ai/ai-mark"
 import { PRIORITY } from "@/data/catalog"
 import { taskCode } from "@/domain/tasks"
 import { useT } from "@/i18n/react"
@@ -84,6 +85,7 @@ export function TaskCard({
       )}
     >
       <div className="flex h-[18px] min-w-0 items-center gap-2 text-xs text-fg-2">
+        <AiMark origin={task.origin} />
         {showTime && task.startAt && <span className="text-fg tabular">{task.startAt}</span>}
         {show("id") && <span className="tabular">{taskCode(task)}</span>}
         {show("estimate") && <EstimateText task={task} logged={logged} />}

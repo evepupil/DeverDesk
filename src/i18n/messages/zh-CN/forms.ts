@@ -40,6 +40,7 @@ export const forms = {
     dayStart: "时间线从",
     dayEnd: "时间线到",
     currency: "记账币种",
+    timeZone: "时区",
     saved: "已保存",
   },
   project: {

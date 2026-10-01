@@ -10,7 +10,7 @@ export const shell = {
     offlineSignOut: "连不上服务器，联网后再退出",
     exportBackup: "导出备份",
     importBackup: "导入备份",
-    tokens: "访问令牌",
+    tokens: "连接 AI",
     signOut: "退出登录",
     signOutTitle: "退出登录？",
     /** 退出登录前还有没传到云端的改动 */

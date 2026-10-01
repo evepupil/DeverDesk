@@ -19,6 +19,9 @@ import {
 import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut } from "@/components/ui/dropdown-menu"
 import { LocalNotice } from "@/features/edition/local-notice"
 import { RepoLink } from "@/features/edition/repo-link"
+import { ActivityButton } from "@/features/ai/activity-button"
+import { ActivityDrawer } from "@/features/ai/activity-drawer"
+import { useAiActivity } from "@/features/ai/use-ai-activity"
 import { TokensDialog } from "@/features/auth/tokens-dialog"
 import { SyncIndicator } from "@/features/sync/sync-indicator"
 import { PersistenceFeedback } from "@/features/shell/persistence-feedback"
@@ -69,6 +72,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
   const setTokensOpen = useUi((state) => state.setTokensOpen)
   const backup = useBackupActions()
   const isCloud = EDITION === "cloud"
+  useAiActivity(isCloud)
   const pendingCount = useSync((state) => state.pending)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
   usePageTitle(pathname)
@@ -111,7 +115,12 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
         extras: (
           <>
             <TimerChip />
-            {isCloud && <SyncIndicator />}
+            {isCloud && (
+              <>
+                <ActivityButton />
+                <SyncIndicator />
+              </>
+            )}
             {IS_LOCAL_EDITION && <RepoLink />}
           </>
         ),
@@ -168,7 +177,12 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
           <ProjectFormDialog />
           <ProfileDialog />
           <QuickCapture />
-          {isCloud && <TokensDialog />}
+          {isCloud && (
+            <>
+              <TokensDialog />
+              <ActivityDrawer />
+            </>
+          )}
           {IS_LOCAL_EDITION && <LocalNotice />}
           {backup.node}
           {isCloud && (

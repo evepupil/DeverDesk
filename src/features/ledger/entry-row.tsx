@@ -5,6 +5,7 @@ import { CircleCheck, MoreHorizontal, Pencil, Trash2, Undo2 } from "lucide-react
 import { toast } from "sonner"
 
 import { LabelChip } from "@/components/base/label-chip"
+import { AiMark } from "@/features/ai/ai-mark"
 import { ProjectMark } from "@/components/base/marks"
 import { StatusIcon } from "@/components/base/status-icon"
 import { Button } from "@/components/ui/button"
@@ -109,10 +110,11 @@ export function EntryRow({ entry, project, today }: { entry: LedgerEntry; projec
           event.stopPropagation()
           openEntryForm({ mode: "edit", entryId: entry.id })
         }}
-        className={cn("min-w-0 flex-1 truncate text-left", entry.status === "refunded" && "text-fg-2", focusRing)}
+        className={cn("flex min-w-0 flex-1 items-center gap-1 truncate text-left", entry.status === "refunded" && "text-fg-2", focusRing)}
         title={entry.note}
       >
-        {entry.note}
+        <AiMark origin={entry.origin} />
+        <span className="min-w-0 flex-1 truncate">{entry.note}</span>
       </button>
       {entry.status === "pending" && (
         <LabelChip color={late > 0 ? "red" : "amber"} className="shrink-0">

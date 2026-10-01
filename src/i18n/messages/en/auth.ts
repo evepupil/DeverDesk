@@ -16,8 +16,8 @@ export const auth: Messages["auth"] = {
     noPassword: "This site has no access passcode set up yet",
   },
   tokens: {
-    title: "Access tokens",
-    description: "Login credentials for programs like AI assistants",
+    title: "Connect AI",
+    description: "Manage tokens for connecting AI assistants to MCP",
     loadFailed: "Couldn't load tokens",
     empty: "No tokens yet",
     createdAt: (day) => `Created ${day}`,
@@ -26,6 +26,31 @@ export const auth: Messages["auth"] = {
     revoke: "Revoke",
     revokeTitle: (name) => `Revoke "${name}"?`,
     revokeDescription: "Anything using this token stops working immediately.",
+    permissionFor: (name) => `${name} permission`,
+    tiers: {
+      read: "Read only",
+      propose: "Propose",
+      write: "Write",
+    },
+    tierDescriptions: {
+      read: "Can only read your data",
+      propose: "Changes wait for your approval in AI activity",
+      write: "Changes apply right away and can be undone",
+    },
+    connect: {
+      clientSelector: "Client configuration",
+      clients: {
+        claudeCode: "Claude Code",
+        codex: "Codex",
+        cursor: "Cursor",
+        vscode: "VS Code",
+        other: "Other",
+      },
+      configurationFor: (client) => `${client} configuration`,
+      copy: "Copy",
+      copied: "Copied",
+      accessHint: "When deployed behind Cloudflare Access, add a bypass rule for /mcp.",
+    },
     created: {
       label: "New access token",
       copy: "Copy",
@@ -38,7 +63,9 @@ export const auth: Messages["auth"] = {
       required: "Enter a purpose",
       tooLong: (max) => `Up to ${max} characters`,
       createFailed: "Couldn't create it, try again",
+      updateFailed: "Couldn't update the permission, try again",
       revokeFailed: "Couldn't revoke it, try again",
+      permission: "New token permission",
     },
   },
   api: {
