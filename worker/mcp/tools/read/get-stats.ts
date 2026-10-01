@@ -1,4 +1,4 @@
-import { addDays, monthStart, weekStart } from "../../../../src/domain/calendar"
+import { addDays } from "../../../../src/domain/calendar"
 import { hourlyRate } from "../../../../src/domain/insights"
 import { minutesOf } from "../../../../src/domain/tasks"
 import type { DayKey, LedgerEntry, Task } from "../../../../src/domain/types"
@@ -20,19 +20,12 @@ interface GetStatsInput {
   project?: string | null
 }
 
-function quarterStart(day: DayKey): DayKey {
-  const year = day.slice(0, 4)
-  const month = Math.floor((Number(day.slice(5, 7)) - 1) / 3) * 3 + 1
-  return `${year}-${String(month).padStart(2, "0")}-01`
-}
+/** 每档「最近一段」的天数，含今天往前数满这么多天（滚动窗口，不按自然周、自然月） */
+const RANGE_DAYS: Record<StatsRange, number> = { week: 7, month: 30, quarter: 90, year: 365 }
 
+/** 本期 = 截止今天的最近 N 天；上一期在 run 里取紧挨在它前面、同样长的一段 */
 function currentRange(range: StatsRange, today: DayKey): { start: DayKey; end: DayKey } {
-  switch (range) {
-    case "week": return { start: weekStart(today), end: today }
-    case "month": return { start: monthStart(today), end: today }
-    case "quarter": return { start: quarterStart(today), end: today }
-    case "year": return { start: `${today.slice(0, 4)}-01-01`, end: today }
-  }
+  return { start: addDays(today, 1 - RANGE_DAYS[range]), end: today }
 }
 
 interface StatsTotals {
@@ -83,11 +76,11 @@ export const getStatsTool: ReadTool<GetStatsInput> = {
   kind: "read",
   name: "get_stats",
   title: "Get stats",
-  description: "Compare income, expenses, tracked time, completed tasks, and estimates across two periods. Use it for a calendar range or a custom date span, optionally limited to one project.",
+  description: "Compare income, expenses, tracked time, completed tasks, and estimates between two periods of equal length. Use it for the most recent week, month, quarter, or year, or for a custom date span, optionally limited to one project.",
   inputSchema: {
     type: "object",
     properties: {
-      range: { type: "string", enum: RANGES, default: "month", description: "Calendar period through today: week, month, quarter, or year." },
+      range: { type: "string", enum: RANGES, default: "month", description: "Rolling period ending today (today included): week = last 7 days, month = last 30 days, quarter = last 90 days, year = last 365 days. It is compared with the same number of days right before it." },
       start: DAY,
       end: DAY,
       project: PROJECT_REF,

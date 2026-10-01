@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest"
+import { addDays } from "../../../../src/domain/calendar"
 import { doneIn, estimateAccuracy, hourlyRate, minutesByWeekday, minutesIn, projectStats } from "../../../../src/domain/insights"
 import { totals } from "../../../../src/domain/ledger"
 import { toWallWorkbench } from "../../data/wall"
@@ -73,6 +74,44 @@ describe("get_stats", () => {
     })
     expect(result.estimateAccuracy).toEqual(estimateAccuracy(wallCurrent.tasks, wallEstimates, range))
     expect(result.minutesByWeekday).toEqual(minutesByWeekday(wallCurrent.entries, range))
+  })
+
+  it("compares the last 7, 30, 90 or 365 days ending today with the same number of days right before", async () => {
+    // 假定今天是 2026-10-01
+    const ctx = toolContext(makeWorkbench())
+    type Period = { start: string; end: string }
+    const rangeOf = async (range?: "week" | "month" | "quarter" | "year") =>
+      (await getStatsTool.run(ctx, range === undefined ? {} : { range })).range as { current: Period; previous: Period }
+    const daysIn = (period: Period) => Math.round((Date.parse(period.end) - Date.parse(period.start)) / 86_400_000) + 1
+
+    expect(await rangeOf("week")).toEqual({
+      current: { start: "2026-09-25", end: "2026-10-01" },
+      previous: { start: "2026-09-18", end: "2026-09-24" },
+    })
+    expect(await rangeOf("month")).toEqual({
+      current: { start: "2026-09-02", end: "2026-10-01" },
+      previous: { start: "2026-08-03", end: "2026-09-01" },
+    })
+    expect(await rangeOf()).toEqual(await rangeOf("month"))
+    for (const [range, days] of [["quarter", 90], ["year", 365]] as const) {
+      const { current, previous } = await rangeOf(range)
+      expect(current.end).toBe("2026-10-01")
+      expect(daysIn(current)).toBe(days)
+      expect(daysIn(previous)).toBe(days)
+      expect(addDays(previous.end, 1)).toBe(current.start)
+    }
+  })
+
+  it("counts records by the rolling windows even when they cross calendar months", async () => {
+    const ledger = [
+      makeLedger({ id: "l-current", amount: 100, date: "2026-09-05" }),
+      makeLedger({ id: "l-previous", amount: 40, date: "2026-08-20" }),
+      makeLedger({ id: "l-too-old", amount: 7, date: "2026-08-02" }),
+    ]
+    const result = await getStatsTool.run(toolContext(makeWorkbench({ ledger })), { range: "month" })
+
+    expect(result.current).toMatchObject({ income: 100 })
+    expect(result.previous).toMatchObject({ income: 40 })
   })
 
   it("rounds money sums and hourly rates to cents for both periods and each project", async () => {
