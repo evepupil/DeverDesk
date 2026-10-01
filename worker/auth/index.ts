@@ -1,7 +1,7 @@
 // 按 Access、个人令牌、口令会话顺序解析当前请求身份。
-import type { AuthContext, WorkerContext, WorkerEnv } from "../types"
+import type { AuthContext, TokenIdentity, WorkerContext, WorkerEnv } from "../types"
 import { loadSessionSecret } from "../db/settings"
-import { sha256Hex } from "./crypto"
+import { findTokenIdentity } from "../db/tokens"
 import { verifyAccessAssertion } from "./access"
 import { verifySessionToken } from "./session"
 
@@ -24,6 +24,14 @@ function sessionCookie(request: Request): string | null {
   return null
 }
 
+/** 只看 Authorization: Bearer 访问令牌；/mcp 只认这一种，其余接口在 Access 之后、Cookie 之前认它 */
+export async function resolveBearerToken(request: Request, env: WorkerEnv): Promise<TokenIdentity | null> {
+  const authorization = request.headers.get("Authorization")
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
+  if (!bearer) return null
+  return findTokenIdentity(env.DB, bearer)
+}
+
 export async function resolveAuthentication(
   request: Request,
   env: WorkerEnv,
@@ -38,23 +46,8 @@ export async function resolveAuthentication(
     }
   }
 
-  const authorization = request.headers.get("Authorization")
-  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
-  if (bearer && /^dd_[A-Za-z0-9_-]{43}$/.test(bearer)) {
-    const hash = await sha256Hex(bearer)
-    const token = await env.DB.prepare("SELECT id, last_used_at FROM tokens WHERE hash = ? LIMIT 1")
-      .bind(hash)
-      .first<{ id: string; last_used_at: number | null }>()
-    if (token) {
-      const now = Date.now()
-      if (token.last_used_at === null || token.last_used_at <= now - 60_000) {
-        await env.DB.prepare("UPDATE tokens SET last_used_at = ? WHERE id = ? AND (last_used_at IS NULL OR last_used_at <= ?)")
-          .bind(now, token.id, now - 60_000)
-          .run()
-      }
-      return { via: "token", tokenId: token.id }
-    }
-  }
+  const token = await resolveBearerToken(request, env)
+  if (token) return { via: "token", token }
 
   const password = env.DEVERDESK_PASSWORD
   const session = sessionCookie(request)

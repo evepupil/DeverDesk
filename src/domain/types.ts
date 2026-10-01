@@ -52,6 +52,9 @@ export interface Project {
   milestones: Milestone[]
 }
 
+/** 记录是怎么来的：没有这一项是人在界面里建的；"ai" 是 AI 助手经 MCP 或令牌接口建的（页面上画 AI 标记） */
+export type RecordOrigin = "ai"
+
 export interface Subtask {
   id: string
   title: string
@@ -77,6 +80,7 @@ export interface Task {
   subtasks: Subtask[]
   createdAt: number
   completedAt: number | null
+  origin?: RecordOrigin
 }
 
 /** 一段实际投入的时间：计时器停下或手动补记时产生 */
@@ -86,6 +90,7 @@ export interface TimeEntry {
   projectId: string | null
   start: number
   end: number
+  origin?: RecordOrigin
 }
 
 export interface LedgerEntry {
@@ -103,6 +108,9 @@ export interface LedgerEntry {
   expectedOn: DayKey | null
   note: string
   createdAt: number
+  origin?: RecordOrigin
+  /** 外部单号（支付平台的订单号、流水号）；AI 记账时用来防重复 */
+  externalId?: string
 }
 
 export interface Routine {
@@ -135,6 +143,8 @@ export interface Profile {
   dayEndHour: number
   /** 记账币种（ISO 4217 代码，如 CNY、USD）；老数据没有这一项，按人民币显示 */
   currency?: string
+  /** 时区（IANA 名称，如 Asia/Shanghai）；在线版服务器按它算「今天」。老数据没有这一项，在线版登录后浏览器自动补上 */
+  timeZone?: string
 }
 
 export interface ActiveTimer {
