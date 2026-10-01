@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     "worker/worker-configuration.d.ts",
     // 官网是独立的子项目，有自己的代码检查配置
     "site/**",
+    // 派活用的临时脚本和任务书（不进仓库）
+    ".fleet/**",
   ]),
 ]);
 
