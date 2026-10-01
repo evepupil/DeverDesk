@@ -4,7 +4,7 @@
 - 对应代码：`worker/ai/`（`changesets.ts` 提交、采纳、拒绝、确认、撤销、撤回；`store.ts` 改动包的读写；`limits.ts` 限速和过期清理）、`worker/routes/ai.ts`（给页面用的接口）、`worker/migrations/0003_ai.sql`；页面在 `src/features/ai/`、`src/lib/ai-api.ts`
 - 所属里程碑：[M4 MCP：让 AI 替你管（第一期）](../roadmap.md#m4)
 - 界面规格：[前端设计 · 在线版的差异](../前端设计.md#在线版的差异)
-- 当前状态：已实现，待用户验收
+- 当前状态：已完成（2026-10-02 用户验收通过）
 - 最近更新：2026-10-02
 
 ## 职责与边界

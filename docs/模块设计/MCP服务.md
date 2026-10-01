@@ -3,7 +3,7 @@
 - 模块定位：在线版给 AI 助手开的门。Claude Code、Codex、Cursor 这类工具通过 MCP（AI 助手调用外部工具的统一协议）连上来，替用户随手记、查情况、排时间。
 - 对应代码：`worker/mcp/`（`index.ts` 入口与鉴权、`server.ts` 按权限装配工具、`registry.ts` 把工具定义接到 SDK、`instructions.ts` 使用说明、`clock.ts` 时区换算、`data/` 按需查询、`tools/read|capture|plan|changes/` 各组工具）、`src/domain/operations/`（界面和 AI 共用的业务规则）；写入交给 [AI 改动记录](AI改动记录.md)
 - 所属里程碑：[M4 MCP：让 AI 替你管（第一期）](../roadmap.md#m4)
-- 当前状态：已实现，待用户验收
+- 当前状态：已完成（2026-10-02 用户验收通过）
 - 最近更新：2026-10-02
 - 依据：[调研：MCP 协议、官方 SDK 与客户端接法](../调研/MCP协议与SDK.md)
 
