@@ -111,6 +111,24 @@ describe("plan tools", () => {
     })).rejects.toThrow("needs a planned day")
   })
 
+  it("update_tasks accepts the subtask ids and titles that task reads show", async () => {
+    const task = makeTask({
+      id: "task-refs",
+      subtasks: [
+        { id: "sub-a", title: "Draft", done: false },
+        { id: "sub-b", title: "Review", done: true },
+        { id: "sub-c", title: "Publish", done: false },
+      ],
+    })
+    const plan = await updateTasksTool.plan(toolContext(makeData({ tasks: [task] })), {
+      updates: [{ task: task.id, completeSubtasks: ["sub-a"], reopenSubtasks: ["review"], removeSubtasks: ["Publish"] }],
+    })
+    expect((plan.changes[0].after as Task).subtasks).toEqual([
+      { id: "sub-a", title: "Draft", done: true },
+      { id: "sub-b", title: "Review", done: false },
+    ])
+  })
+
   it("plan_day uses the interface's rounded current-time start and accounts for busy blocks", async () => {
     const task = makeTask({ id: "day-task", seq: 111, estimateMin: 30 })
     const ctx = toolContext(makeData({ tasks: [task] }), { versions: { "task:day-task": { updatedAt: 5, rev: 13 } } })

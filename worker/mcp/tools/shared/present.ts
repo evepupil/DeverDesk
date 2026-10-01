@@ -35,6 +35,12 @@ function withByAi<T extends object>(output: T, task: { origin?: "ai" }): T & { b
   return { ...output, byAi: true as const }
 }
 
+export interface CompactSubtask {
+  id: string
+  title: string
+  done: boolean
+}
+
 export interface CompactTask extends Record<string, unknown> {
   id: string
   code: string
@@ -46,11 +52,23 @@ export interface CompactTask extends Record<string, unknown> {
   plannedFor: string | null
   startAt: string | null
   dueOn: string | null
-  subtasks: { done: number; total: number }
+  /** 完成数和总数；有子任务时再带上每一条（编号、标题、是否完成），改子任务时按它们来指 */
+  subtasks: { done: number; total: number; items?: CompactSubtask[] }
+  /** 备注原文，没有备注时不给这个键 */
+  notes?: string
   /** 已投入分钟数，只在查询带了投入记录时给 */
   loggedMin?: number
   completedAt: string | null
   byAi?: true
+}
+
+function presentSubtasks(task: Task): CompactTask["subtasks"] {
+  const items = task.subtasks.map(({ id, title, done }) => ({ id, title, done }))
+  return {
+    done: items.filter((item) => item.done).length,
+    total: items.length,
+    ...(items.length > 0 ? { items } : {}),
+  }
 }
 
 export function presentTask(task: Task, ctx: PresentContext, loggedMin?: number): CompactTask {
@@ -65,13 +83,11 @@ export function presentTask(task: Task, ctx: PresentContext, loggedMin?: number)
     plannedFor: task.plannedFor,
     startAt: task.startAt,
     dueOn: task.dueOn,
-    subtasks: {
-      done: task.subtasks.filter((subtask) => subtask.done).length,
-      total: task.subtasks.length,
-    },
+    subtasks: presentSubtasks(task),
     completedAt: task.completedAt === null ? null : ctx.clock.formatLocal(task.completedAt),
   }
-  const withLogged = loggedMin === undefined ? base : { ...base, loggedMin }
+  const withNotes = task.notes ? { ...base, notes: task.notes } : base
+  const withLogged = loggedMin === undefined ? withNotes : { ...withNotes, loggedMin }
   return withByAi(withLogged, task)
 }
 

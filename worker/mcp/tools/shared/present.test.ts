@@ -128,9 +128,31 @@ describe("presentTask", () => {
       plannedFor: "2026-03-02",
       startAt: "09:30",
       dueOn: "2026-03-06",
-      subtasks: { done: 1, total: 2 },
+      subtasks: {
+        done: 1,
+        total: 2,
+        items: [
+          { id: "s-1", title: "收集数据", done: true },
+          { id: "s-2", title: "写结论", done: false },
+        ],
+      },
       completedAt: "2026-03-02 11:05",
     })
+  })
+
+  it("有备注时给备注原文，没有备注不出现这个键", () => {
+    expect(presentTask(task({ notes: "第一行\n第二行" }), context()).notes).toBe("第一行\n第二行")
+    expect("notes" in presentTask(task({ notes: "" }), context())).toBe(false)
+  })
+
+  it("有子任务时带上每一条的编号、标题和是否完成，没有子任务就只给计数", () => {
+    expect(presentTask(task(), context()).subtasks.items).toEqual([
+      { id: "s-1", title: "收集数据", done: true },
+      { id: "s-2", title: "写结论", done: false },
+    ])
+    const none = presentTask(task({ subtasks: [] }), context()).subtasks
+    expect(none).toEqual({ done: 0, total: 0 })
+    expect("items" in none).toBe(false)
   })
 
   it("completedAt 为 null 时给 null；无副业给 null", () => {

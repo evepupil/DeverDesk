@@ -86,6 +86,16 @@ function parseUpdate(value: unknown): TaskUpdate {
   return update
 }
 
+/** 指向已有子任务的引用列表：编号、序号或标题，都能从读到的任务的 subtasks.items 里看到 */
+function subtaskRefs(verb: string) {
+  return {
+    type: "array",
+    maxItems: 20,
+    items: { type: "string", minLength: 1 },
+    description: `Subtasks to ${verb}, each given as the subtask id, its 1-based position, or its exact title (all shown in the task's subtasks.items).`,
+  } as const
+}
+
 function subtaskId(task: Task, ref: string): string {
   const normalized = ref.trim()
   const byId = task.subtasks.find((subtask) => subtask.id === normalized)
@@ -116,12 +126,13 @@ export const updateTasksTool: WriteTool<unknown> = {
           properties: {
             task: TASK_REF, title: TASK_TITLE, status: TASK_STATUS, priority: PRIORITY, estimateMin: ESTIMATE_MIN,
             plannedFor: { anyOf: [DAY, { type: "null" }] }, startAt: { anyOf: [{ type: "string", description: "Local time in HH:mm format." }, { type: "null" }] },
-            dueOn: { anyOf: [DAY, { type: "null" }] }, project: PROJECT_REF, notes: NOTES,
-            appendNotes: { type: "string", maxLength: 2000 },
-            addSubtasks: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 80 } },
-            completeSubtasks: { type: "array", maxItems: 20, items: { type: "string", minLength: 1 } },
-            reopenSubtasks: { type: "array", maxItems: 20, items: { type: "string", minLength: 1 } },
-            removeSubtasks: { type: "array", maxItems: 20, items: { type: "string", minLength: 1 } },
+            dueOn: { anyOf: [DAY, { type: "null" }] }, project: PROJECT_REF,
+            notes: { ...NOTES, description: "Replaces the whole note text (read the task's current notes first if any must be kept). Use appendNotes to add to it instead." },
+            appendNotes: { type: "string", maxLength: 2000, description: "Text added to the end of the existing notes, on a new line." },
+            addSubtasks: { type: "array", maxItems: 20, items: { type: "string", minLength: 1, maxLength: 80 }, description: "Titles of new subtasks to add." },
+            completeSubtasks: subtaskRefs("mark done"),
+            reopenSubtasks: subtaskRefs("mark not done"),
+            removeSubtasks: subtaskRefs("remove"),
           },
           required: ["task"], additionalProperties: false,
           anyOf: mutableFields.map((field) => ({ required: [field] })),
