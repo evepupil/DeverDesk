@@ -7,6 +7,9 @@ import { getSession, login, logout } from "./session"
 import { pull, push } from "./sync"
 import { create, list, revoke } from "./tokens"
 import { createLedgerEntry, createTask, getSummary } from "./operations"
+import { matchAiRoute, handleAiRoute, type AiRoute } from "./ai"
+import { update as updateToken } from "./tokens"
+import type { TokenIdentity } from "../types"
 
 function notFound(): Response {
   return apiError("接口不存在", 404)
@@ -23,13 +26,18 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
     return notFound()
   }
 
-  let route: "pull" | "push" | "token-list" | "token-create" | "token-revoke" | "task-create" | "ledger-create" | "summary" | null = null
+  const ai = matchAiRoute(pathname, method)
+  let route: "pull" | "push" | "token-list" | "token-create" | "token-tier" | "token-revoke" | "task-create" | "ledger-create" | "summary" | "ai" | null = null
   let tokenId: string | null = null
-  if (pathname === API_PATHS.sync && method === "GET") route = "pull"
+  let aiRoute: AiRoute | null = null
+  if (ai) {
+    route = "ai"
+    aiRoute = ai
+  } else if (pathname === API_PATHS.sync && method === "GET") route = "pull"
   else if (pathname === API_PATHS.sync && method === "POST") route = "push"
   else if (pathname === API_PATHS.tokens && method === "GET") route = "token-list"
   else if (pathname === API_PATHS.tokens && method === "POST") route = "token-create"
-  else if (pathname.startsWith(`${API_PATHS.tokens}/`) && method === "DELETE") {
+  else if (pathname.startsWith(`${API_PATHS.tokens}/`) && (method === "DELETE" || method === "PATCH")) {
     const encodedId = pathname.slice(API_PATHS.tokens.length + 1)
     if (!encodedId || encodedId.includes("/")) return notFound()
     try {
@@ -37,7 +45,7 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
     } catch {
       return notFound()
     }
-    route = "token-revoke"
+    route = method === "DELETE" ? "token-revoke" : "token-tier"
   } else if (pathname === API_PATHS.tasks && method === "POST") route = "task-create"
   else if (pathname === API_PATHS.ledger && method === "POST") route = "ledger-create"
   else if (pathname === API_PATHS.summary && method === "GET") route = "summary"
@@ -46,6 +54,14 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
   const auth = await resolveAuthentication(request, env, context)
   if (!auth) return loginIsConfigured(env) ? apiError("需要登录", 401) : apiError("还没有设置登录口令", 503)
   if (route.startsWith("token-") && auth.via === "token") return apiError("个人令牌不能管理令牌", 403)
+  if (route === "ai" && auth.via === "token") return apiError("个人令牌不能管理 AI 改动", 403)
+  if ((route === "push" || route === "task-create" || route === "ledger-create") && auth.via === "token" && auth.token?.tier !== "write") {
+    return apiError("这个令牌不能直接改数据", 403)
+  }
+
+  const identity: TokenIdentity = auth.via === "token"
+    ? auth.token!
+    : { id: "session", name: "DeverDesk", tier: "write" }
 
   switch (route) {
     case "pull":
@@ -56,14 +72,18 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
       return list(env)
     case "token-create":
       return create(request, env)
+    case "token-tier":
+      return updateToken(request, env, tokenId!)
     case "token-revoke":
       return revoke(env, tokenId!)
     case "task-create":
-      return createTask(request, env)
+      return createTask(request, env, identity)
     case "ledger-create":
-      return createLedgerEntry(request, env)
+      return createLedgerEntry(request, env, identity)
     case "summary":
       return getSummary(request, env)
+    case "ai":
+      return handleAiRoute(request, env, aiRoute!)
   }
 }
 

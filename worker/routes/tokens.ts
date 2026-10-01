@@ -1,8 +1,8 @@
 // 仅由口令会话或 Cloudflare Access 身份管理个人令牌。
 import { apiError, jsonResponse, noContent, readJsonBody } from "../http"
 import type { WorkerEnv } from "../types"
-import { createToken, listTokens, revokeToken } from "../db/tokens"
-import { validateTokenInput } from "../validation"
+import { createToken, listTokens, revokeToken, updateTokenTier } from "../db/tokens"
+import { validateTokenInput, validateTokenTierInput } from "../validation"
 
 export async function list(env: WorkerEnv): Promise<Response> {
   return jsonResponse(await listTokens(env.DB))
@@ -13,7 +13,16 @@ export async function create(request: Request, env: WorkerEnv): Promise<Response
   if (!body.ok) return body.response
   const parsed = validateTokenInput(body.value)
   if (!parsed.ok) return apiError(parsed.error, 400)
-  return jsonResponse(await createToken(env.DB, parsed.value.name), 201)
+  return jsonResponse(await createToken(env.DB, parsed.value.name, parsed.value.tier), 201)
+}
+
+export async function update(request: Request, env: WorkerEnv, id: string): Promise<Response> {
+  const body = await readJsonBody(request)
+  if (!body.ok) return body.response
+  const parsed = validateTokenTierInput(body.value)
+  if (!parsed.ok) return apiError(parsed.error, 400)
+  const updated = await updateTokenTier(env.DB, id, parsed.value.tier)
+  return updated ? jsonResponse({ id, tier: parsed.value.tier }) : apiError("令牌不存在", 404)
 }
 
 export async function revoke(env: WorkerEnv, id: string): Promise<Response> {

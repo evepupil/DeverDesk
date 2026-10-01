@@ -1,5 +1,5 @@
 // 纯请求体和日期校验逻辑，便于独立单元测试。
-import { PUSH_BATCH_SIZE, RECORD_KINDS, type RecordKind, type SyncChange } from "../src/sync/protocol"
+import { DEFAULT_TOKEN_TIER, PUSH_BATCH_SIZE, RECORD_KINDS, TOKEN_TIERS, type RecordKind, type SyncChange, type TokenTier } from "../src/sync/protocol"
 import type { Channel, EntryKind, EntryStatus, ExpenseCategory, IncomeCategory, Priority } from "../src/domain/types"
 
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; error: string }
@@ -84,11 +84,20 @@ export function validatePushRequest(value: unknown): ValidationResult<{ changes:
   return valid({ changes })
 }
 
-export function validateTokenInput(value: unknown): ValidationResult<{ name: string }> {
+export function validateTokenInput(value: unknown): ValidationResult<{ name: string; tier: TokenTier }> {
   if (!objectValue(value) || typeof value.name !== "string") return invalid("name 必须是 1–40 个字")
   const name = value.name.trim()
   if (textLength(name) < 1 || textLength(name) > 40) return invalid("name 必须是 1–40 个字")
-  return valid({ name })
+  const tier = value.tier === undefined ? DEFAULT_TOKEN_TIER : value.tier
+  if (typeof tier !== "string" || !TOKEN_TIERS.includes(tier as TokenTier)) return invalid("tier 必须是 read、propose 或 write")
+  return valid({ name, tier: tier as TokenTier })
+}
+
+export function validateTokenTierInput(value: unknown): ValidationResult<{ tier: TokenTier }> {
+  if (!objectValue(value) || typeof value.tier !== "string" || !TOKEN_TIERS.includes(value.tier as TokenTier)) {
+    return invalid("tier 必须是 read、propose 或 write")
+  }
+  return valid({ tier: value.tier as TokenTier })
 }
 
 export function validateTaskInput(value: unknown): ValidationResult<TaskInput> {
