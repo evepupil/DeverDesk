@@ -131,6 +131,16 @@ claude mcp add --transport http deverdesk https://your-workspace.example.com/mcp
   --header "Authorization: Bearer dd_your_token"
 ```
 
+### ChatGPT, and Claude on the web and mobile
+
+These apps connect through OAuth, without a token:
+
+1. Copy the connector address at the top of **Connect AI** (`https://your-workspace.example.com/mcp`).
+2. In ChatGPT, turn on developer mode in settings and create a connector with that address. In Claude, open Settings → Connectors → Add custom connector. A connector added on the web also works in the mobile apps.
+3. Your browser opens DeverDesk's authorization page: sign in, pick a permission (Propose by default) and choose **Allow**.
+
+The app then shows up in the **Connect AI** list, where you can change its permission or disconnect it. Claude Code, Codex, Cursor and VS Code can also connect with just the address and approve in the browser; tokens keep working.
+
 What the assistant can do:
 
 | Group | Tools |
@@ -141,7 +151,7 @@ What the assistant can do:
 
 Every change an assistant makes is recorded. The sparkles icon in the top bar opens **AI activity**, where you accept or reject proposals and undo changes; records created by an assistant carry the same icon. Deleting, or changing more than ten records at once, is shown to you as a preview first. Dates and times follow the time zone in your schedule settings, which the browser fills in the first time you sign in.
 
-If the workspace sits behind Cloudflare Access, add an Access bypass rule for the `/mcp` path; DeverDesk checks the token itself. Claude on the web and in the mobile apps connects through OAuth, which isn't supported yet.
+If the workspace sits behind Cloudflare Access, add Access bypass rules for `/mcp`, `/oauth/*` and `/.well-known/*`; DeverDesk checks tokens itself, and the authorization page stays behind Access.
 
 ## Log coding time automatically
 

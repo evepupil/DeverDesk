@@ -29,7 +29,7 @@
 | ChatGPT（开发者模式） | 优先身份说明（`https://chatgpt.com/oauth/client.json`），授权方有登记接口时也能自助登记 | 授权方声明并返回 `iss` 时用 `https://chatgpt.com/connector_platform_oauth_redirect`，否则用带编号的地址 | 说明书里必须有 S256；`resource` 要绑进令牌；不支持固定令牌；Plus、Pro、Business、Enterprise、Education 的网页版可用；工具调用时的 401 不会弹「重新连接」 |
 | Claude Code | 身份说明（`https://claude.ai/oauth/claude-code-client-metadata`）或自助登记 | `http://localhost:<随机端口>/callback` | 收到 401/403 自动开始；配了固定令牌被拒时直接报错，不会改走授权 |
 | Codex | 身份说明（`https://chatgpt.com/oauth/codex/client.json`）或自助登记 | `http://127.0.0.1:<端口>/callback` | `codex mcp login <名字>`；配了固定令牌就不走授权 |
-| Cursor | 自助登记 | `http://localhost:8787/callback`、`https://www.cursor.com/agents/mcp/oauth/callback` | 收到任何 401 都会开始授权 |
+| Cursor | 自助登记 | `http://localhost:8787/callback`、`https://www.cursor.com/agents/mcp/oauth/callback` | 收到任何 401 都会开始授权；3.10 以后登记时还会带上 `cursor://anysphere.cursor-mcp/oauth/callback`，授权时用本机地址（论坛报告，安全评审时核对） |
 | VS Code | 身份说明（`https://vscode.dev/oauth/client-metadata.json`）或自助登记 | `http://127.0.0.1:33418/`、`https://vscode.dev/redirect` | 收到 401/403 会读 `resource_metadata` 并改走授权 |
 
 出处：[Claude 连接器认证](https://claude.com/docs/connectors/building/authentication)、[Claude 自定义连接器](https://claude.com/docs/connectors/custom/remote-mcp)、[按需授权](https://claude.com/docs/connectors/building/lazy-authentication)、[排错](https://claude.com/docs/connectors/building/troubleshooting)、[ChatGPT Apps SDK 认证](https://developers.openai.com/apps-sdk/build/auth)、[ChatGPT 开发者模式](https://developers.openai.com/api/docs/guides/developer-mode)、[Claude Code MCP](https://code.claude.com/docs/en/mcp)、[Codex MCP](https://developers.openai.com/codex/mcp)、[Cursor MCP](https://cursor.com/docs/context/mcp)、[VS Code MCP](https://code.visualstudio.com/api/extension-guides/ai/mcp)。

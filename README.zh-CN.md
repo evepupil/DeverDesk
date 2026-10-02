@@ -131,6 +131,16 @@ claude mcp add --transport http deverdesk https://你的域名/mcp \
   --header "Authorization: Bearer dd_你的令牌"
 ```
 
+### ChatGPT、Claude 网页版和手机 App
+
+这些应用用 OAuth 授权连接，不用令牌：
+
+1. 复制 **连接 AI** 弹窗最上面的连接器地址（`https://你的域名/mcp`）。
+2. ChatGPT 里在设置中打开开发者模式，新建一个连接器，填这个地址；Claude 里打开 设置 → 连接器 → 添加自定义连接器。网页版加好的连接器，手机 App 里也能用。
+3. 浏览器会打开 DeverDesk 的授权页：登录，选权限（默认「只能提议」），点 **允许**。
+
+连上的应用会出现在 **连接 AI** 列表里，可以改权限、断开。Claude Code、Codex、Cursor、VS Code 也可以只填地址、不带令牌，连接时在浏览器里点允许；原来的令牌方式照常可用。
+
 AI 能做的事：
 
 | 分组 | 工具 |
@@ -141,7 +151,7 @@ AI 能做的事：
 
 AI 每次改动都会留底。点窗口栏的星星图标打开 **AI 动态**，在里面采纳或拒绝提议、撤销改动；AI 建的记录前面也带这个图标。删除，或者一次改超过十条，会先给你看预览。日期和时间按作息设置里的时区算，第一次登录时浏览器会自动填上。
 
-部署在 Cloudflare Access 后面时，需要在 Access 里给 `/mcp` 路径加一条「绕过」规则，令牌由 DeverDesk 自己校验。Claude 网页版和手机 App 要用 OAuth 授权连接，目前还不支持。
+部署在 Cloudflare Access 后面时，需要在 Access 里给 `/mcp`、`/oauth/*`、`/.well-known/*` 加「绕过」规则，令牌由 DeverDesk 自己校验；授权页留在 Access 后面。
 
 ## 自动化接口
 
