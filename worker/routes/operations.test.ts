@@ -64,7 +64,7 @@ describe("GET /api/summary monthly queries", () => {
     await seedRecord(db, "ledger", "L-out-month", ledger("L-out-month", "2025-11-30", "expense", 900), 1, 3)
     await seedRecord(db, "ledger", "L-expense", ledger("L-expense", "2025-12-31", "expense", 10), 1, 4)
     const timeEntry = (id: string, start: number, end: number) => ({ id, start, end, taskId: null, projectId: null })
-    await seedRecord(db, "entry", "E-first", timeEntry("E-first", Date.parse("2025-12-01T08:00:00Z"), Date.parse("2025-12-01T08:30:00Z")), 1, 5)
+    await seedRecord(db, "entry", "E-first", { ...timeEntry("E-first", Date.parse("2025-12-01T08:00:00Z"), Date.parse("2025-12-01T08:30:00Z")), minutes: 15, origin: "coding" }, 1, 5)
     await seedRecord(db, "entry", "E-last-day", timeEntry("E-last-day", Date.parse("2026-01-01T07:30:00Z"), Date.parse("2026-01-01T08:30:00Z")), 1, 6)
     await seedRecord(db, "entry", "E-next-month", timeEntry("E-next-month", Date.parse("2026-01-01T08:00:00Z"), Date.parse("2026-01-01T08:30:00Z")), 1, 7)
     const task = (id: string, completedAt: number) => ({ id, status: "done", completedAt })
@@ -81,7 +81,7 @@ describe("GET /api/summary monthly queries", () => {
     } as unknown as D1Database
     const response = await getSummary(new Request("https://example.test/api/summary?month=2025-12"), envFor(countingDb))
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ month: "2025-12", income: 40, expense: 10, net: 30, minutes: 90, doneTasks: 2 })
+    expect(await response.json()).toEqual({ month: "2025-12", income: 40, expense: 10, net: 30, minutes: 75, doneTasks: 2 })
     expect(statements).toBe(4)
   })
 })

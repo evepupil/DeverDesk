@@ -11,7 +11,7 @@ export const DIR_NAME_MAX_LENGTH = 60
 
 /** 比较用的键：不分大小写 */
 export function dirNameKey(name: string): string {
-  return name.trim().toLowerCase()
+  return name.trim().normalize("NFC").toLowerCase()
 }
 
 export type DirNamesError =

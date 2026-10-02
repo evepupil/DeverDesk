@@ -1,20 +1,28 @@
 import type { DayKey, Milestone, Project } from "../types"
 import type { OpContext } from "./context"
 
-export type ProjectInput = Pick<Project, "name" | "color" | "stage" | "goal" | "monthlyTarget">
+export type ProjectInput = Pick<Project, "name" | "color" | "stage" | "goal" | "monthlyTarget" | "dirNames">
 
 export function newProject(input: ProjectInput, ctx: OpContext): Project {
+  const { dirNames, ...fields } = input
   return {
-    ...input,
+    ...fields,
     name: input.name.trim(),
     id: ctx.newId("p"),
     startedOn: ctx.today,
     milestones: [],
+    dirNames: (dirNames ?? []).map((name) => name.trim()),
   }
 }
 
 export function patchProject(project: Project, input: ProjectInput): Project {
-  return { ...project, ...input, name: input.name.trim() }
+  const { dirNames, ...fields } = input
+  return {
+    ...project,
+    ...fields,
+    ...(dirNames === undefined ? {} : { dirNames: dirNames.map((name) => name.trim()) }),
+    name: input.name.trim(),
+  }
 }
 
 export function toggleMilestone(project: Project, milestoneId: string, ctx: OpContext): Project {

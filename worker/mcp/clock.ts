@@ -6,6 +6,7 @@ const SECOND_MS = 1_000
 const DAY_MS = 86_400_000
 const MAX_TIME_ZONES = 24
 const MAX_DAYS_PER_TIME_ZONE = 400
+const MAX_DATE_MS = 8_640_000_000_000_000
 
 interface DateParts {
   year: number
@@ -79,6 +80,7 @@ function utcFromParts(parts: Pick<DateParts, "year" | "month" | "day" | "hour" |
 }
 
 function preciseOffsetAt(cache: TimeZoneCache, ms: number): number {
+  if (!Number.isFinite(ms) || Math.abs(ms) > MAX_DATE_MS) return Number.NaN
   const wholeSecond = Math.floor(ms / SECOND_MS) * SECOND_MS
   return (utcFromParts(partsAt(cache.formatter, wholeSecond)) - wholeSecond) / MINUTE_MS
 }
@@ -103,6 +105,7 @@ function dayOffsets(cache: TimeZoneCache, dayStart: number): DayOffsets {
 }
 
 function offsetAt(cache: TimeZoneCache, ms: number): number {
+  if (!Number.isFinite(ms) || Math.abs(ms) > MAX_DATE_MS) return Number.NaN
   const dayStart = Math.floor(ms / DAY_MS) * DAY_MS
   const offsets = dayOffsets(cache, dayStart)
   return offsets.stable ?? preciseOffsetAt(cache, ms)
@@ -143,8 +146,18 @@ export function createClock(timeZone: string | undefined, now: number): Clock {
   }
 
   const zoneCache = cacheFor(resolvedTimeZone)
-  const localParts = (ms: number) => partsAt(zoneCache.formatter, ms)
-  const wallAt = (ms: number) => ms + offsetAt(zoneCache, ms) * MINUTE_MS
+  const localParts = (ms: number): DateParts | null => {
+    if (!Number.isFinite(ms) || Math.abs(ms) > MAX_DATE_MS) return null
+    try {
+      return partsAt(zoneCache.formatter, ms)
+    } catch (error) {
+      if (error instanceof RangeError) return null
+      throw error
+    }
+  }
+  const wallAt = (ms: number) => Number.isFinite(ms) && Math.abs(ms) <= MAX_DATE_MS
+    ? ms + offsetAt(zoneCache, ms) * MINUTE_MS
+    : Number.NaN
 
   function fromWall(wallMs: number): number {
     const offsets = new Set<number>()
@@ -170,7 +183,8 @@ export function createClock(timeZone: string | undefined, now: number): Clock {
     const timeMatch = /^(\d{2}):(\d{2})$/.exec(text)
     if (!fullMatch && !timeMatch) return null
 
-    const dateText = fullMatch?.[1] ?? defaultDay ?? dayKey(localParts(now))
+    const nowParts = localParts(now)
+    const dateText = fullMatch?.[1] ?? defaultDay ?? (nowParts === null ? "" : dayKey(nowParts))
     const date = parseDayKey(dateText)
     if (!date) return null
     const hour = Number(fullMatch?.[2] ?? timeMatch?.[1])
@@ -179,13 +193,15 @@ export function createClock(timeZone: string | undefined, now: number): Clock {
     return fromWall(utcFromParts({ ...date, hour, minute, second: 0 }))
   }
 
+  const todayParts = localParts(now)
   const clock: Clock = {
     timeZone: resolvedTimeZone,
     timeZoneKnown,
     now,
-    today: dayKey(localParts(now)),
+    today: todayParts === null ? "" as DayKey : dayKey(todayParts),
     dayOf(ms) {
-      return dayKey(localParts(ms))
+      const parts = localParts(ms)
+      return parts === null ? "" as DayKey : dayKey(parts)
     },
     startOfDay(day) {
       const date = parseDayKey(day)
@@ -199,15 +215,15 @@ export function createClock(timeZone: string | undefined, now: number): Clock {
     parseLocal,
     formatLocal(ms) {
       const parts = localParts(ms)
-      return `${dayKey(parts)} ${pad(parts.hour)}:${pad(parts.minute)}`
+      return parts === null ? "" : `${dayKey(parts)} ${pad(parts.hour)}:${pad(parts.minute)}`
     },
     formatLocalTime(ms) {
       const parts = localParts(ms)
-      return `${pad(parts.hour)}:${pad(parts.minute)}`
+      return parts === null ? "" : `${pad(parts.hour)}:${pad(parts.minute)}`
     },
     minuteOfDay(ms) {
       const parts = localParts(ms)
-      return parts.hour * 60 + parts.minute
+      return parts === null ? Number.NaN : parts.hour * 60 + parts.minute
     },
   }
   return clock

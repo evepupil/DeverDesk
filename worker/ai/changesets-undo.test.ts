@@ -28,6 +28,23 @@ describe("ChangesetService decisions and undo", () => {
     await expect(service.undo(writeToken, submitted.changesetId!)).rejects.toMatchObject({ code: "wrong_status" })
   })
 
+  it("skips recorder changesets when choosing the newest unnumbered undo", async () => {
+    const db = createTestD1()
+    let clock = NOW
+    const service = createChangesetService(db, () => clock)
+    const ordinary = await service.submit(submission(writeToken, [change({ id: "t-ordinary" })]))
+    clock += 1
+    const recorder = await service.submit(submission(writeToken, [change({ id: "t-recorder" })], {
+      tool: "recorder", bulk: true,
+    }))
+
+    const undone = await service.undo(writeToken)
+    expect(undone.changeset.id).toBe(ordinary.changesetId)
+    expect(undone.changeset.status).toBe("undone")
+    expect(db.rows<{ deleted: number }>("SELECT deleted FROM records WHERE kind = 'task' AND id = 't-recorder'")[0]?.deleted).toBe(0)
+    expect(recorder.status).toBe("applied")
+  })
+
   it("supports partial undo without applying the same sequence twice", async () => {
     const db = createTestD1()
     const service = createChangesetService(db, () => NOW)

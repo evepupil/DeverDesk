@@ -140,7 +140,7 @@ function validTaskShape(): string {
       "(json_type(sub.value, '$.done') IS NOT 'true' AND json_type(sub.value, '$.done') IS NOT 'false')) ELSE 0 END",
     numeric("$.createdAt"),
     `(json_type(data, '$.completedAt') = 'null' OR (${numeric("$.completedAt")}))`,
-    "(json_type(data, '$.origin') IS NULL OR (json_type(data, '$.origin') = 'text' AND json_extract(data, '$.origin') = 'ai'))",
+    "(json_type(data, '$.origin') IS NULL OR (json_type(data, '$.origin') = 'text' AND json_extract(data, '$.origin') IN ('ai', 'coding')))",
   ].join(" AND ")
 }
 
@@ -173,7 +173,9 @@ function validEntryShape(): string {
     "json_type(data, '$.projectId') IN ('null', 'text')",
     numeric("$.start"),
     numeric("$.end"),
-    "(json_type(data, '$.origin') IS NULL OR (json_type(data, '$.origin') = 'text' AND json_extract(data, '$.origin') = 'ai'))",
+    "(json_type(data, '$.minutes') IS NULL OR (" + numeric("$.minutes") +
+      " AND CAST(json_extract(data, '$.minutes') AS REAL) <= 1000000))",
+    "(json_type(data, '$.origin') IS NULL OR (json_type(data, '$.origin') = 'text' AND json_extract(data, '$.origin') IN ('ai', 'coding')))",
   ].join(" AND ")
 }
 
@@ -185,7 +187,10 @@ function sumEntryMinutesQuery(taskIds: string[]): SqlQuery {
       "json_type(data, '$.taskId') = 'text' AND " +
       "json_extract(data, '$.taskId') IN (SELECT value FROM json_each(?))) ELSE 0 END = 1) " +
       "SELECT json_extract(data, '$.taskId') AS taskId, " +
-      "sum(max(0, CAST(round((json_extract(data, '$.end') - json_extract(data, '$.start')) / 60000.0) AS INTEGER))) AS minutes " +
+      "sum(CASE WHEN json_type(data, '$.minutes') IN ('integer', 'real') THEN " +
+      "CAST(min(1000000.0, max(0.0, round(CAST(json_extract(data, '$.minutes') AS REAL)))) AS INTEGER) ELSE " +
+      "CAST(min(1000000.0, max(0.0, round((CAST(json_extract(data, '$.end') AS REAL) - " +
+      "CAST(json_extract(data, '$.start') AS REAL)) / 60000.0))) AS INTEGER) END) AS minutes " +
       "FROM matching GROUP BY json_extract(data, '$.taskId')",
     bindings: [JSON.stringify(taskIds)],
   }

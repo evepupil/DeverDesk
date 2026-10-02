@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest"
-import { autoSchedule, capacityFor, dayLoad, distributeWeek, findSlot, layoutBlocks } from "./planning"
+import { autoSchedule, capacityFor, dayLoad, distributeWeek, findSlot, layoutBlocks, tasksPlannedOn } from "./planning"
 import type { Block } from "./planning"
 import type { Profile, Task } from "./types"
 
@@ -73,6 +73,16 @@ describe("dayLoad", () => {
     expect(load.done).toBe(30)
     expect(load.count).toBe(2)
     expect(load.doneCount).toBe(1)
+  })
+
+  it("keeps completed coding tasks without a planned day out of daily capacity", () => {
+    const coding = makeTask({ status: "done", plannedFor: null, estimateMin: 0, origin: "coding" })
+    const fullDay = dayLoad([makeTask({ estimateMin: 180 })], WED, profile)
+    const withCoding = dayLoad([makeTask({ estimateMin: 180 }), coding], WED, profile)
+
+    expect(tasksPlannedOn([coding], WED)).toEqual([])
+    expect(withCoding).toEqual(fullDay)
+    expect(withCoding).toMatchObject({ planned: 180, capacity: 180, count: 1 })
   })
 
   it("已搁置（dropped）的不算", () => {

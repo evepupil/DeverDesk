@@ -162,7 +162,7 @@ export function projectStats(data: WorkbenchData, period: Period): ProjectStat[]
 
 /** 估时准不准：完成的任务里，实际用时 ÷ 预估用时 */
 export function estimateAccuracy(tasks: Task[], entries: TimeEntry[], period: Period) {
-  const done = doneIn(tasks, period).filter((task) => task.estimateMin > 0)
+  const done = doneIn(tasks, period).filter((task) => task.origin !== "coding" && task.estimateMin > 0)
   const ids = new Set(done.map((task) => task.id))
   let actual = 0
   for (const entry of entries) if (entry.taskId && ids.has(entry.taskId)) actual += minutesOf(entry)

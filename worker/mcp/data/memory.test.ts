@@ -88,6 +88,30 @@ describe("createMemoryDataSource", () => {
     expect(await source.sumEntryMinutesByTask!([])).toEqual(new Map())
   })
 
+  it("accepts recorder directory names and coding-origin minutes while skipping invalid stored rows", async () => {
+    const data = emptyData()
+    data.projects = [
+      { id: "p-good", name: "Good", color: "blue", stage: "running", goal: "", startedOn: "2026-01-01", monthlyTarget: null, milestones: [], dirNames: [" Repo "] },
+      { id: "p-bad", name: "Bad", color: "blue", stage: "running", goal: "", startedOn: "2026-01-01", monthlyTarget: null, milestones: [], dirNames: ["Repo", "repo"] },
+    ]
+    data.tasks = [{
+      id: "coding-task", seq: 101, title: "Coding task", projectId: "p-good", status: "done", priority: 0, estimateMin: 0,
+      plannedFor: null, startAt: null, dueOn: null, notes: "", subtasks: [], createdAt: 1, completedAt: 1, origin: "coding",
+    }]
+    data.entries = [{ id: "coding-entry", taskId: "coding-task", projectId: "p-good", start: 0, end: 600_000, minutes: 4, origin: "coding" }]
+    const source = createMemoryDataSource(data)
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    try {
+      expect((await source.projects()).map(({ value }) => value.id)).toEqual(["p-good"])
+      expect((await source.tasks({})).map(({ value }) => value.origin)).toEqual(["coding"])
+      expect((await source.entries({})).map(({ value }) => value.origin)).toEqual(["coding"])
+      expect(await source.sumEntryMinutesByTask!(["coding-task"])).toEqual(new Map([["coding-task", 4]]))
+      expect(warn).toHaveBeenCalledTimes(1)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it("uses tombstones for record lookups and distinguishes a never-created timer", async () => {
     const data = emptyData()
     data.tasks.push({

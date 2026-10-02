@@ -59,7 +59,7 @@ export async function cleanupChangesets(db: D1Database, now: number): Promise<vo
 export async function enforceSubmitRate(db: D1Database, tokenId: string, changeCount: number, now: number): Promise<void> {
   const rows = await db.prepare(
     "SELECT c.created_at, COUNT(ch.seq) AS changes FROM ai_changesets c " +
-    "JOIN ai_changes ch ON ch.changeset_id = c.id WHERE c.token_id = ? AND c.created_at > ? " +
+    "JOIN ai_changes ch ON ch.changeset_id = c.id WHERE c.token_id = ? AND c.created_at > ? AND c.tool <> 'recorder' " +
     "GROUP BY c.id ORDER BY c.created_at ASC, c.id ASC"
   ).bind(tokenId, now - RATE_WINDOW).all<RateRow>()
   const current = rows.results.reduce((sum, row) => sum + row.changes, 0)

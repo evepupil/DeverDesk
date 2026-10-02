@@ -59,7 +59,17 @@ describe("findProjectByDir / dirNameKey", () => {
     expect(findProjectByDir(projects, "   ")).toBeUndefined()
   })
 
-  it("dirNameKey 去空白并转小写", () => {
+  it("treats canonically equivalent Unicode names as duplicates and overlaps", () => {
+    const composed = "Caf\u00e9"
+    const decomposed = "Cafe\u0301"
+    expect(validateDirNames([composed, decomposed], [], null)).toMatchObject({ ok: false, error: { kind: "repeated" } })
+    expect(validateDirNames([decomposed], [{ id: "p-cafe", name: "Cafe", dirNames: [composed] }], null))
+      .toMatchObject({ ok: false, error: { kind: "taken", projectId: "p-cafe" } })
+    expect(findProjectByDir([{ id: "p-cafe", name: "Cafe", dirNames: [composed] }], decomposed)?.id).toBe("p-cafe")
+  })
+
+  it("dirNameKey trims, lowercases, and normalizes to NFC", () => {
     expect(dirNameKey("  DeverDesk ")).toBe("deverdesk")
+    expect(dirNameKey("Cafe\u0301")).toBe(dirNameKey("Caf\u00e9"))
   })
 })

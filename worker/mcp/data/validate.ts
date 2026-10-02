@@ -8,6 +8,7 @@ import type {
   TimeEntry,
   WeekNote,
 } from "../../../src/domain/types"
+import { validateDirNames } from "../../../src/domain/dir-names"
 import type { RecordKind } from "../../../src/sync/protocol"
 
 const TASK_STATUSES = ["backlog", "todo", "doing", "done", "dropped"]
@@ -36,7 +37,13 @@ function nullableString(value: unknown): value is string | null {
 }
 
 function originIsValid(value: Record<string, unknown>): boolean {
-  return value.origin === undefined || value.origin === "ai"
+  return value.origin === undefined || value.origin === "ai" || value.origin === "coding"
+}
+
+function dirNamesAreValid(value: unknown): boolean {
+  if (value === undefined) return true
+  if (!Array.isArray(value) || !value.every(string)) return false
+  return validateDirNames(value, [], null).ok
 }
 
 function isSubtask(value: unknown): boolean {
@@ -53,7 +60,7 @@ function isProject(value: unknown): value is Project {
     string(value.color) && LABEL_COLORS.includes(value.color) &&
     string(value.stage) && PROJECT_STAGES.includes(value.stage) && string(value.goal) &&
     string(value.startedOn) && (value.monthlyTarget === null || finite(value.monthlyTarget)) &&
-    Array.isArray(value.milestones) && value.milestones.every(isMilestone)
+    Array.isArray(value.milestones) && value.milestones.every(isMilestone) && dirNamesAreValid(value.dirNames)
 }
 
 function isTask(value: unknown): value is Task {
@@ -68,7 +75,7 @@ function isTask(value: unknown): value is Task {
 
 function isTimeEntry(value: unknown): value is TimeEntry {
   return object(value) && string(value.id) && nullableString(value.taskId) && nullableString(value.projectId) &&
-    finite(value.start) && finite(value.end) && originIsValid(value)
+    finite(value.start) && finite(value.end) && (value.minutes === undefined || finite(value.minutes)) && originIsValid(value)
 }
 
 function isLedgerEntry(value: unknown): value is LedgerEntry {

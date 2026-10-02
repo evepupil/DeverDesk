@@ -28,13 +28,31 @@ describe("project operations", () => {
       id: "p-fixed",
       startedOn: ctx.today,
       milestones: [],
+      dirNames: [],
     })
   })
 
+  it("newProject trims supplied directory names and keeps their order", () => {
+    expect(newProject({ ...input, dirNames: [] }, ctx).dirNames).toEqual([])
+    const next = newProject({ ...input, dirNames: ["  Blog-V2 ", "shop  "] }, ctx)
+    expect(next.dirNames).toEqual(["Blog-V2", "shop"])
+  })
+
   it("patchProject trims the replacement name and retains project identity and milestones", () => {
-    const next = patchProject(project, input)
+    const current = { ...project, dirNames: ["existing-repo"] }
+    const next = patchProject(current, input)
     expect(next).toMatchObject({ id: "p-1", name: "Launch", color: "teal", stage: "building", startedOn: "2027-01-01" })
+    expect(next.dirNames).toEqual(["existing-repo"])
     expect(next.milestones).toEqual(project.milestones)
+  })
+
+  it("patchProject clears directory names when given an empty list", () => {
+    expect(patchProject({ ...project, dirNames: ["existing-repo"] }, { ...input, dirNames: [] }).dirNames).toEqual([])
+  })
+
+  it("patchProject trims supplied directory names", () => {
+    const next = patchProject(project, { ...input, dirNames: ["  Blog-V2 ", "shop  "] })
+    expect(next.dirNames).toEqual(["Blog-V2", "shop"])
   })
 
   it("toggleMilestone marks a milestone today and clears an already completed one", () => {

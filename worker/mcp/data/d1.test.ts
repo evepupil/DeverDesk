@@ -239,6 +239,9 @@ describe("createD1DataSource", () => {
   it("matches memory for aggregated task counts and rounded task minutes", async () => {
     const db = createTestD1()
     const { data, versions } = fixture()
+    const codingTask = makeTask("task-coding", 31, { origin: "coding" })
+    data.tasks.push(codingTask)
+    versions["task:task-coding"] = { updatedAt: 250, rev: 250 }
     const addEntry = (id: string, taskId: string | null, start: number, end: number): TimeEntry => ({
       id, taskId, projectId: null, start, end,
     })
@@ -248,6 +251,9 @@ describe("createD1DataSource", () => {
       addEntry("entry-round-up", "task-20", 0, 90_000),
       addEntry("entry-negative", "task-20", 30_000, 0),
       addEntry("entry-other-half", "task-07", 0, 30_000),
+      { ...addEntry("entry-override", "task-20", 0, 600_000), minutes: 8.6, origin: "coding" as const },
+      { ...addEntry("entry-zero-minutes", "task-20", 0, 60_000), minutes: 0 },
+      { ...addEntry("entry-negative-minutes", "task-20", 60_000, 0), minutes: -3 },
     ]
     data.entries.push(...aggregateEntries)
     aggregateEntries.forEach((entry, index) => {
@@ -259,6 +265,7 @@ describe("createD1DataSource", () => {
     )
     await insert.bind("task", "task-bad-shape", JSON.stringify({ id: "bad", seq: 900, status: "todo", projectId: "p-a" }), 901, 0).run()
     await insert.bind("entry", "entry-bad-shape", JSON.stringify({ id: "bad", taskId: "task-20", start: 0, end: 60_000 }), 902, 0).run()
+    await insert.bind("entry", "entry-bad-minutes", JSON.stringify({ ...addEntry("bad", "task-20", 0, 60_000), minutes: null }), 904, 0).run()
     await insert.bind("entry", "entry-deleted-aggregate", JSON.stringify(addEntry("entry-deleted-aggregate", "task-20", 0, 600_000)), 903, 1).run()
 
     const memory = createMemoryDataSource(data, { versions })
@@ -273,15 +280,34 @@ describe("createD1DataSource", () => {
       expect(await d1.countTasksByProject!(query)).toEqual(await memory.countTasksByProject!(query))
     }
     expect(await d1.countTasksByProject!({ statuses: ["todo", "doing"] })).toEqual(new Map([
-      ["p-a", 1], ["p-b", 1], [null, 2],
+      ["p-a", 1], ["p-b", 1], [null, 3],
     ]))
     expect(await d1.sumEntryMinutesByTask!(["task-20", "task-20", "task-07", "missing"])).toEqual(
       await memory.sumEntryMinutesByTask!(["task-20", "task-20", "task-07", "missing"]),
     )
     expect(await d1.sumEntryMinutesByTask!(["task-20", "task-07"])).toEqual(new Map([
-      ["task-20", 4], ["task-07", 2],
+      ["task-20", 13], ["task-07", 2],
     ]))
     expect(await d1.sumEntryMinutesByTask!([])).toEqual(new Map())
+
+    for (let index = 0; index < 3; index += 1) {
+      const durationEntry = {
+        id: `entry-clamped-duration-${index}`, taskId: "task-huge", projectId: null,
+        start: 0, end: 120_000_000_000,
+      }
+      const corruptMinutes = {
+        id: `entry-huge-minutes-${index}`, taskId: "task-20", projectId: null,
+        start: 0, end: 60_000, minutes: Number.MAX_VALUE,
+      }
+      for (const [entry, sequence] of [[durationEntry, index], [corruptMinutes, index + 10]] as const) {
+        await db.prepare(
+          "INSERT INTO records (kind, id, data, updated_at, rev, deleted, source) VALUES ('entry', ?, ?, 1000, ?, 0, 'app')"
+        ).bind(entry.id, JSON.stringify(entry), 100 + sequence).run()
+      }
+    }
+    expect(await d1.sumEntryMinutesByTask!(["task-20", "task-huge"])).toEqual(new Map([
+      ["task-20", 13], ["task-huge", 3_000_000],
+    ]))
   })
 
   it("warns once and skips a row with invalid JSON", async () => {

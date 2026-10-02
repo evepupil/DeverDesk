@@ -245,6 +245,7 @@ describe("presentEntry", () => {
       context()
     )
     expect(subMinute.minutes).toBe(1)
+    expect(presentEntry(entry({ start: 0, end: 600_000, minutes: 7 }), context()).minutes).toBe(7)
   })
 })
 
@@ -258,6 +259,7 @@ describe("presentProject", () => {
       goal: "写文章",
       monthlyTarget: 500,
       startedOn: "2026-01-01",
+      directories: [],
     })
     expect("milestones" in presentProject(PROJECTS[0])).toBe(false)
   })

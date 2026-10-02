@@ -152,6 +152,36 @@ describe("plan tools", () => {
     ])
   })
 
+  it("manage_project validates and incrementally edits recorder directory bindings", async () => {
+    const current = makeProject({ id: "p-directories", name: "Directories", dirNames: ["Repo", "Docs"] })
+    const other = makeProject({ id: "p-other", name: "Other", dirNames: ["Website"] })
+    const ctx = toolContext(makeData({ projects: [current, other] }), {
+      versions: { "project:p-directories": { updatedAt: 10, rev: 20 } },
+    })
+
+    const updated = await manageProjectTool.plan(ctx, {
+      action: "update", project: current.id, addDirectories: [" src "], removeDirectories: ["docs"],
+    })
+    expect((updated.changes[0].after as typeof current).dirNames).toEqual(["Repo", "src"])
+    expect(updated.output.project).toMatchObject({ directories: ["Repo", "src"] })
+
+    const repeated = await manageProjectTool.plan(ctx, {
+      action: "update", project: current.id, addDirectories: [" Repo ", "repo"],
+    })
+    expect(repeated.changes).toEqual([])
+    expect(repeated.output).toMatchObject({ changed: false, project: { directories: ["Repo", "Docs"] } })
+
+    const replaced = await manageProjectTool.plan(ctx, { action: "update", project: current.id, directories: ["Backend"] })
+    expect((replaced.changes[0].after as typeof current).dirNames).toEqual(["Backend"])
+    await expect(manageProjectTool.plan(ctx, { action: "update", project: current.id, addDirectories: ["website"] }))
+      .rejects.toThrow('already used by project "Other"')
+    await expect(manageProjectTool.plan(ctx, { action: "update", project: current.id, directories: ["Repo", " repo "] }))
+      .rejects.toThrow("duplicated")
+    await expect(manageProjectTool.plan(ctx, {
+      action: "update", project: current.id, directories: Array.from({ length: 9 }, (_, index) => `dir-${index}`),
+    })).rejects.toThrow("at most 8")
+  })
+
   it("plan_day uses the interface's rounded current-time start and accounts for busy blocks", async () => {
     const task = makeTask({ id: "day-task", seq: 111, estimateMin: 30 })
     const ctx = toolContext(makeData({ tasks: [task] }), { versions: { "task:day-task": { updatedAt: 5, rev: 13 } } })

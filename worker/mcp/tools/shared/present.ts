@@ -164,6 +164,7 @@ export interface CompactProject {
   goal: string
   monthlyTarget: number | null
   startedOn: string
+  directories: string[]
 }
 
 export function presentProject(project: Project): CompactProject {
@@ -175,6 +176,7 @@ export function presentProject(project: Project): CompactProject {
     goal: project.goal,
     monthlyTarget: project.monthlyTarget,
     startedOn: project.startedOn,
+    directories: project.dirNames ?? [],
   }
 }
 

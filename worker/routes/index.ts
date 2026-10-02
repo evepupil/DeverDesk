@@ -8,6 +8,7 @@ import { pull, push } from "./sync"
 import { create, list, revoke } from "./tokens"
 import { createLedgerEntry, createTask, getSummary } from "./operations"
 import { matchAiRoute, handleAiRoute, type AiRoute } from "./ai"
+import { matchRecorderRoute, handleRecorderRoute, type RecorderRoute } from "../recorder/routes"
 import { update as updateToken } from "./tokens"
 import type { TokenIdentity } from "../types"
 
@@ -27,12 +28,17 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
   }
 
   const ai = matchAiRoute(pathname, method)
-  let route: "pull" | "push" | "token-list" | "token-create" | "token-tier" | "token-revoke" | "task-create" | "ledger-create" | "summary" | "ai" | null = null
+  const recorder = matchRecorderRoute(pathname, method)
+  let route: "pull" | "push" | "token-list" | "token-create" | "token-tier" | "token-revoke" | "task-create" | "ledger-create" | "summary" | "ai" | "recorder" | null = null
   let tokenId: string | null = null
   let aiRoute: AiRoute | null = null
+  let recorderRoute: RecorderRoute | null = null
   if (ai) {
     route = "ai"
     aiRoute = ai
+  } else if (recorder) {
+    route = "recorder"
+    recorderRoute = recorder
   } else if (pathname === API_PATHS.sync && method === "GET") route = "pull"
   else if (pathname === API_PATHS.sync && method === "POST") route = "push"
   else if (pathname === API_PATHS.tokens && method === "GET") route = "token-list"
@@ -55,8 +61,9 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
   if (!auth) return loginIsConfigured(env) ? apiError("需要登录", 401) : apiError("还没有设置登录口令", 503)
   if (route.startsWith("token-") && auth.via === "token") return apiError("个人令牌不能管理令牌", 403)
   if (route === "ai" && auth.via === "token") return apiError("个人令牌不能管理 AI 改动", 403)
-  if ((route === "push" || route === "task-create" || route === "ledger-create") && auth.via === "token" && auth.token?.tier !== "write") {
-    return apiError("这个令牌不能直接改数据", 403)
+  const recorderWrites = route === "recorder" && (recorderRoute?.kind === "upload" || recorderRoute?.kind === "live-put")
+  if ((route === "push" || route === "task-create" || route === "ledger-create" || recorderWrites) && auth.via === "token" && auth.token?.tier !== "write") {
+    return apiError("这个令牌需要开启直接改权限", 403)
   }
 
   const identity: TokenIdentity = auth.via === "token"
@@ -84,6 +91,8 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
       return getSummary(request, env)
     case "ai":
       return handleAiRoute(request, env, aiRoute!)
+    case "recorder":
+      return handleRecorderRoute(request, env, identity, recorderRoute!)
   }
 }
 

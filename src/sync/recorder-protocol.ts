@@ -20,7 +20,7 @@ export const UPLOAD_MAX_TASKS = 10
 export const UPLOAD_MAX_ENTRIES_PER_TASK = 20
 export const UPLOAD_MAX_COMMITS_PER_TASK = 20
 /** 任务 + 时间段合起来的改动上限：D1 免费版单次请求约 50 次查询，要给改动明细和状态更新留余量 */
-export const UPLOAD_MAX_CHANGES = 40
+export const UPLOAD_MAX_CHANGES = 30
 export const UPLOAD_TITLE_MAX = 80
 
 /** 进行中的窗口多久没更新就算过期（毫秒） */
@@ -52,6 +52,7 @@ export interface BriefingResponse {
   plannedToday: BriefingTask[]
   overdue: BriefingTask[]
   open: BriefingTask[]
+  more?: { plannedToday: number; overdue: number; open: number }
 }
 
 export type UploadSource = "commit" | "done" | "idle" | "end"

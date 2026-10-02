@@ -16,6 +16,24 @@ afterEach(() => {
 })
 
 describe("workbench operation integration", () => {
+  it("validates project directory names against all other projects without saving errors", () => {
+    const saveProject = useWorkbench.getState().saveProject
+    const first = saveProject({ name: "First project", color: "teal", stage: "building", goal: "", monthlyTarget: null, dirNames: ["  Repo "] })
+    expect(first.ok).toBe(true)
+    if (!first.ok) return
+
+    const projectsBefore = useWorkbench.getState().projects
+    const duplicate = saveProject({ name: "Second project", color: "blue", stage: "idea", goal: "", monthlyTarget: null, dirNames: ["repo"] })
+    expect(duplicate).toEqual({
+      ok: false,
+      error: { kind: "taken", name: "repo", projectId: first.project.id, projectName: "First project" },
+    })
+    expect(useWorkbench.getState().projects).toBe(projectsBefore)
+
+    const updated = saveProject({ name: "First project", color: "teal", stage: "running", goal: "", monthlyTarget: null }, first.project.id)
+    expect(updated).toMatchObject({ ok: true, project: { dirNames: ["Repo"], stage: "running" } })
+  })
+
   it("keeps task form edits distinct from status changes and preserves planning rules", () => {
     const store = useWorkbench.getState()
     const task = store.createTask({ title: "  First  ", status: "backlog", plannedFor: TODAY, startAt: "09:00" })
@@ -121,8 +139,11 @@ describe("workbench operation integration", () => {
     const updatedEntry = store.saveEntry({ ...entry, amount: 75 }, entry.id)
     expect(updatedEntry.amount).toBe(75)
 
-    const project = store.saveProject({ name: "  Side project  ", color: "teal", stage: "building", goal: "Ship", monthlyTarget: 100 })
-    expect(project).toMatchObject({ name: "Side project", startedOn: TODAY, milestones: [] })
+    const projectResult = store.saveProject({ name: "  Side project  ", color: "teal", stage: "building", goal: "Ship", monthlyTarget: 100 })
+    expect(projectResult.ok).toBe(true)
+    if (!projectResult.ok) return
+    const project = projectResult.project
+    expect(project).toMatchObject({ name: "Side project", startedOn: TODAY, milestones: [], dirNames: [] })
     store.addMilestone(project.id, "  Release  ", "2027-02-01")
     const milestone = useWorkbench.getState().projects[0].milestones[0]
     expect(milestone).toMatchObject({ title: "Release", due: "2027-02-01", doneOn: null })

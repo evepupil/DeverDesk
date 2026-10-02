@@ -38,6 +38,15 @@ describe("createClock", () => {
     expect(shanghai.fromWall(shanghai.toWall(logged))).toBe(logged)
   })
 
+  it("returns empty local date strings for timestamps outside the Date range", () => {
+    const clock = createClock("UTC", instant("2026-10-01T00:00:00"))
+    for (const timestamp of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.MAX_VALUE, -Number.MAX_VALUE]) {
+      expect(clock.formatLocal(timestamp)).toBe("")
+      expect(clock.formatLocalTime(timestamp)).toBe("")
+      expect(clock.dayOf(timestamp)).toBe("")
+    }
+  })
+
   it("falls back to UTC for empty and invalid time zones", () => {
     for (const timeZone of [undefined, "", "Not/A_Time_Zone"]) {
       const clock = createClock(timeZone, instant("2026-10-01T00:00:00"))

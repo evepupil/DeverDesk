@@ -81,6 +81,24 @@ describe("query_records", () => {
     expect(noteResult.items).toEqual([{ week: "2026-09-28", wins: "Launch shipped", improve: "", next: "" }])
   })
 
+  it("returns empty local timestamps instead of throwing on out-of-range record dates", async () => {
+    const timestamp = Number.MAX_VALUE
+    const dangerousTask = makeTask({
+      id: "t-out-of-range", seq: 199, title: "Out of range", status: "done", projectId: null,
+      plannedFor: null, createdAt: timestamp, completedAt: timestamp,
+    })
+    const dangerousEntry = makeEntry({ id: "e-out-of-range", taskId: dangerousTask.id, start: timestamp, end: timestamp })
+    const ctx = toolContext(makeWorkbench({ tasks: [dangerousTask], entries: [dangerousEntry] }))
+
+    const searched = await searchTool.run(ctx, { query: "Out of range" })
+    expect((searched.tasks as Array<Record<string, unknown>>)[0]?.completedAt).toBe("")
+
+    const taskResult = await queryRecordsTool.run(ctx, input("task", { dateField: "created" }))
+    expect((taskResult.items as Array<Record<string, unknown>>)[0]?.completedAt).toBe("")
+    const entryResult = await queryRecordsTool.run(ctx, input("entry"))
+    expect((entryResult.items as Array<Record<string, unknown>>)[0]).toMatchObject({ start: "", end: "" })
+  })
+
   it("pages in stable source order, marks truncation, and validates unsupported filters", async () => {
     const ctx = toolContext(data)
     const first = await queryRecordsTool.run(ctx, input("task", { dateField: "planned", from: "2026-10-01", to: "2026-10-01", limit: 1 }))

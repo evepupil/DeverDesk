@@ -15,6 +15,7 @@ beforeAll(() => {
 describe("project read tools", () => {
   it("lists active projects and matches the shared monthly project metrics", async () => {
     const project = makeProject({
+      dirNames: ["Repo"],
       milestones: [
         { id: "m-done", title: "First release", due: "2026-09-01", doneOn: "2026-09-01" },
         { id: "m-next", title: "Second release", due: "2026-10-20", doneOn: null },
@@ -39,6 +40,7 @@ describe("project read tools", () => {
 
     expect(result.month).toBe("2026-10-01")
     expect(listed.map((item) => item.id)).toEqual([project.id])
+    expect(listed[0].directories).toEqual(["Repo"])
     expect(listed[0]).toMatchObject({
       income: expected.income,
       expense: expected.expense,
@@ -50,6 +52,9 @@ describe("project read tools", () => {
     })
     const endedResult = await listProjectsTool.run(ctx, { includeEnded: true })
     expect(endedResult.projects).toHaveLength(2)
+    expect(await getProjectTool.run(ctx, { project: project.id })).toMatchObject({
+      project: { directories: ["Repo"] },
+    })
   })
 
   it("rounds monthly money and hourly rates to cents in the list and the project card", async () => {
@@ -70,6 +75,23 @@ describe("project read tools", () => {
     expect(card.month).toEqual({ income: 108.79, expense: 47.5, net: 61.29, minutes: 111, hourlyRate: 33.13 })
     expect(card.totalNet).toBe(61.29)
     expect((card.weeks as Array<{ net: number }>).at(-1)?.net).toBe(61.29)
+  })
+
+  it("presents out-of-range timestamps as empty strings", async () => {
+    const project = makeProject({ id: "p-date-range" })
+    const completed = makeTask({
+      id: "t-date-range", projectId: project.id, status: "done", plannedFor: null,
+      completedAt: Number.MAX_VALUE,
+    })
+    const entry = makeEntry({
+      id: "e-date-range", projectId: project.id,
+      start: Number.MAX_VALUE, end: Number.MAX_VALUE,
+    })
+    const result = await getProjectTool.run(toolContext(makeWorkbench({ projects: [project], tasks: [completed], entries: [entry] })), {
+      project: project.id,
+    })
+    expect(result.lastActive).toBe("")
+    expect((result.recentCompleted as Array<Record<string, unknown>>)[0]?.completedAt).toBe("")
   })
 
   it("matches the shared project card summary and marks capped lists", async () => {

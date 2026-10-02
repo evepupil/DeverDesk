@@ -1,6 +1,6 @@
 // AI 改动记录服务：权限决策、状态 CAS 与原子落库。
 import type { ChangesetActionResult, ChangesetService, SubmitInput, SubmitItemResult, SubmitResult } from "../mcp/types"
-import { ChangesetError, MAX_CHANGES_PER_CALL, PREVIEW_THRESHOLD } from "../mcp/types"
+import { ChangesetError, MAX_BULK_CHANGES, MAX_CHANGES_PER_CALL, PREVIEW_THRESHOLD } from "../mcp/types"
 import { randomBase64Url } from "../auth/crypto"
 import { buildApplyStatements, buildUndoStatements, insertChangeRows, toChangeRows } from "./apply"
 import { cleanupChangesets, enforceSubmitRate, CHANGESET_LIMITS } from "./limits"
@@ -27,10 +27,10 @@ async function requireChangeset(db: D1Database, id: string): Promise<ChangesetRo
   return row ?? notFound()
 }
 
-async function latestChangeset(db: D1Database, tokenId: string, status: string): Promise<string> {
+async function latestChangeset(db: D1Database, tokenId: string, status: string, skipRecorder = false): Promise<string> {
   const row = await db.prepare(
-    "SELECT id FROM ai_changesets WHERE token_id = ? AND status = ? ORDER BY created_at DESC, id DESC LIMIT 1"
-  ).bind(tokenId, status).first<{ id: string }>()
+    "SELECT id FROM ai_changesets WHERE token_id = ? AND status = ? AND (? = 0 OR tool IS NULL OR tool <> 'recorder') ORDER BY created_at DESC, id DESC LIMIT 1"
+  ).bind(tokenId, status, skipRecorder ? 1 : 0).first<{ id: string }>()
   return row?.id ?? notFound()
 }
 
@@ -144,19 +144,23 @@ export function createChangesetService(db: D1Database, now: () => number = Date.
   return {
     async submit(input: SubmitInput): Promise<SubmitResult> {
       const timestamp = now()
-      await cleanupChangesets(db, timestamp)
+      if (input.bulk && input.token.tier !== "write") forbidden()
+      if (!input.bulk) await cleanupChangesets(db, timestamp)
       if (input.changes.length === 0) return { changesetId: null, status: "no_change", results: [], conflicts: [] }
-      if (input.changes.length > MAX_CHANGES_PER_CALL) {
-        throw new ChangesetError("too_many", `A call can contain at most ${MAX_CHANGES_PER_CALL} changes.`)
+      const maxChanges = input.bulk ? MAX_BULK_CHANGES : MAX_CHANGES_PER_CALL
+      if (input.changes.length > maxChanges) {
+        throw new ChangesetError("too_many", `A call can contain at most ${maxChanges} changes.`)
       }
       if (input.token.tier === "read") forbidden()
-      await enforceSubmitRate(db, input.token.id, input.changes.length, timestamp)
+      if (!input.bulk) await enforceSubmitRate(db, input.token.id, input.changes.length, timestamp)
 
-      const status = input.token.tier === "propose"
-        ? "proposed"
-        : input.forcePreview || input.changes.length > PREVIEW_THRESHOLD
-          ? "preview"
-          : "applied"
+      const status = input.bulk
+        ? "applied"
+        : input.token.tier === "propose"
+          ? "proposed"
+          : input.forcePreview || input.changes.length > PREVIEW_THRESHOLD
+            ? "preview"
+            : "applied"
       const id = `cs_${randomBase64Url(12)}`
       const decision = status === "applied" ? decisionId() : null
       const changes = toChangeRows(input.changes, id)
@@ -221,7 +225,7 @@ export function createChangesetService(db: D1Database, now: () => number = Date.
 
     async undo(token, changesetId, seqs): Promise<ChangesetActionResult> {
       requireTier(token.tier, "write")
-      const id = changesetId ?? await latestChangeset(db, token.id, "applied")
+      const id = changesetId ?? await latestChangeset(db, token.id, "applied", true)
       const row = await requireChangeset(db, id)
       requireOwner(row, token.id)
       if (row.status !== "applied") wrongStatus()

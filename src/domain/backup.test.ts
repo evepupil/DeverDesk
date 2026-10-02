@@ -24,6 +24,7 @@ const data: WorkbenchData = {
       startedOn: "2026-01-01",
       monthlyTarget: 500,
       milestones: [{ id: "m1", title: "第 10 篇", due: "2026-11-01", doneOn: null }],
+      dirNames: ["blog-source", "website"],
     },
   ],
   tasks: [
@@ -42,9 +43,10 @@ const data: WorkbenchData = {
       subtasks: [{ id: "s1", title: "列提纲", done: false }],
       createdAt: 1000,
       completedAt: null,
+      origin: "coding",
     },
   ],
-  entries: [{ id: "e1", taskId: "t1", projectId: "p1", start: 1000, end: 1900 }],
+  entries: [{ id: "e1", taskId: "t1", projectId: "p1", start: 1000, end: 1900, minutes: 12, origin: "coding" }],
   ledger: [
     {
       id: "l1",
@@ -87,11 +89,45 @@ describe("toBackup / parseBackup 往返", () => {
     expect(result.data).toEqual({ ...data, timer: null })
     expect(result.data.profile).toEqual(data.profile)
     expect(result.data.projects).toEqual(data.projects)
+    expect(result.data.projects[0].dirNames).toEqual(["blog-source", "website"])
     expect(result.data.tasks).toEqual(data.tasks)
+    expect(result.data.tasks[0].origin).toBe("coding")
     expect(result.data.entries).toEqual(data.entries)
+    expect(result.data.entries[0]).toMatchObject({ minutes: 12, origin: "coding" })
     expect(result.data.ledger).toEqual(data.ledger)
     expect(result.data.routines).toEqual(data.routines)
     expect(result.data.notes).toEqual(data.notes)
+  })
+
+  it("imports legacy backups without optional directory and recorder fields", () => {
+    const legacyProject = { ...data.projects[0] }
+    delete legacyProject.dirNames
+    const legacyTask = { ...data.tasks[0] }
+    delete legacyTask.origin
+    const legacyEntry = { ...data.entries[0] }
+    delete legacyEntry.minutes
+    delete legacyEntry.origin
+    const legacyData = {
+      ...data,
+      projects: [legacyProject],
+      tasks: [legacyTask],
+      entries: [legacyEntry],
+    }
+
+    const result = parseBackup(JSON.stringify({
+      format: BACKUP_FORMAT,
+      version: BACKUP_VERSION,
+      exportedAt: "2027-01-15T12:00:00.000Z",
+      data: legacyData,
+    }))
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.data).toEqual({ ...legacyData, timer: null })
+    expect(result.data.projects[0].dirNames).toBeUndefined()
+    expect(result.data.tasks[0].origin).toBeUndefined()
+    expect(result.data.entries[0]).not.toHaveProperty("minutes")
+    expect(result.data.entries[0].origin).toBeUndefined()
   })
 
   it("还原后计时器一律为 null", () => {

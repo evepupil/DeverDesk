@@ -324,7 +324,7 @@ export const MAX_CHANGES_PER_CALL = 25
 export const PREVIEW_THRESHOLD = 10
 
 /** 批量模式单次上限：D1 免费版单次请求约 50 次查询，要给改动明细和状态更新留余量 */
-export const MAX_BULK_CHANGES = 40
+export const MAX_BULK_CHANGES = 30
 
 /**
  * 改动记录服务（实现在 worker/ai/changesets.ts 的 createChangesetService(db, now?)）。
