@@ -19,15 +19,25 @@ export const auth = {
   /** 连接 AI（tokens-dialog.tsx） */
   tokens: {
     title: "连接 AI",
-    description: "管理给 AI 助手连接 MCP 的令牌",
-    loadFailed: "没能读取令牌",
-    empty: "还没有令牌",
+    description: "管理连上 MCP 的 AI 应用和访问令牌",
+    loadFailed: "没能读取连接",
+    empty: "还没有连接",
     createdAt: (day: string) => `${day} 创建`,
+    /** 经授权页连上的 AI 应用 */
+    authorizedAt: (day: string) => `${day} 授权`,
     lastUsed: (day: string) => `${day} 用过`,
     neverUsed: "没用过",
     revoke: "撤销",
     revokeTitle: (name: string) => `撤销「${name}」？`,
     revokeDescription: "撤销后，用这个令牌的程序会马上失效。",
+    disconnect: "断开",
+    disconnectTitle: (name: string) => `断开「${name}」？`,
+    disconnectDescription: "断开后它马上不能再访问，要用时重新授权。",
+    /** 顶部的连接器地址：ChatGPT、Claude 网页版这类应用填它，走授权页 */
+    connector: {
+      label: "连接器地址",
+      hint: "ChatGPT、Claude 等添加自定义连接器时填这个地址",
+    },
     permissionFor: (name: string) => `${name} 的权限`,
     tiers: {
       read: "只看",

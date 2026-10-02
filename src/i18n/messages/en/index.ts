@@ -13,6 +13,7 @@ import { frame } from "./frame"
 import { insights } from "./insights"
 import { ledger } from "./ledger"
 import { nav } from "./nav"
+import { oauth } from "./oauth"
 import { projects } from "./projects"
 import { quickAdd } from "./quick-add"
 import { review } from "./review"
@@ -41,6 +42,7 @@ export const en: Messages = {
   frame,
   insights,
   ledger,
+  oauth,
   projects,
   review,
   routines,

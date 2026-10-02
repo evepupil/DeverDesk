@@ -25,6 +25,7 @@ import type { CreatedToken, TokenInfo, TokenTier } from "@/sync/protocol"
 import { DEFAULT_TOKEN_TIER, TOKEN_TIERS } from "@/sync/protocol"
 import { syncNow } from "@/state/sync"
 import { useUi } from "@/state/ui"
+import { ConnectorAddress } from "./connector-address"
 import { CreatedTokenDetails } from "./created-token-details"
 import { TokenRow } from "./token-row"
 
@@ -140,6 +141,8 @@ export function TokensDialog() {
   }
 
   const tierOptions = TOKEN_TIERS.map((value) => ({ value, label: t.auth.tokens.tiers[value] }))
+  // 断开授权连接和撤销个人令牌走同一个接口，确认的话分开说
+  const disconnecting = revoking?.kind === "oauth"
 
   return (
     <>
@@ -150,6 +153,7 @@ export function TokensDialog() {
             <DialogDescription className="sr-only">{t.auth.tokens.description}</DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            <ConnectorAddress />
             {created && <CreatedTokenDetails created={created} accessSession={accessSession} />}
             {loadError ? (
               <EmptyState
@@ -226,13 +230,17 @@ export function TokensDialog() {
       <AlertDialog open={revoking !== null} onOpenChange={(next) => !next && setRevoking(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t.auth.tokens.revokeTitle(revoking?.name ?? "")}</AlertDialogTitle>
-            <AlertDialogDescription>{t.auth.tokens.revokeDescription}</AlertDialogDescription>
+            <AlertDialogTitle>
+              {disconnecting ? t.auth.tokens.disconnectTitle(revoking?.name ?? "") : t.auth.tokens.revokeTitle(revoking?.name ?? "")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {disconnecting ? t.auth.tokens.disconnectDescription : t.auth.tokens.revokeDescription}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t.words.cancel}</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={() => void revoke()}>
-              {t.auth.tokens.revoke}
+              {disconnecting ? t.auth.tokens.disconnect : t.auth.tokens.revoke}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

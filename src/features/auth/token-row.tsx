@@ -1,6 +1,6 @@
 "use client"
 
-import { KeyRound } from "lucide-react"
+import { KeyRound, Link2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -49,15 +49,20 @@ export function TokenRow({
   }
 
   const tierOptions = TOKEN_TIERS.map((value) => ({ value, label: t.auth.tokens.tiers[value] }))
+  // 经授权页连上的 AI 应用：多显示它的网站，按钮叫「断开」
+  const authorized = token.kind === "oauth"
+  const Icon = authorized ? Link2 : KeyRound
+  const since = authorized ? t.auth.tokens.authorizedAt(formatDay(token.createdAt)) : t.auth.tokens.createdAt(formatDay(token.createdAt))
+  const used = token.lastUsedAt === null ? t.auth.tokens.neverUsed : t.auth.tokens.lastUsed(formatDay(token.lastUsedAt))
 
   return (
     <li className="flex items-center gap-2 py-1.5">
-      <KeyRound className="size-4 shrink-0 text-fg-3" aria-hidden />
+      <Icon className="size-4 shrink-0 text-fg-3" aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm">{token.name}</span>
-        <span className="text-xs text-fg-2">
-          {t.auth.tokens.createdAt(formatDay(token.createdAt))} ·{" "}
-          {token.lastUsedAt === null ? t.auth.tokens.neverUsed : t.auth.tokens.lastUsed(formatDay(token.lastUsedAt))}
+        <span className="truncate text-xs text-fg-2">
+          {authorized && token.host ? `${token.host} · ` : ""}
+          {since} · {used}
         </span>
       </div>
       <Select value={tier} onValueChange={(value) => void update(value)} disabled={updating}>
@@ -73,7 +78,7 @@ export function TokenRow({
         </SelectContent>
       </Select>
       <Button variant="ghost" size="sm" onClick={onRevoke}>
-        {t.auth.tokens.revoke}
+        {authorized ? t.auth.tokens.disconnect : t.auth.tokens.revoke}
       </Button>
     </li>
   )
