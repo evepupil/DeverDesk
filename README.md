@@ -255,8 +255,8 @@ docs/           design documents (in Chinese)
 - [x] Cloud backend: sign-in, record-level sync, offline support, one-click deploy
 - [x] English and Chinese interface, currency setting
 - [x] An MCP server so AI assistants can read, log and plan, with a change log you can review and undo
-- [ ] Log coding time and tasks automatically while you work with an AI coding assistant
-- [ ] OAuth sign-in for Claude on the web and mobile, and ChatGPT
+- [x] Log coding time and tasks automatically while you work with an AI coding assistant
+- [x] OAuth sign-in for Claude on the web and mobile, and ChatGPT
 - [ ] Automatic income import from payment platforms
 
 Milestones and module designs (in Chinese) live in [docs/roadmap.md](docs/roadmap.md).

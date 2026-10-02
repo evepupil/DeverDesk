@@ -153,6 +153,28 @@ AI 每次改动都会留底。点窗口栏的星星图标打开 **AI 动态**，
 
 部署在 Cloudflare Access 后面时，需要在 Access 里给 `/mcp`、`/oauth/*`、`/.well-known/*` 加「绕过」规则，令牌由 DeverDesk 自己校验；授权页留在 Access 后面。
 
+## 自动记录编程时间
+
+一个很小的本机记录器跟着 Claude Code（以及 Codex）一起工作，把你做过的事变成已完成的任务和投入时间，记在绑定了这个文件夹的副业下。
+
+1. **把文件夹绑定到副业。** 打开副业，在 **目录名** 里填文件夹的名字（比如 `my-app`），或者对 AI 助手说「把这个项目加进 DeverDesk」。
+2. **新建令牌。** 头像菜单 → **连接 AI**，新建一个「直接改」权限的令牌，打开 **记录器** 分页。
+3. **安装 Claude Code 插件**，带上在线版地址（结尾不带斜杠）和令牌：
+
+```bash
+claude plugin marketplace add evepupil/DeverDesk
+claude plugin install deverdesk@deverdesk --config server_url=https://你的域名 --config token=dd_你的令牌
+```
+
+用 Codex，或者不装插件：从本仓库下载 `integrations/claude-code/bin/deverdesk-recorder`，运行 `node deverdesk-recorder setup --url https://你的域名 --token dd_你的令牌 --install-codex-hooks`。随时运行 `deverdesk-recorder doctor`，检查有没有接好。
+
+怎么计时：
+
+- 你在场才计时。你发出一条消息就开始计时，15 分钟没有动静就停；AI 单独干活最多算 15 分钟。并行的几个窗口平分时间，总数不会超过真实流逝的时间。
+- 一次提交完成一件事：从上一次提交到这次提交之间的工作，变成一个已完成任务，名字取自提交说明。很小的提交并进上一个任务。在提交说明里写 `Closes T-123`，就改为完成已有的任务。
+- 任务在提交后约 15 分钟出现。今天页显示正在进行的窗口，时间线旁边有一条细细的「实际」轨道。
+- 只有绑定了副业的文件夹才会上传，其余内容都留在你电脑的 `~/.deverdesk` 里。
+
 ## 自动化接口
 
 在线版还提供了几个 HTTP 接口给脚本用。在头像菜单 → **连接 AI** 里新建一个「直接改」权限的令牌；令牌只显示一次，服务器上只存它的摘要。
@@ -233,8 +255,8 @@ docs/           设计文档
 - [x] 在线版后端：登录、按条同步、断网可用、一键部署
 - [x] 中英文界面、记账币种
 - [x] MCP 服务，让 AI 助手能查看、记录和安排，改动留底、可以撤销
-- [ ] 用 AI 写代码时自动记工时和任务
-- [ ] OAuth 授权，让 Claude 网页版、手机 App 和 ChatGPT 能连
+- [x] 用 AI 写代码时自动记工时和任务
+- [x] OAuth 授权，让 Claude 网页版、手机 App 和 ChatGPT 能连
 - [ ] 从收款平台自动导入收入
 
 里程碑和各模块的设计见 [docs/roadmap.md](docs/roadmap.md)。
