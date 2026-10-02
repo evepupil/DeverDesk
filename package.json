@@ -24,6 +24,7 @@
     "build:recorder": "node integrations/recorder/build.mjs",
     "validate:plugin": "claude plugin validate ./integrations/claude-code",
     "e2e:recorder": "node scripts/acceptance/e2e-recorder.mjs",
+    "shots:m6": "node scripts/acceptance/m6-shots.mjs",
     "test": "vitest run",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "shots": "node scripts/acceptance/shots.mjs",
