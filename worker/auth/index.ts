@@ -24,7 +24,10 @@ function sessionCookie(request: Request): string | null {
   return null
 }
 
-/** 只看 Authorization: Bearer 访问令牌；/mcp 只认这一种，其余接口在 Access 之后、Cookie 之前认它 */
+/**
+ * 只看 Authorization: Bearer 个人令牌；/api 的接口在 Access 之后、Cookie 之前认它。
+ * 授权来的通行令牌（ddo_）只发给 /mcp，这里认不出来（见 worker/mcp/index.ts）。
+ */
 export async function resolveBearerToken(request: Request, env: WorkerEnv): Promise<TokenIdentity | null> {
   const authorization = request.headers.get("Authorization")
   const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()

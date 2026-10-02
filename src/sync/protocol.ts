@@ -99,13 +99,19 @@ export const TOKEN_TIERS: readonly TokenTier[] = ["read", "propose", "write"]
 /** 新建令牌时不选权限就用这一档 */
 export const DEFAULT_TOKEN_TIER: TokenTier = "propose"
 
-/** 个人令牌的公开信息（令牌本身只在新建那一刻返回一次） */
+/** 连接 AI 列表里的一项：token 是手动建的个人令牌，oauth 是 AI 应用经授权页连上的 */
+export type ConnectionKind = "token" | "oauth"
+
+/** 个人令牌或授权连接的公开信息（令牌本身只在新建那一刻返回一次） */
 export interface TokenInfo {
   id: string
   name: string
   tier: TokenTier
   createdAt: number
   lastUsedAt: number | null
+  kind: ConnectionKind
+  /** 授权连接才有：AI 应用的网站，例如 chatgpt.com */
+  host?: string
 }
 
 /** POST /api/tokens 的请求体 */
@@ -203,6 +209,32 @@ export interface ChangesetActionResponse {
   conflicts: number[]
 }
 
+/** 授权链接无效的原因：客户端编号不对、自助登记的客户端查不到、读不到身份说明、跳回地址对不上 */
+export type AuthorizeInvalidReason = "client_id" | "unknown_client" | "metadata_unavailable" | "redirect_uri"
+
+/** 授权页上显示的 AI 应用：名字是对方自报的，host 是授权后跳回的网站 */
+export interface AuthorizeClientView {
+  name: string
+  host: string
+  /** 跳回这台电脑上的程序 */
+  loopback: boolean
+}
+
+/** GET /api/oauth/authorize?<授权请求原样> 和 POST 的返回 */
+export type AuthorizeResponse =
+  | { status: "ok"; client: AuthorizeClientView }
+  | { status: "redirect"; redirectTo: string }
+  | { status: "invalid"; reason: AuthorizeInvalidReason }
+
+export type AuthorizeDecision = "allow" | "deny"
+
+/** POST /api/oauth/authorize 的请求体：query 是授权页地址里 ? 后面的原样内容 */
+export interface AuthorizeDecisionRequest {
+  query: string
+  decision: AuthorizeDecision
+  tier: TokenTier
+}
+
 /** 接口地址（和页面同一个域名） */
 export const API_PATHS = {
   session: "/api/session",
@@ -212,6 +244,7 @@ export const API_PATHS = {
   ledger: "/api/ledger",
   summary: "/api/summary",
   aiChangesets: "/api/ai/changesets",
+  oauthAuthorize: "/api/oauth/authorize",
 } as const
 
 /** MCP 服务地址（不在 /api 下，Worker 入口单独分流） */

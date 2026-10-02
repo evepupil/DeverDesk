@@ -4,11 +4,14 @@
   "name": "deverdesk",
   "main": "worker/index.ts",
   "compatibility_date": "2026-09-01",
-  // 仅 /api/* 进入 Worker；其它路径由静态资源绑定提供。Access 可选变量 ACCESS_TEAM_DOMAIN、ACCESS_AUD 可写在本文件的 vars 中，本地测试也可写入 .dev.vars。
+  // OAuth 读 AI 应用挂在官网上的身份说明时，同一账号下的域名也走公网入口，不绕过那边的访问控制。
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  // /api/*、/mcp 和 OAuth 的地址（/oauth/*、/.well-known/*、授权页 /authorize）先进 Worker；其它路径由静态资源绑定提供。
+  // Access 可选变量 ACCESS_TEAM_DOMAIN、ACCESS_AUD 可写在本文件的 vars 中，本地测试也可写入 .dev.vars。
   "assets": {
     "directory": "./out",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/mcp"],
+    "run_worker_first": ["/api/*", "/mcp", "/oauth/*", "/.well-known/*", "/authorize"],
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page"
   },

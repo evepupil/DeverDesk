@@ -5,6 +5,8 @@ export type WorkerEnv = Omit<Env, "DEVERDESK_PASSWORD"> & {
   DEVERDESK_PASSWORD?: string
   ACCESS_TEAM_DOMAIN?: string
   ACCESS_AUD?: string
+  /** 只在开发时设：页面和接口不在一个端口时，OAuth 说明书里的地址指向页面那一侧 */
+  PUBLIC_ORIGIN?: string
 }
 
 export type WorkerContext = ExecutionContext

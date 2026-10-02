@@ -19,7 +19,9 @@ describe("MCP HTTP entry and protocol compatibility", () => {
       new Request("https://desk.test/mcp", { method: "POST" }), testEnv(),
     )
     expect(missing.status).toBe(401)
-    expect(missing.headers.get("www-authenticate")).toBe('Bearer realm="DeverDesk"')
+    expect(missing.headers.get("www-authenticate")).toBe(
+      'Bearer realm="DeverDesk", resource_metadata="https://desk.test/.well-known/oauth-protected-resource/mcp", scope="mcp"',
+    )
     expect(await missing.json()).toEqual({ error: "unauthorized" })
 
     const ignoredAuth = await handleMcpRequest(new Request("https://desk.test/mcp", {

@@ -166,7 +166,14 @@ if (edition === "local") {
   console.log(
     `dev: 启动在线版（页面 http://localhost:${pagePort}，接口 http://127.0.0.1:${apiPort}）`,
   )
-  children.push(startChild("wrangler dev ", API_PREFIX, `wrangler dev --port ${apiPort} --assets ${DEV_ASSETS}`))
+  // 页面和接口不在一个端口：OAuth 说明书里的地址要指向页面那一侧，授权页才打得开
+  children.push(
+    startChild(
+      "wrangler dev ",
+      API_PREFIX,
+      `wrangler dev --port ${apiPort} --assets ${DEV_ASSETS} --var PUBLIC_ORIGIN:http://localhost:${pagePort}`,
+    ),
+  )
   children.push(
     startChild("next dev ", PAGE_PREFIX, `next dev --port ${pagePort}`, {
       NEXT_PUBLIC_DEVERDESK_EDITION: "cloud",

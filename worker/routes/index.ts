@@ -11,6 +11,8 @@ import { matchAiRoute, handleAiRoute, type AiRoute } from "./ai"
 import { matchRecorderRoute, handleRecorderRoute, type RecorderRoute } from "../recorder/routes"
 import { update as updateToken } from "./tokens"
 import type { TokenIdentity } from "../types"
+import { decideAuthorization, describeAuthorization } from "../oauth/endpoints/consent"
+import { productionOAuthDependencies } from "../oauth/clients/types"
 
 function notFound(): Response {
   return apiError("接口不存在", 404)
@@ -29,7 +31,7 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
 
   const ai = matchAiRoute(pathname, method)
   const recorder = matchRecorderRoute(pathname, method)
-  let route: "pull" | "push" | "token-list" | "token-create" | "token-tier" | "token-revoke" | "task-create" | "ledger-create" | "summary" | "ai" | "recorder" | null = null
+  let route: "pull" | "push" | "token-list" | "token-create" | "token-tier" | "token-revoke" | "task-create" | "ledger-create" | "summary" | "ai" | "recorder" | "oauth-describe" | "oauth-decide" | null = null
   let tokenId: string | null = null
   let aiRoute: AiRoute | null = null
   let recorderRoute: RecorderRoute | null = null
@@ -55,12 +57,15 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
   } else if (pathname === API_PATHS.tasks && method === "POST") route = "task-create"
   else if (pathname === API_PATHS.ledger && method === "POST") route = "ledger-create"
   else if (pathname === API_PATHS.summary && method === "GET") route = "summary"
+  else if (pathname === API_PATHS.oauthAuthorize && method === "GET") route = "oauth-describe"
+  else if (pathname === API_PATHS.oauthAuthorize && method === "POST") route = "oauth-decide"
   if (!route) return notFound()
 
   const auth = await resolveAuthentication(request, env, context)
   if (!auth) return loginIsConfigured(env) ? apiError("需要登录", 401) : apiError("还没有设置登录口令", 503)
   if (route.startsWith("token-") && auth.via === "token") return apiError("个人令牌不能管理令牌", 403)
   if (route === "ai" && auth.via === "token") return apiError("个人令牌不能管理 AI 改动", 403)
+  if (route.startsWith("oauth-") && auth.via === "token") return apiError("个人令牌不能给 AI 应用授权", 403)
   const recorderWrites = route === "recorder" && (recorderRoute?.kind === "upload" || recorderRoute?.kind === "live-put")
   if ((route === "push" || route === "task-create" || route === "ledger-create" || recorderWrites) && auth.via === "token" && auth.token?.tier !== "write") {
     return apiError("这个令牌需要开启直接改权限", 403)
@@ -93,6 +98,10 @@ async function dispatchApiRequest(request: Request, env: WorkerEnv, context: Wor
       return handleAiRoute(request, env, aiRoute!)
     case "recorder":
       return handleRecorderRoute(request, env, identity, recorderRoute!)
+    case "oauth-describe":
+      return describeAuthorization(request, env, productionOAuthDependencies)
+    case "oauth-decide":
+      return decideAuthorization(request, env, productionOAuthDependencies)
   }
 }
 

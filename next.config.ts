@@ -9,8 +9,8 @@ const devOrigins = (process.env.ALLOWED_DEV_ORIGINS ?? "")
   .map((origin) => origin.trim())
   .filter(Boolean)
 
-// 开发时把 /api 和 /mcp 转给 wrangler dev 起的本地接口（scripts/dev.mjs 会设置 DEVERDESK_API_PROXY）。
-// 只在开发模式生效；静态导出不支持 rewrites，打包时绝不带上。
+// 开发时把 /api、/mcp 和 OAuth 的地址（/oauth、/.well-known）转给 wrangler dev 起的本地接口（scripts/dev.mjs 会设置 DEVERDESK_API_PROXY）。
+// 授权页 /authorize 是页面，留在 next dev。只在开发模式生效；静态导出不支持 rewrites，打包时绝不带上。
 const apiProxy = process.env.DEVERDESK_API_PROXY
 const apiRewrites = buildDevRewrites(apiProxy, process.env.NODE_ENV)
 
@@ -19,6 +19,8 @@ export function buildDevRewrites(apiProxy: string | undefined, nodeEnv: string |
   return [
     { source: "/api/:path*", destination: `${apiProxy}/api/:path*` },
     { source: "/mcp/:path*", destination: `${apiProxy}/mcp/:path*` },
+    { source: "/oauth/:path*", destination: `${apiProxy}/oauth/:path*` },
+    { source: "/.well-known/:path*", destination: `${apiProxy}/.well-known/:path*` },
   ]
 }
 

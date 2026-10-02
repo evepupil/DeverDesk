@@ -12,7 +12,7 @@ interface TokenRow {
 }
 
 function toTokenInfo(row: TokenRow): TokenInfo {
-  return { id: row.id, name: row.name, tier: row.tier, createdAt: row.created_at, lastUsedAt: row.last_used_at }
+  return { id: row.id, name: row.name, tier: row.tier, createdAt: row.created_at, lastUsedAt: row.last_used_at, kind: "token" }
 }
 
 export async function listTokens(db: D1Database): Promise<TokenInfo[]> {
@@ -34,7 +34,7 @@ export async function createToken(
   await db.prepare("INSERT INTO tokens (id, name, hash, tier, created_at, last_used_at) VALUES (?, ?, ?, ?, ?, NULL)")
     .bind(id, name, hash, tier, now)
     .run()
-  return { id, name, tier, createdAt: now, lastUsedAt: null, token }
+  return { id, name, tier, createdAt: now, lastUsedAt: null, kind: "token", token }
 }
 
 /** 改令牌的权限档；令牌不存在返回 false */
