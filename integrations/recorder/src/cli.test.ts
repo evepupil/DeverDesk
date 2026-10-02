@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks"
 import { describe, expect, it, vi } from "vitest"
 import { main, type CliIO } from "./cli"
+import { RECORDER_VERSION } from "./version"
 
 function io(stdin = "") {
   const stdout: string[] = []
@@ -21,7 +22,7 @@ describe("CLI", () => {
 
     const version = io()
     await expect(main(["--version"], {}, version.value)).resolves.toBe(0)
-    expect(version.stdout[0]).toBe("0.1.0\n")
+    expect(version.stdout[0]).toBe(`${RECORDER_VERSION}\n`)
 
     const unknown = io()
     await expect(main(["nonesuch"], {}, unknown.value)).resolves.toBe(2)

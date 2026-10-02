@@ -21,7 +21,6 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // integrations/recorder/src/cli.ts
 var cli_exports = {};
 __export(cli_exports, {
-  VERSION: () => VERSION,
   main: () => main
 });
 module.exports = __toCommonJS(cli_exports);
@@ -2055,6 +2054,9 @@ function isRecord4(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// integrations/recorder/src/version.ts
+var RECORDER_VERSION = "0.1.1";
+
 // integrations/recorder/src/upload/client.ts
 var RecorderHttpError = class extends Error {
   status;
@@ -2066,7 +2068,6 @@ var RecorderHttpError = class extends Error {
     this.kind = kind;
   }
 };
-var CLIENT_VERSION = "0.1.0";
 var RETRY_DELAYS = [500, 1500];
 function defaultSleep(ms) {
   return new Promise((resolve2) => setTimeout(resolve2, ms));
@@ -2102,7 +2103,7 @@ function createClient(options) {
           headers: {
             Authorization: `Bearer ${options.token}`,
             "Content-Type": "application/json",
-            "User-Agent": `deverdesk-recorder/${CLIENT_VERSION}`,
+            "User-Agent": `deverdesk-recorder/${RECORDER_VERSION}`,
             ...init.headers
           },
           signal: controller.signal
@@ -2617,6 +2618,8 @@ var import_node_https = require("node:https");
 var import_node_path13 = require("node:path");
 var CACHE_TTL_MS = 10 * 6e4;
 var BRIEFING_BUDGET_MS = 800;
+var TASK_REMINDER = "\u63D0\u4EA4\u8BF4\u660E\u91CC\u5199 Closes T-141 \u4E4B\u7C7B\u7684\u7F16\u53F7\uFF0C\u8FD9\u6B21\u63D0\u4EA4\u5C31\u4F1A\u628A\u90A3\u4E2A\u4EFB\u52A1\u6807\u6210\u5B8C\u6210\uFF1B\u6CA1\u5199\u7F16\u53F7\u7684\u63D0\u4EA4\u4F1A\u81EA\u52A8\u8BB0\u6210\u65B0\u4EFB\u52A1\u3002";
+var MILESTONE_REMINDER = "\u53D1\u5E03\u4E4B\u540E\uFF0C\u5982\u679C\u6709\u4E00\u4E2A\u5F85\u5B8C\u6210\u7684\u91CC\u7A0B\u7891\u660E\u663E\u5BF9\u5F97\u4E0A\uFF08\u540D\u5B57\u6216\u7248\u672C\u53F7\u543B\u5408\uFF09\uFF0C\u7528 manage_project \u7684 complete_milestone \u628A\u5B83\u6807\u6210\u5B8C\u6210\u5E76\u544A\u8BC9\u7528\u6237\uFF1B\u5BF9\u4E0D\u4E0A\u6216\u6709\u51E0\u4E2A\u5019\u9009\uFF0C\u5148\u95EE\u7528\u6237\u3002";
 async function fetchBriefing(credentials, dir, options = {}) {
   const home = options.home ?? recorderHome();
   const now = options.now ?? Date.now();
@@ -2689,8 +2692,9 @@ function requestBriefing(url, token, timeoutMs) {
 }
 function formatBriefing(briefing) {
   if (!briefing.bound) return "";
-  const extended = briefing;
-  const more = extended.more ?? { plannedToday: 0, overdue: 0, open: 0 };
+  const more = briefing.more ?? { plannedToday: 0, overdue: 0, open: 0 };
+  const milestones = briefing.milestones ?? [];
+  const hasMilestones = milestones.length > 0 || (more.milestones ?? 0) > 0;
   const blocks = [];
   if (briefing.project) {
     blocks.push(`DeverDesk \xB7 \u526F\u4E1A\u300C${briefing.project.name}\u300D\uFF08${stageLabel(briefing.project.stage)}\uFF09`);
@@ -2709,24 +2713,27 @@ function formatBriefing(briefing) {
       return `${task.code} ${task.title}${task.dueOn ? `\uFF08\u622A\u6B62 ${task.dueOn.slice(5)}\uFF09` : ""}`;
     }).join("\uFF1B")}`);
   }
+  if (hasMilestones) {
+    blocks.push(`\u5F85\u5B8C\u6210\u7684\u91CC\u7A0B\u7891${countLabel(more.milestones ?? 0)}\uFF1A${milestones.map((milestone) => `${milestone.title}\uFF08\u622A\u6B62 ${milestone.due.slice(5)}\uFF09`).join("\uFF1B")}`);
+  }
   const otherOpen = briefing.open.filter((task) => !shown.has(task.code)).slice(0, 15);
   if (otherOpen.length > 0 || more.open > 0) {
     blocks.push(`\u5176\u4ED6\u6CA1\u505A\u5B8C\u7684${countLabel(more.open)}\uFF1A${otherOpen.map((task) => `${task.code} ${task.title}`).join("\uFF1B")}`);
   }
-  const reminder = "\u63D0\u4EA4\u8BF4\u660E\u91CC\u5199 Closes T-141 \u4E4B\u7C7B\u7684\u7F16\u53F7\uFF0C\u8FD9\u6B21\u63D0\u4EA4\u5C31\u4F1A\u628A\u90A3\u4E2A\u4EFB\u52A1\u6807\u6210\u5B8C\u6210\uFF1B\u6CA1\u5199\u7F16\u53F7\u7684\u63D0\u4EA4\u4F1A\u81EA\u52A8\u8BB0\u6210\u65B0\u4EFB\u52A1\u3002";
+  const reminders = hasMilestones ? [MILESTONE_REMINDER, TASK_REMINDER] : [TASK_REMINDER];
   const notice = "\u7B80\u62A5\u6709\u5185\u5BB9\u672A\u663E\u793A";
   const selected = [];
   const lengthOf = (lines) => Array.from(lines.join("\n")).length;
   let truncated = false;
   for (const block of blocks) {
-    if (lengthOf([...selected, block, reminder]) <= 1200) selected.push(block);
+    if (lengthOf([...selected, block, ...reminders]) <= 1200) selected.push(block);
     else truncated = true;
   }
   if (truncated) {
-    while (selected.length > 0 && lengthOf([...selected, notice, reminder]) > 1200) selected.pop();
-    return [...selected, notice, reminder].join("\n");
+    while (selected.length > 0 && lengthOf([...selected, notice, ...reminders]) > 1200) selected.pop();
+    return [...selected, notice, ...reminders].join("\n");
   }
-  return [...selected, reminder].join("\n");
+  return [...selected, ...reminders].join("\n");
 }
 function readCache(home) {
   try {
@@ -2747,12 +2754,16 @@ function isBriefingResponse(value) {
   if (!Array.isArray(value.plannedToday) || !value.plannedToday.every(isBriefingTask)) return false;
   if (!Array.isArray(value.overdue) || !value.overdue.every(isBriefingTask)) return false;
   if (!Array.isArray(value.open) || !value.open.every(isBriefingTask)) return false;
+  if (value.milestones !== void 0 && (!Array.isArray(value.milestones) || !value.milestones.every(isBriefingMilestone))) return false;
   if (value.more !== void 0 && !isBriefingMore(value.more)) return false;
   if (value.project === void 0) return true;
   return isRecord9(value.project) && typeof value.project.id === "string" && typeof value.project.name === "string" && typeof value.project.stage === "string" && ["idea", "building", "running", "paused", "ended"].includes(value.project.stage);
 }
 function isBriefingMore(value) {
-  return isRecord9(value) && Number.isSafeInteger(value.plannedToday) && value.plannedToday >= 0 && Number.isSafeInteger(value.overdue) && value.overdue >= 0 && Number.isSafeInteger(value.open) && value.open >= 0;
+  return isRecord9(value) && Number.isSafeInteger(value.plannedToday) && value.plannedToday >= 0 && Number.isSafeInteger(value.overdue) && value.overdue >= 0 && Number.isSafeInteger(value.open) && value.open >= 0 && (value.milestones === void 0 || Number.isSafeInteger(value.milestones) && value.milestones >= 0);
+}
+function isBriefingMilestone(value) {
+  return isRecord9(value) && typeof value.title === "string" && typeof value.due === "string";
 }
 function isBriefingTask(value) {
   return isRecord9(value) && typeof value.code === "string" && typeof value.title === "string" && typeof value.status === "string" && ["backlog", "todo", "doing", "done", "dropped"].includes(value.status) && typeof value.priority === "number" && Number.isInteger(value.priority) && value.priority >= 0 && value.priority <= 4 && typeof value.estimateMin === "number" && Number.isFinite(value.estimateMin) && value.estimateMin >= 0 && (value.plannedFor === null || typeof value.plannedFor === "string") && (value.dueOn === null || typeof value.dueOn === "string");
@@ -3248,7 +3259,6 @@ var SYNC_LOCK_STALE_MS = 5 * 6e4;
 var BINDINGS_CACHE_MS = 5 * 6e4;
 var MAX_DELAY_MS2 = 20 * 6e4;
 var RECORDER_NAME = "deverdesk-recorder";
-var RECORDER_VERSION = "0.1.0";
 function createDefaultSyncState() {
   return {
     withLock,
@@ -3596,7 +3606,6 @@ async function runTasks(options, dependencies) {
 }
 
 // integrations/recorder/src/cli.ts
-var VERSION = "0.1.0";
 var USAGE = [
   "\u7528\u6CD5\uFF1Adeverdesk-recorder <\u547D\u4EE4> [\u53C2\u6570]",
   "  hook <claude-code|codex> <\u4E8B\u4EF6>       \u5904\u7406\u5BBF\u4E3B\u94A9\u5B50",
@@ -3713,7 +3722,7 @@ async function main(argv, env = process.env, io = { stdin: process.stdin, stdout
     return 0;
   }
   if (argv[0] === "--version") {
-    writeLine(io.stdout, VERSION);
+    writeLine(io.stdout, RECORDER_VERSION);
     return 0;
   }
   let command;
@@ -3873,6 +3882,5 @@ if (require.main === module) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  VERSION,
   main
 });

@@ -167,6 +167,95 @@ describe("session briefing", () => {
     expect(long.split("\n").at(-1)).toContain("提交说明里写 Closes T-141")
   })
 
+  it("lists unfinished milestones ahead of the other open tasks and reminds about ticking one after a release", () => {
+    const text = formatBriefing({
+      bound: true,
+      today: "2025-03-05",
+      project: { id: "p", name: "模板站", stage: "running" },
+      plannedToday: [],
+      overdue: [],
+      open: [task("T-3", "Open")],
+      milestones: [{ title: "v0.2 发布", due: "2025-03-20" }, { title: "上线推广", due: "2025-04-01" }],
+    })
+    expect(text).toContain("待完成的里程碑：v0.2 发布（截止 03-20）；上线推广（截止 04-01）")
+    expect(text.indexOf("待完成的里程碑")).toBeLessThan(text.indexOf("其他没做完的"))
+    const lines = text.split("\n")
+    expect(lines.at(-2)).toContain("complete_milestone")
+    expect(lines.at(-2)).toContain("先问用户")
+    expect(lines.at(-1)).toContain("Closes T-141")
+  })
+
+  it("shows how many unfinished milestones were left out of the list", () => {
+    const text = formatBriefing({
+      bound: true,
+      today: "2025-03-05",
+      project: { id: "p", name: "Project", stage: "running" },
+      plannedToday: [],
+      overdue: [],
+      open: [],
+      milestones: [{ title: "v1", due: "2025-04-01" }],
+      more: { plannedToday: 0, overdue: 0, open: 0, milestones: 3 },
+    })
+    expect(text).toContain("待完成的里程碑（另有 3 项）：v1（截止 04-01）")
+  })
+
+  it("says nothing about milestones when there are none pending", () => {
+    const text = formatBriefing({
+      bound: true,
+      today: "2025-03-05",
+      project: { id: "p", name: "Project", stage: "running" },
+      plannedToday: [],
+      overdue: [],
+      open: [task("T-3", "Open")],
+    })
+    expect(text).not.toContain("里程碑")
+    expect(text).not.toContain("complete_milestone")
+  })
+
+  it("keeps the milestone line and both reminders within 1200 characters when the task lists are long", () => {
+    const longTask = task("T-1", "长标题".repeat(300))
+    const text = formatBriefing({
+      bound: true,
+      today: "2025-03-05",
+      project: { id: "p", name: "Project", stage: "running" },
+      plannedToday: [longTask],
+      overdue: [task("T-2", "长标题".repeat(300), { dueOn: "2025-03-01" })],
+      open: [task("T-3", "长标题".repeat(300))],
+      milestones: [{ title: "v0.2 发布", due: "2025-03-20" }],
+    })
+    expect(Array.from(text).length).toBeLessThanOrEqual(1200)
+    expect(text).toContain("待完成的里程碑：v0.2 发布（截止 03-20）")
+    expect(text).toContain("complete_milestone")
+    expect(text.split("\n").at(-1)).toContain("Closes T-141")
+  })
+
+  it("accepts milestones from the server and rejects malformed ones", async () => {
+    const home = makeTempDir()
+    const bodies: unknown[] = [
+      {
+        bound: true, today: "2025-03-05", plannedToday: [], overdue: [], open: [],
+        milestones: [{ title: "v1", due: "2025-04-01" }],
+        more: { plannedToday: 0, overdue: 0, open: 0, milestones: 2 },
+      },
+      { bound: true, today: "2025-03-05", plannedToday: [], overdue: [], open: [], milestones: [{ title: 1 }] },
+      { bound: true, today: "2025-03-05", plannedToday: [], overdue: [], open: [], more: { plannedToday: 0, overdue: 0, open: 0, milestones: -1 } },
+    ]
+    let served = 0
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" })
+      response.end(JSON.stringify(bodies[served++]))
+    })
+    const port = await listen(server)
+    try {
+      const local = localCredentials(port)
+      await expect(fetchBriefing(local, "ok", { home, now: 1_000_000 })).resolves.toEqual(bodies[0])
+      await expect(fetchBriefing(local, "bad-milestone", { home, now: 1_000_001 })).resolves.toBeNull()
+      await expect(fetchBriefing(local, "bad-count", { home, now: 1_000_002 })).resolves.toBeNull()
+    } finally {
+      await closeServer(server)
+    }
+  })
+
   it("returns an empty string for an unbound directory", () => {
     expect(formatBriefing({ bound: false, today: "2025-03-05", plannedToday: [], overdue: [], open: [] })).toBe("")
   })

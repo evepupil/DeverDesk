@@ -1,7 +1,7 @@
 {
   "name": "deverdesk",
   "displayName": "DeverDesk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Connect Claude Code to your DeverDesk and record coding time and tasks automatically.",
   "author": { "name": "DeverDesk" },
   "homepage": "https://deverdesk.com",

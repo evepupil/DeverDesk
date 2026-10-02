@@ -561,11 +561,12 @@ export async function runSyntheticPhase(ctx, api) {
     try { boundData = JSON.parse(boundHook.stdout) } catch { /* Assert the documented JSON envelope below. */ }
     const boundContext = boundData?.hookSpecificOutput?.additionalContext ?? ""
     check("SessionStart 简报 JSON 包含绑定项目 E2E App", boundHook.code === 0 && boundContext.includes("E2E App"), commandDetail(boundHook), "synthetic")
+    check("SessionStart 简报列出待完成的里程碑和发布后的提醒", boundHook.code === 0 && boundContext.includes("待完成的里程碑") && boundContext.includes("E2E Release 1.0") && boundContext.includes("complete_milestone"), commandDetail(boundHook), "synthetic")
     const unboundHook = await recorderCommand(ctx, ["hook", "claude-code", "SessionStart"], { cwd: ctx.unboundDir, env: ctx.recorderEnv, timeoutMs: 15_000, input: hookInput("e2e-briefing-unbound", ctx.unboundDir) })
     let unboundData = null
     try { unboundData = JSON.parse(unboundHook.stdout) } catch { /* Assert the unbound behavior below. */ }
     const unboundContext = unboundData?.hookSpecificOutput?.additionalContext ?? ""
-    check("未绑定目录的 SessionStart JSON 不出现 E2E App", unboundHook.code === 0 && !unboundContext.includes("E2E App"), commandDetail(unboundHook), "synthetic")
+    check("未绑定目录的 SessionStart JSON 不出现 E2E App", unboundHook.code === 0 && !unboundContext.includes("E2E App") && !unboundContext.includes("E2E Release 1.0"), commandDetail(unboundHook), "synthetic")
   })
 }
 

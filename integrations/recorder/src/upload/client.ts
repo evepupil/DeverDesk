@@ -6,6 +6,7 @@ import {
   type UploadRequest,
   type UploadResponse,
 } from "../../../../src/sync/recorder-protocol"
+import { RECORDER_VERSION } from "../version"
 
 export type RecorderHttpErrorKind = "auth" | "forbidden" | "invalid" | "server" | "network"
 
@@ -36,7 +37,6 @@ export interface CreateClientOptions {
   sleep?: (ms: number) => Promise<void>
 }
 
-const CLIENT_VERSION = "0.1.0"
 const RETRY_DELAYS = [500, 1500] as const
 
 function defaultSleep(ms: number): Promise<void> {
@@ -77,7 +77,7 @@ export function createClient(options: CreateClientOptions): RecorderClient {
           headers: {
             Authorization: `Bearer ${options.token}`,
             "Content-Type": "application/json",
-            "User-Agent": `deverdesk-recorder/${CLIENT_VERSION}`,
+            "User-Agent": `deverdesk-recorder/${RECORDER_VERSION}`,
             ...init.headers,
           },
           signal: controller.signal,

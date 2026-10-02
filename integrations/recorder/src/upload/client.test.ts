@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { RECORDER_VERSION } from "../version"
 import { createClient, RecorderHttpError } from "./client"
 
 function response(status: number, body: unknown = {}): Response {
@@ -11,7 +12,7 @@ describe("recorder HTTP client", () => {
     const fetcher = vi.fn<typeof fetch>(async (input, init) => {
       calls.push(String(input))
       expect(new Headers(init?.headers).get("authorization")).toBe("Bearer dd_test")
-      expect(new Headers(init?.headers).get("user-agent")).toBe("deverdesk-recorder/0.1.0")
+      expect(new Headers(init?.headers).get("user-agent")).toBe(`deverdesk-recorder/${RECORDER_VERSION}`)
       return calls.length < 3 ? response(503, { message: "try later" }) : response(200, { bindings: [] })
     })
     const sleep = vi.fn(async () => undefined)

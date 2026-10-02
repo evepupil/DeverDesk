@@ -2,24 +2,19 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { request as httpRequest, type IncomingMessage, type RequestOptions } from "node:http"
 import { request as httpsRequest } from "node:https"
 import { join } from "node:path"
-import type { BriefingResponse, BriefingTask } from "../../../../src/sync/recorder-protocol"
+import type { BriefingMilestone, BriefingResponse, BriefingTask } from "../../../../src/sync/recorder-protocol"
 import type { Credentials } from "../store/config"
 import { recorderHome } from "../store/paths"
 
 const CACHE_TTL_MS = 10 * 60_000
 const BRIEFING_BUDGET_MS = 800
 
-interface BriefingMore {
-  plannedToday: number
-  overdue: number
-  open: number
-}
-
-type BriefingResponseWithMore = BriefingResponse & { more?: BriefingMore }
+const TASK_REMINDER = "提交说明里写 Closes T-141 之类的编号，这次提交就会把那个任务标成完成；没写编号的提交会自动记成新任务。"
+const MILESTONE_REMINDER = "发布之后，如果有一个待完成的里程碑明显对得上（名字或版本号吻合），用 manage_project 的 complete_milestone 把它标成完成并告诉用户；对不上或有几个候选，先问用户。"
 
 interface CacheEntry {
   at: number
-  response: BriefingResponseWithMore
+  response: BriefingResponse
 }
 
 export interface FetchBriefingOptions {
@@ -108,8 +103,9 @@ function requestBriefing(url: URL, token: string, timeoutMs: number): Promise<un
 /** 按 hook 简报约定生成短中文上下文。 */
 export function formatBriefing(briefing: BriefingResponse): string {
   if (!briefing.bound) return ""
-  const extended = briefing as BriefingResponseWithMore
-  const more = extended.more ?? { plannedToday: 0, overdue: 0, open: 0 }
+  const more = briefing.more ?? { plannedToday: 0, overdue: 0, open: 0 }
+  const milestones = briefing.milestones ?? []
+  const hasMilestones = milestones.length > 0 || (more.milestones ?? 0) > 0
   const blocks: string[] = []
   if (briefing.project) {
     blocks.push(`DeverDesk · 副业「${briefing.project.name}」（${stageLabel(briefing.project.stage)}）`)
@@ -129,24 +125,29 @@ export function formatBriefing(briefing: BriefingResponse): string {
       return `${task.code} ${task.title}${task.dueOn ? `（截止 ${task.dueOn.slice(5)}` + "）" : ""}`
     }).join("；")}`)
   }
+  // 里程碑放在「其他没做完的」前面：后者最长，预算紧的时候先舍它
+  if (hasMilestones) {
+    blocks.push(`待完成的里程碑${countLabel(more.milestones ?? 0)}：${milestones.map((milestone) => `${milestone.title}（截止 ${milestone.due.slice(5)}）`).join("；")}`)
+  }
   const otherOpen = briefing.open.filter((task) => !shown.has(task.code)).slice(0, 15)
   if (otherOpen.length > 0 || more.open > 0) {
     blocks.push(`其他没做完的${countLabel(more.open)}：${otherOpen.map((task) => `${task.code} ${task.title}`).join("；")}`)
   }
-  const reminder = "提交说明里写 Closes T-141 之类的编号，这次提交就会把那个任务标成完成；没写编号的提交会自动记成新任务。"
+  // 提醒永远留着，任务编号的提醒永远是最后一行
+  const reminders = hasMilestones ? [MILESTONE_REMINDER, TASK_REMINDER] : [TASK_REMINDER]
   const notice = "简报有内容未显示"
   const selected: string[] = []
   const lengthOf = (lines: string[]) => Array.from(lines.join("\n")).length
   let truncated = false
   for (const block of blocks) {
-    if (lengthOf([...selected, block, reminder]) <= 1200) selected.push(block)
+    if (lengthOf([...selected, block, ...reminders]) <= 1200) selected.push(block)
     else truncated = true
   }
   if (truncated) {
-    while (selected.length > 0 && lengthOf([...selected, notice, reminder]) > 1200) selected.pop()
-    return [...selected, notice, reminder].join("\n")
+    while (selected.length > 0 && lengthOf([...selected, notice, ...reminders]) > 1200) selected.pop()
+    return [...selected, notice, ...reminders].join("\n")
   }
-  return [...selected, reminder].join("\n")
+  return [...selected, ...reminders].join("\n")
 }
 
 function readCache(home: string): Record<string, CacheEntry> {
@@ -164,22 +165,29 @@ function readCache(home: string): Record<string, CacheEntry> {
   }
 }
 
-function isBriefingResponse(value: unknown): value is BriefingResponseWithMore {
+function isBriefingResponse(value: unknown): value is BriefingResponse {
   if (!isRecord(value) || typeof value.bound !== "boolean" || typeof value.today !== "string") return false
   if (!Array.isArray(value.plannedToday) || !value.plannedToday.every(isBriefingTask)) return false
   if (!Array.isArray(value.overdue) || !value.overdue.every(isBriefingTask)) return false
   if (!Array.isArray(value.open) || !value.open.every(isBriefingTask)) return false
+  // 老版本服务器和老的本机缓存没有 milestones，缺了就当没有
+  if (value.milestones !== undefined && (!Array.isArray(value.milestones) || !value.milestones.every(isBriefingMilestone))) return false
   if (value.more !== undefined && !isBriefingMore(value.more)) return false
   if (value.project === undefined) return true
   return isRecord(value.project) && typeof value.project.id === "string" && typeof value.project.name === "string"
     && typeof value.project.stage === "string" && ["idea", "building", "running", "paused", "ended"].includes(value.project.stage)
 }
 
-function isBriefingMore(value: unknown): value is BriefingMore {
+function isBriefingMore(value: unknown): value is NonNullable<BriefingResponse["more"]> {
   return isRecord(value)
     && Number.isSafeInteger(value.plannedToday) && (value.plannedToday as number) >= 0
     && Number.isSafeInteger(value.overdue) && (value.overdue as number) >= 0
     && Number.isSafeInteger(value.open) && (value.open as number) >= 0
+    && (value.milestones === undefined || (Number.isSafeInteger(value.milestones) && (value.milestones as number) >= 0))
+}
+
+function isBriefingMilestone(value: unknown): value is BriefingMilestone {
+  return isRecord(value) && typeof value.title === "string" && typeof value.due === "string"
 }
 
 function isBriefingTask(value: unknown): value is BriefingTask {

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
+import { RECORDER_VERSION } from "../recorder/src/version"
 
 type Hook = {
   command?: string
@@ -79,6 +80,10 @@ describe("Claude Code plugin structure", () => {
       "Bash(git commit *)",
       "Bash(git -C * commit *)",
     ])
+  })
+
+  it("keeps the manifest version in step with the recorder so Claude Code sees plugin updates", () => {
+    expect(readJson(pluginJsonPath).version).toBe(RECORDER_VERSION)
   })
 
   it("has the required skill frontmatter", () => {

@@ -423,6 +423,15 @@ async function main() {
     context.projectId = project?.id
     check("write MCP 创建并绑定 E2E App/e2e-app", isSuccessToolCall(projectCall) && project?.name === "E2E App" && Array.isArray(project.directories) && project.directories.includes("e2e-app"), callSummary(projectCall))
 
+    const milestoneCall = await writeMcp.callTool("manage_project", {
+      action: "add_milestone",
+      project: "E2E App",
+      title: "E2E Release 1.0",
+      due: localDateKey(Date.now() + 14 * 86_400_000),
+      reason: "Recorder briefing milestone fixture",
+    })
+    check("write MCP 给 E2E App 加待完成里程碑 E2E Release 1.0", isSuccessToolCall(milestoneCall) && milestoneCall.structuredContent?.milestone?.title === "E2E Release 1.0", callSummary(milestoneCall))
+
     const taskCall = await writeMcp.callTool("add_tasks", {
       tasks: [{ title: "E2E planned task", project: "E2E App", plannedFor: typeof today === "string" ? today : localDateKey(Date.now()), estimateMin: 25 }],
       reason: "Recorder taskSeq acceptance fixture",

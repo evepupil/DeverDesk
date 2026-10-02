@@ -12,8 +12,7 @@ import { runStatus } from "./commands/status"
 import { runSyncCommand, type SyncCommandOptions } from "./commands/sync"
 import { runTasks } from "./commands/tasks"
 import type { Agent } from "./core/types"
-
-export const VERSION = "0.1.0"
+import { RECORDER_VERSION } from "./version"
 
 export interface CliIO {
   stdin?: string | AsyncIterable<string | Uint8Array>
@@ -166,7 +165,7 @@ export async function main(
     return 0
   }
   if (argv[0] === "--version") {
-    writeLine(io.stdout, VERSION)
+    writeLine(io.stdout, RECORDER_VERSION)
     return 0
   }
   let command: string

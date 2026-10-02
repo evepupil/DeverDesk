@@ -43,6 +43,16 @@ export interface BriefingTask {
   dueOn: string | null
 }
 
+/** 还没完成的里程碑；AI 发布之后对得上就按标题标成完成 */
+export interface BriefingMilestone {
+  title: string
+  /** 截止日 YYYY-MM-DD */
+  due: string
+}
+
+/** 简报里最多列几个待完成的里程碑，多出来的只给个数 */
+export const BRIEFING_MILESTONE_LIMIT = 8
+
 /** GET /api/recorder/briefing?dir=<目录名> */
 export interface BriefingResponse {
   /** 目录名没有绑定副业时只有 bound: false 和 today */
@@ -52,7 +62,10 @@ export interface BriefingResponse {
   plannedToday: BriefingTask[]
   overdue: BriefingTask[]
   open: BriefingTask[]
-  more?: { plannedToday: number; overdue: number; open: number }
+  /** 没完成的里程碑，按截止日从早到晚；没有就不给这个字段（老版本服务器也不给） */
+  milestones?: BriefingMilestone[]
+  /** 被截掉没列出的数量；milestones 只在真有被截掉的时候才有 */
+  more?: { plannedToday: number; overdue: number; open: number; milestones?: number }
 }
 
 export type UploadSource = "commit" | "done" | "idle" | "end"

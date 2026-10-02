@@ -6,6 +6,7 @@ import type { UploadResponse } from "../../../../src/sync/recorder-protocol"
 import type { ComputedTask, EngineResult, RecorderEvent } from "../core/types"
 import { emptyState, type RecorderState } from "../store/state"
 import { createClient, RecorderHttpError, type RecorderClient } from "../upload/client"
+import { RECORDER_VERSION } from "../version"
 import { runSync, type BindingsCache, type SyncInput, type SyncState } from "./sync"
 
 const NOW = Date.parse("2025-04-01T12:00:00.000Z")
@@ -186,7 +187,7 @@ describe("runSync", () => {
     const fixture = makeFixture({ tasks: [makeTask(), makeTask({ key: "codex:unbound:d:1" })], upload })
     const result = await runSync(fixture.input)
     expect(result).toMatchObject({ uploadedTasks: 0, rejected: 1, skipped: 1 })
-    expect(fixture.rejected.get("codex:session:d:100")).toContain("0.1.0")
+    expect(fixture.rejected.get("codex:session:d:100")).toContain(RECORDER_VERSION)
     expect(fixture.done.has("codex:unbound:d:1")).toBe(false)
   })
 

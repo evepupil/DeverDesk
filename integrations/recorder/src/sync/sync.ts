@@ -12,13 +12,13 @@ import { appendUploaded as appendUploadedDefault, readState as readStateDefault,
 import type { Credentials } from "../store/config"
 import { RecorderHttpError, type RecorderClient } from "../upload/client"
 import { buildUploadRequests, compactUploadKey } from "../upload/build-payload"
+import { RECORDER_VERSION } from "../version"
 import { syncLive } from "./live"
 
 const SYNC_LOCK_STALE_MS = 5 * 60_000
 const BINDINGS_CACHE_MS = 5 * 60_000
 const MAX_DELAY_MS = 20 * 60_000
 const RECORDER_NAME = "deverdesk-recorder"
-const RECORDER_VERSION = "0.1.0"
 
 export interface SyncState {
   withLock<T>(path: string, staleMs: number, fn: () => Promise<T>): Promise<{ value: T } | null>
