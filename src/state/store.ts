@@ -25,13 +25,16 @@ import {
   patchRoutine,
   patchTask,
   planOn,
+  removeMilestone,
   removeSubtask,
+  restoreMilestone,
   restoreRoutine,
   scheduleAt,
   startTimerOn,
   timerStopsWith,
   toggleMilestone,
   toggleSubtask,
+  updateMilestone,
   withEntryStatus,
   withStatus,
 } from "@/domain/operations"
@@ -47,6 +50,7 @@ import { nextTaskSeq } from "@/domain/tasks"
 import type {
   DayKey,
   LedgerEntry,
+  Milestone,
   Profile,
   Project,
   Routine,
@@ -116,6 +120,9 @@ interface WorkbenchState extends WorkbenchData {
   saveProject(input: ProjectInput, id?: string): ProjectSaveResult
   toggleMilestone(projectId: string, milestoneId: string): void
   addMilestone(projectId: string, title: string, due: DayKey): void
+  updateMilestone(projectId: string, milestoneId: string, patch: Partial<Pick<Milestone, "title" | "due">>): void
+  removeMilestone(projectId: string, milestoneId: string): void
+  restoreMilestone(projectId: string, milestone: Milestone): void
 
   toggleRoutine(id: string, day: DayKey): void
   saveRoutine(input: RoutineInput, id?: string): Routine
@@ -334,6 +341,18 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
     addMilestone(projectId, title, due) {
       const ctx = opContext()
       commit({ projects: get().projects.map((project) => (project.id === projectId ? addMilestone(project, title, due, ctx) : project)) })
+    },
+
+    updateMilestone(projectId, milestoneId, patch) {
+      commit({ projects: get().projects.map((project) => (project.id === projectId ? updateMilestone(project, milestoneId, patch) : project)) })
+    },
+
+    removeMilestone(projectId, milestoneId) {
+      commit({ projects: get().projects.map((project) => (project.id === projectId ? removeMilestone(project, milestoneId) : project)) })
+    },
+
+    restoreMilestone(projectId, milestone) {
+      commit({ projects: get().projects.map((project) => (project.id === projectId ? restoreMilestone(project, milestone) : project)) })
     },
 
     toggleRoutine(id, day) {

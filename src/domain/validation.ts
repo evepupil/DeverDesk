@@ -6,6 +6,7 @@ import type { EntryKind, EntryStatus } from "./types"
 
 export const TASK_TITLE_MAX = 80
 export const NAME_MAX = 20
+export const MILESTONE_TITLE_MAX = 40
 
 export function validateTitle(title: string, label?: string, max = TASK_TITLE_MAX): string | undefined {
   const text = title.trim()
@@ -13,6 +14,16 @@ export function validateTitle(title: string, label?: string, max = TASK_TITLE_MA
   if (!text) return getT().forms.validation.required(name)
   if (text.length > max) return getT().forms.validation.tooLong(name, max)
   return undefined
+}
+
+/** 里程碑的新增和修改共用：标题必填且不超长，目标日期必选；返回每个字段的错误提示 */
+export function validateMilestone(title: string, due: string): Partial<Record<"title" | "due", string>> {
+  const t = getT()
+  const errors: Partial<Record<"title" | "due", string>> = {}
+  const titleError = validateTitle(title, t.projects.sheet.milestoneLabel, MILESTONE_TITLE_MAX)
+  if (titleError) errors.title = titleError
+  if (!due) errors.due = t.forms.validation.date
+  return errors
 }
 
 export interface EntryDraft {

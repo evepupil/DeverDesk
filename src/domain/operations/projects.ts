@@ -57,3 +57,9 @@ export function updateMilestone(
 export function removeMilestone(project: Project, milestoneId: string): Project {
   return { ...project, milestones: project.milestones.filter((milestone) => milestone.id !== milestoneId) }
 }
+
+/** 撤销删除：把原样的里程碑放回去；已经在里面（重复点撤销）就不动 */
+export function restoreMilestone(project: Project, milestone: Milestone): Project {
+  if (project.milestones.some((item) => item.id === milestone.id)) return project
+  return { ...project, milestones: [...project.milestones, milestone].sort((a, b) => a.due.localeCompare(b.due)) }
+}

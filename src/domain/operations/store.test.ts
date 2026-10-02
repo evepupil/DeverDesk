@@ -120,6 +120,34 @@ describe("workbench operation integration", () => {
     expect(useWorkbench.getState().tasks[0].subtasks).toEqual([])
   })
 
+  it("edits, removes and restores milestones of only the chosen project", () => {
+    const store = useWorkbench.getState()
+    const first = store.saveProject({ name: "First", color: "teal", stage: "building", goal: "", monthlyTarget: null })
+    const second = store.saveProject({ name: "Second", color: "blue", stage: "idea", goal: "", monthlyTarget: null })
+    if (!first.ok || !second.ok) throw new Error("projects were not saved")
+    store.addMilestone(first.project.id, "Alpha", "2027-02-01")
+    store.addMilestone(first.project.id, "Beta", "2027-03-01")
+    store.addMilestone(second.project.id, "Other", "2027-02-15")
+    const milestonesOf = (id: string) => useWorkbench.getState().projects.find((project) => project.id === id)?.milestones ?? []
+    const [alpha, beta] = milestonesOf(first.project.id)
+    store.toggleMilestone(first.project.id, beta.id)
+
+    store.updateMilestone(first.project.id, beta.id, { title: "  Beta two  ", due: "2027-01-20" })
+    expect(milestonesOf(first.project.id)).toEqual([
+      { ...beta, title: "Beta two", due: "2027-01-20", doneOn: TODAY },
+      alpha,
+    ])
+    expect(milestonesOf(second.project.id)).toHaveLength(1)
+
+    store.removeMilestone(first.project.id, alpha.id)
+    expect(milestonesOf(first.project.id).map((milestone) => milestone.id)).toEqual([beta.id])
+    expect(milestonesOf(second.project.id)).toHaveLength(1)
+
+    store.restoreMilestone(first.project.id, alpha)
+    store.restoreMilestone(first.project.id, alpha)
+    expect(milestonesOf(first.project.id).map((milestone) => milestone.id)).toEqual([beta.id, alpha.id])
+  })
+
   it("uses shared entry, project, milestone, routine and note rules", () => {
     const store = useWorkbench.getState()
     const entry = store.saveEntry({

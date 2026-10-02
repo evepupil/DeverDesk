@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { blankWorkbench, generateWorkbench } from "@/data/seed"
+import { removeMilestone, updateMilestone } from "@/domain/operations"
 import type { Project, Task, TimeEntry, WeekNote, WorkbenchData } from "@/domain/types"
 import { SINGLETON_ID } from "@/sync/protocol"
 import { applyRecords, diffData, recordKey, type DataChange } from "./records"
@@ -24,6 +25,29 @@ describe("recordKey", () => {
 })
 
 describe("diffData", () => {
+  it("改名或删掉副业里的一条里程碑，整个副业作为一条改动发出去，对面收到后里程碑和这边一致", () => {
+    const before = generateWorkbench("2026-09-30", 1000)
+    const project = before.projects.find((item) => item.milestones.length >= 2) as Project
+    const [first, second] = project.milestones
+    const withProject = (next: Project): WorkbenchData => ({
+      ...before,
+      projects: before.projects.map((item) => (item.id === next.id ? next : item)),
+    })
+    const milestonesAfter = (data: WorkbenchData) => data.projects.find((item) => item.id === project.id)?.milestones
+
+    const renamed = updateMilestone(project, first.id, { title: "改过的名字" })
+    const renameChanges = diffData(before, withProject(renamed))
+    expect(renameChanges).toEqual([{ kind: "project", id: project.id, data: renamed }])
+    expect(milestonesAfter(applyRecords(before, renameChanges))).toEqual(renamed.milestones)
+
+    const removed = removeMilestone(project, second.id)
+    const removeChanges = diffData(before, withProject(removed))
+    expect(removeChanges).toEqual([{ kind: "project", id: project.id, data: removed }])
+    const received = milestonesAfter(applyRecords(before, removeChanges))
+    expect(received).toEqual(removed.milestones)
+    expect(received?.some((milestone) => milestone.id === second.id)).toBe(false)
+  })
+
   it("两个相同引用的数据之间没有改动", () => {
     const data = generateWorkbench("2026-09-30", 1000)
     expect(diffData(data, data)).toEqual([])

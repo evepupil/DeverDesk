@@ -1,25 +1,23 @@
 "use client"
 
 import { cn } from "cn"
-import { Pencil, Plus } from "lucide-react"
+import { Pencil } from "lucide-react"
 import Link from "next/link"
-import { useMemo, useState, type FormEvent } from "react"
+import { useMemo } from "react"
 
 import { EmptyState } from "@/components/base/empty-state"
 import { LabelChip } from "@/components/base/label-chip"
 import { ProjectMark } from "@/components/base/marks"
 import { StatusIcon } from "@/components/base/status-icon"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { SelectItem } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { ENTRY_STATUS, PROJECT_STAGE, PROJECT_STAGE_ORDER } from "@/data/catalog"
-import { addDays, formatDayShort, formatMonthDay } from "@/domain/calendar"
+import { formatDayShort, formatMonthDay } from "@/domain/calendar"
 import { formatAmount, formatHours, formatSignedAmount } from "@/domain/format"
 import { summarizeProject } from "@/domain/projects"
 import { isOpen, sortTasks } from "@/domain/tasks"
 import type { ProjectStage } from "@/domain/types"
-import { validateTitle } from "@/domain/validation"
 import { focusRing, focusRingInset } from "@/lib/styles"
 import { useT } from "@/i18n/react"
 import { useToday, useWorkbenchData } from "@/state/hooks"
@@ -32,7 +30,8 @@ import { PropertySelect } from "../common/property-controls"
 import { QuickAdd } from "../common/quick-add"
 import { SheetProperty, SheetSection } from "../common/sheet-parts"
 import { TaskRow } from "../common/task-row"
-import { milestoneWhen } from "./project-card"
+import { isInMilestoneEditor } from "./milestone-editor"
+import { MilestoneSection } from "./milestone-section"
 
 function Figure({ label, value, tone }: { label: string; value: string; tone?: "bad" }) {
   return (
@@ -43,55 +42,12 @@ function Figure({ label, value, tone }: { label: string; value: string; tone?: "
   )
 }
 
-function MilestoneForm({ projectId, today }: { projectId: string; today: string }) {
-  const t = useT()
-  const addMilestone = useWorkbench((state) => state.addMilestone)
-  const [title, setTitle] = useState("")
-  const [due, setDue] = useState(addDays(today, 14))
-  const [error, setError] = useState<string>()
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    const found = validateTitle(title, t.projects.sheet.milestoneLabel, 40)
-    setError(found)
-    if (found || !due) return
-    addMilestone(projectId, title, due)
-    setTitle("")
-  }
-
-  return (
-    <form onSubmit={submit} noValidate className="mt-1 flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <Plus className="size-3.5 shrink-0 text-fg-3" aria-hidden />
-        <input
-          value={title}
-          onChange={(event) => {
-            setTitle(event.target.value)
-            if (error) setError(undefined)
-          }}
-          placeholder={t.projects.sheet.milestonePlaceholder}
-          aria-label={t.projects.sheet.milestoneNew}
-          aria-invalid={error ? true : undefined}
-          className="h-7 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-3 md:text-sm"
-        />
-        <Input type="date" aria-label={t.projects.sheet.milestoneDue} value={due} onChange={(event) => setDue(event.target.value)} className="h-7 w-[8.5rem]" />
-      </div>
-      {error && (
-        <p role="alert" className="pl-[22px] text-xs text-bad">
-          {error}
-        </p>
-      )}
-    </form>
-  )
-}
-
 /** 副业详情：阶段、本月数字、最近 12 周走势、里程碑、待办和最近的收支 */
 export function ProjectSheet({ projectId, onClose }: { projectId: string | null; onClose(): void }) {
   const t = useT()
   const data = useWorkbenchData()
   const today = useToday()
   const saveProject = useWorkbench((state) => state.saveProject)
-  const toggleMilestone = useWorkbench((state) => state.toggleMilestone)
   const openProjectForm = useUi((state) => state.openProjectForm)
   const openEntryForm = useUi((state) => state.openEntryForm)
 
@@ -114,7 +70,14 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
 
   return (
     <Sheet open={projectId !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-[520px]">
+      <SheetContent
+        side="right"
+        className="w-full gap-0 p-0 sm:max-w-[520px]"
+        onEscapeKeyDown={(event) => {
+          // 正在改里程碑时，Esc 只取消编辑，不把侧栏一起关掉
+          if (isInMilestoneEditor(event.target)) event.preventDefault()
+        }}
+      >
         {!project || !summary ? (
           <>
             <SheetTitle className="sr-only">{t.projects.sheet.title}</SheetTitle>
@@ -206,40 +169,7 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
                 />
               </SheetSection>
 
-              <SheetSection
-                title={t.projects.sheet.milestones}
-                aside={
-                  project.milestones.length > 0 ? (
-                    <span className="text-xs text-fg-2 tabular">
-                      {summary.milestonesDone}/{project.milestones.length}
-                    </span>
-                  ) : undefined
-                }
-              >
-                <ul className="-mx-1 flex flex-col">
-                  {project.milestones.map((milestone) => {
-                    const when = milestone.doneOn ? null : milestoneWhen(milestone.due, today)
-                    return (
-                      <li key={milestone.id}>
-                        <button
-                          type="button"
-                          role="checkbox"
-                          aria-checked={milestone.doneOn !== null}
-                          onClick={() => toggleMilestone(project.id, milestone.id)}
-                          className={cn("flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-1 text-left text-sm hover:bg-hover", focusRingInset)}
-                        >
-                          <StatusIcon glyph={milestone.doneOn ? "check" : "ring"} tone={milestone.doneOn ? "done" : "neutral"} />
-                          <span className={cn("min-w-0 flex-1 truncate", milestone.doneOn && "text-fg-2")}>{milestone.title}</span>
-                          <span className={cn("shrink-0 text-xs tabular", when?.late ? "text-bad" : "text-fg-2")}>
-                            {milestone.doneOn ? t.projects.sheet.milestoneDone(formatMonthDay(milestone.doneOn)) : `${formatMonthDay(milestone.due)} · ${when?.text}`}
-                          </span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-                <MilestoneForm projectId={project.id} today={today} />
-              </SheetSection>
+              <MilestoneSection project={project} done={summary.milestonesDone} today={today} />
 
               <SheetSection
                 title={t.projects.sheet.tasks}

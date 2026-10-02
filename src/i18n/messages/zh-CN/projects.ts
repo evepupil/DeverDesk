@@ -55,9 +55,12 @@ export const projects = {
     /** 校验提示里对里程碑的称呼 */
     milestoneLabel: "里程碑",
     milestoneNew: "新里程碑",
+    milestoneName: "里程碑名称",
     milestoneDue: "目标日期",
     milestonePlaceholder: "添加里程碑，回车确认",
     milestoneDone: (date: string) => `${date}达成`,
+    milestoneActions: (title: string) => `「${title}」的操作`,
+    milestoneDeleted: "已删除里程碑",
     tasks: "待办",
     allTasks: (count: number) => `全部 ${count} 件`,
     addTask: (name: string) => `给「${name}」加一件事`,

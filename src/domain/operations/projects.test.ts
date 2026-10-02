@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { OpContext } from "./context"
-import { addMilestone, newProject, patchProject, removeMilestone, toggleMilestone, updateMilestone } from "./projects"
+import { addMilestone, newProject, patchProject, removeMilestone, restoreMilestone, toggleMilestone, updateMilestone } from "./projects"
 import type { ProjectInput } from "./projects"
 import type { Project } from "../types"
 
@@ -80,7 +80,27 @@ describe("project operations", () => {
     expect(project.milestones[1]).toMatchObject({ title: "Second", due: "2027-03-01" })
   })
 
+  it("keeps the completion date when a finished milestone is edited", () => {
+    const next = updateMilestone(project, "m-2", { title: "Renamed" })
+    expect(next.milestones[1]).toEqual({ ...project.milestones[1], title: "Renamed" })
+  })
+
   it("removes only the selected milestone", () => {
     expect(removeMilestone(project, "m-1").milestones).toEqual([project.milestones[1]])
+  })
+
+  it("restoreMilestone puts a removed milestone back unchanged and in due-date order", () => {
+    const removed = project.milestones[0]
+    const restored = restoreMilestone(removeMilestone(project, "m-1"), removed)
+    expect(restored.milestones).toEqual(project.milestones)
+  })
+
+  it("restoreMilestone keeps a restored completed milestone completed", () => {
+    const removed = project.milestones[1]
+    expect(restoreMilestone(removeMilestone(project, "m-2"), removed).milestones[1]).toEqual(removed)
+  })
+
+  it("restoreMilestone leaves the project untouched when the milestone is already there", () => {
+    expect(restoreMilestone(project, project.milestones[0])).toBe(project)
   })
 })
