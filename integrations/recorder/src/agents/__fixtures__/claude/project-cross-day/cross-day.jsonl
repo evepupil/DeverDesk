@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2025-02-01T23:55:00.000Z","sessionId":"claude-cross-day-session","cwd":"/workspace/cross-day-repo","origin":{"kind":"human"},"message":{"content":"Synthetic cross-day prompt."}}
+{"type":"assistant","timestamp":"2025-02-02T00:10:00.000Z","sessionId":"claude-cross-day-session","cwd":"/workspace/cross-day-repo","message":{"stop_reason":"end_turn"}}

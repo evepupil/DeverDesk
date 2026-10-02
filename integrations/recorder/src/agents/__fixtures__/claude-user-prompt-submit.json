@@ -1,0 +1,9 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "C:/code/demo/session.jsonl",
+  "cwd": "C:/code/demo",
+  "prompt_id": "fixture-prompt-id",
+  "permission_mode": "default",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "请检查示例项目并说明结果。第二句不入日志。"
+}

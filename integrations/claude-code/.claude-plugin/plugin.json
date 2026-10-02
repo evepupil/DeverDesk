@@ -1,0 +1,26 @@
+{
+  "name": "deverdesk",
+  "displayName": "DeverDesk",
+  "version": "0.1.0",
+  "description": "Connect Claude Code to your DeverDesk and record coding time and tasks automatically.",
+  "author": { "name": "DeverDesk" },
+  "homepage": "https://deverdesk.com",
+  "repository": "https://github.com/evepupil/DeverDesk",
+  "license": "AGPL-3.0-only",
+  "keywords": ["time-tracking", "mcp", "deverdesk"],
+  "userConfig": {
+    "server_url": {
+      "type": "string",
+      "title": "DeverDesk address",
+      "required": true,
+      "description": "Your cloud edition address without a trailing slash, e.g. https://deverdesk.example.com"
+    },
+    "token": {
+      "type": "string",
+      "title": "Access token",
+      "required": true,
+      "sensitive": true,
+      "description": "Create one in DeverDesk: avatar menu → Connect AI. Pick the Write permission."
+    }
+  }
+}

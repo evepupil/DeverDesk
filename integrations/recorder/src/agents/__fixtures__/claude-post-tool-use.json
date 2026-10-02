@@ -1,0 +1,15 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "C:/code/demo/session.jsonl",
+  "cwd": "C:/code/demo",
+  "prompt_id": "fixture-prompt-id",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git commit -m \"fixture commit\""
+  },
+  "tool_response": "[redacted]",
+  "tool_use_id": "fixture-tool-use",
+  "duration_ms": 1440
+}

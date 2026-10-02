@@ -1,0 +1,17 @@
+{"type":"user","timestamp":"2025-02-01T10:00:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","isMeta":false,"isSidechain":false,"origin":{"kind":"human"},"message":{"content":"Synthetic prompt one. Extra synthetic text."}}
+{"type":"user","timestamp":"2025-02-01T10:01:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","origin":{"kind":"human"},"message":{"content":[{"type":"text","text":"Synthetic tool request."},{"type":"tool_result","content":"synthetic result"}]}}
+{"type":"user","timestamp":"2025-02-01T10:02:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","isMeta":true,"origin":{"kind":"human"},"message":{"content":"Synthetic meta prompt."}}
+{"type":"user","timestamp":"2025-02-01T10:03:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","isSidechain":true,"origin":{"kind":"human"},"message":{"content":"Synthetic sidechain prompt."}}
+{"type":"user","timestamp":"2025-02-01T10:04:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","message":{"content":"[Request interrupted by user] synthetic interrupted input"}}
+{"type":"user","timestamp":"2025-02-01T10:05:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","origin":{"kind":"task-notification"},"message":{"content":"Synthetic task notification."}}
+{"type":"assistant","timestamp":"2025-02-01T10:10:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","isSidechain":false,"message":{"stop_reason":"end_turn"}}
+{"type":"user","sessionId":"claude-main-session","cwd":"/workspace/main-repo","origin":{"kind":"human"},"message":{"content":"Synthetic prompt without timestamp."}}
+{"type":"assistant",broken json
+{"type":"user","timestamp":"2025-02-01T10:20:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","origin":{"kind":"human"},"message":{"content":[{"type":"text","text":"Synthetic "},{"type":"text","text":"prompt two. More text."}]}}
+{"type":"assistant","timestamp":"2025-02-01T10:25:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","message":{"id":"synthetic-chunked-message","stop_reason":"end_turn"}}
+{"type":"assistant","timestamp":"2025-02-01T10:30:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","message":{"stop_reason":"end_turn"}}
+{"type":"assistant","timestamp":"2025-02-01T10:12:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/main-repo","message":{"id":"synthetic-chunked-message","stop_reason":"end_turn"}}
+{"type":"user","timestamp":"2025-02-01T09:50:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/forked-copy","forkedFrom":"parent-session","origin":{"kind":"human"},"message":{"content":"Synthetic forked historical prompt."}}
+{"type":"user","timestamp":"2025-02-01T09:55:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/compact-summary","isCompactSummary":true,"message":{"content":"Synthetic compacted summary without origin."}}
+{"type":"user","timestamp":"2025-02-01T09:59:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/early-repo","origin":{"kind":"human"},"message":{"content":"Synthetic backdated prompt."}}
+{"type":"user","timestamp":"2025-02-01T10:40:00.000Z","sessionId":"claude-main-session","cwd":"/workspace/changed-repo","origin":{"kind":"human"},"message":{"content":"Synthetic prompt after cwd change."}}

@@ -1,0 +1,3878 @@
+#!/usr/bin/env node
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// integrations/recorder/src/cli.ts
+var cli_exports = {};
+__export(cli_exports, {
+  VERSION: () => VERSION,
+  main: () => main
+});
+module.exports = __toCommonJS(cli_exports);
+var import_node_child_process3 = require("node:child_process");
+
+// integrations/recorder/src/git/resolve-project.ts
+var import_node_fs = require("node:fs");
+var import_node_path = require("node:path");
+
+// integrations/recorder/src/core/project-name.ts
+function dirNameFromFacts(cwd, facts) {
+  const commonDir = normalizePath(facts.commonDir ?? "");
+  const toplevel = normalizePath(facts.toplevel ?? "");
+  if (facts.bare && commonDir) return pathName(commonDir).replace(/\.git$/i, "");
+  if (facts.superproject?.trim() && toplevel) return pathName(toplevel);
+  if (/(?:^|\/)\.git$/i.test(commonDir)) return pathName(parentPath(commonDir));
+  if (commonDir) return pathName(commonDir).replace(/\.git$/i, "");
+  return dirNameFromPath(cwd);
+}
+function dirNameFromPath(cwd) {
+  const normalized = normalizePath(cwd);
+  if (!normalized) return "";
+  if (/^[a-z]:\/?$/i.test(normalized)) return normalized.slice(0, 2);
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length >= 3 && parts[parts.length - 3]?.toLowerCase() === ".claude" && parts[parts.length - 2]?.toLowerCase() === "worktrees") {
+    parts.splice(-3);
+  }
+  return parts[parts.length - 1] ?? "";
+}
+function normalizePath(path) {
+  return path.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+function pathName(path) {
+  const normalized = normalizePath(path);
+  if (!normalized) return "";
+  if (/^[a-z]:$/i.test(normalized)) return normalized;
+  const parts = normalized.split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? "";
+}
+function parentPath(path) {
+  const normalized = normalizePath(path);
+  const slash = normalized.lastIndexOf("/");
+  if (slash < 0) return "";
+  if (slash === 2 && /^[a-z]:\//i.test(normalized)) return normalized.slice(0, 3);
+  if (slash === 0) return "/";
+  return normalized.slice(0, slash);
+}
+
+// integrations/recorder/src/git/resolve-project.ts
+async function resolveDirName(cwd, git, options = {}) {
+  const cached = options.cache?.get(cwd);
+  if (cached) return cached;
+  const common = await git.run(
+    ["-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir", "--is-bare-repository"],
+    cwd
+  );
+  if (!common.ok) return cacheResult(cwd, { dir: dirNameFromPath(cwd) }, options.cache);
+  const lines = common.stdout.split(/\r?\n/);
+  const commonDir = lines[0]?.trim();
+  const bareText = lines[1]?.trim();
+  if (!commonDir || bareText !== "true" && bareText !== "false") {
+    return cacheResult(cwd, { dir: dirNameFromPath(cwd) }, options.cache);
+  }
+  const normalizedCommonDir = normalizePath2(commonDir);
+  const facts = {
+    commonDir: normalizedCommonDir,
+    bare: bareText === "true"
+  };
+  if (!facts.bare) {
+    const top = await git.run(["-C", cwd, "rev-parse", "--show-toplevel"], cwd);
+    if (top.ok && top.stdout.trim()) facts.toplevel = normalizePath2(top.stdout.trim());
+  }
+  if (!normalizedCommonDir.endsWith("/.git")) {
+    const parent = await git.run(["-C", cwd, "rev-parse", "--show-superproject-working-tree"], cwd);
+    if (parent.ok && parent.stdout.trim()) facts.superproject = normalizePath2(parent.stdout.trim());
+  }
+  const bareWorktreeCommonDir = await findBareWorktreeCommonDir(git, cwd, facts, normalizedCommonDir);
+  const dir = bareWorktreeCommonDir ? dirNameFromFacts(cwd, { ...facts, commonDir: bareWorktreeCommonDir, bare: true }) : isSeparateGitDirWorktree(facts, normalizedCommonDir) ? import_node_path.posix.basename(facts.toplevel ?? "") : dirNameFromFacts(cwd, facts);
+  let repo;
+  if (facts.bare) repo = normalizedCommonDir;
+  else if (facts.superproject) repo = facts.toplevel;
+  else if (normalizedCommonDir.endsWith("/.git")) repo = normalizePath2((0, import_node_path.dirname)(normalizedCommonDir));
+  else repo = facts.toplevel;
+  return cacheResult(cwd, repo ? { dir, repo } : { dir }, options.cache);
+}
+function createDirNameResolver(git, pathExists) {
+  return async (cwd) => {
+    if (!await pathExists(cwd)) return { dir: dirNameFromPath(cwd) };
+    return resolveDirName(cwd, git);
+  };
+}
+async function findBareWorktreeCommonDir(git, cwd, facts, commonDir) {
+  if (facts.bare || !facts.toplevel || commonDir.endsWith("/.git")) return void 0;
+  const match = /^(.*)\/worktrees\/[^/]+$/i.exec(commonDir);
+  const root = match?.[1] ?? commonDir;
+  try {
+    if (!(0, import_node_fs.statSync)((0, import_node_path.join)(facts.toplevel, ".git")).isFile()) return void 0;
+  } catch {
+    return void 0;
+  }
+  const result = await git.run(["-C", cwd, "config", "--bool", "core.bare"], cwd);
+  return result.ok && result.stdout.trim() === "true" ? root : void 0;
+}
+function isSeparateGitDirWorktree(facts, commonDir) {
+  if (facts.bare || facts.superproject || !facts.toplevel || commonDir.endsWith("/.git")) return false;
+  try {
+    return (0, import_node_fs.statSync)((0, import_node_path.join)(facts.toplevel, ".git")).isFile();
+  } catch {
+    return false;
+  }
+}
+function cacheResult(cwd, result, cache) {
+  cache?.set(cwd, result);
+  return result;
+}
+function normalizePath2(value) {
+  const normalized = value.replace(/\\/g, "/").replace(/\/+$/, "");
+  return normalized || import_node_path.posix.parse(value.replace(/\\/g, "/")).root;
+}
+
+// integrations/recorder/src/git/runner.ts
+var import_node_child_process = require("node:child_process");
+var MAX_BUFFER = 8 * 1024 * 1024;
+function createGitRunner() {
+  return {
+    run(args, cwd, options = {}) {
+      return new Promise((resolve2) => {
+        const stdout = [];
+        const stderr = [];
+        let stdoutBytes = 0;
+        let stderrBytes = 0;
+        let settled = false;
+        let child;
+        const output = (chunks) => Buffer.concat(chunks).toString("utf8");
+        const finish = (ok, message) => {
+          if (settled) return;
+          settled = true;
+          if (timer) clearTimeout(timer);
+          const errorOutput = output(stderr);
+          resolve2({
+            ok,
+            stdout: output(stdout),
+            stderr: [errorOutput, message].filter(Boolean).join("\n")
+          });
+        };
+        const stop = (message) => {
+          try {
+            child?.kill();
+          } catch {
+          }
+          finish(false, message);
+        };
+        const timer = setTimeout(() => stop(`git timed out after ${options.timeoutMs ?? 5e3} ms`), options.timeoutMs ?? 5e3);
+        const collect = (chunks, current, chunk, assign) => {
+          const remaining = MAX_BUFFER - current;
+          if (remaining > 0) chunks.push(chunk.subarray(0, remaining));
+          const next = current + Math.min(chunk.length, Math.max(remaining, 0));
+          assign(next);
+          return chunk.length > remaining;
+        };
+        try {
+          child = (0, import_node_child_process.spawn)("git", args, { cwd, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+        } catch (error) {
+          finish(false, error instanceof Error ? error.message : String(error));
+          return;
+        }
+        const spawned = child;
+        if (!spawned?.stdout || !spawned.stderr) {
+          finish(false, "git spawn did not create output streams");
+          return;
+        }
+        spawned.stdout.on("data", (value) => {
+          if (settled) return;
+          const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
+          if (collect(stdout, stdoutBytes, chunk, (count) => {
+            stdoutBytes = count;
+          })) stop(`git stdout exceeded ${MAX_BUFFER} bytes`);
+        });
+        spawned.stderr.on("data", (value) => {
+          if (settled) return;
+          const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
+          if (collect(stderr, stderrBytes, chunk, (count) => {
+            stderrBytes = count;
+          })) stop(`git stderr exceeded ${MAX_BUFFER} bytes`);
+        });
+        spawned.stdout.on("error", (error) => stop(`git stdout failed: ${error.message}`));
+        spawned.stderr.on("error", (error) => stop(`git stderr failed: ${error.message}`));
+        spawned.on("error", (error) => finish(false, `git spawn failed: ${error.message}`));
+        spawned.on("close", (code) => finish(code === 0));
+      });
+    }
+  };
+}
+
+// integrations/recorder/src/store/paths.ts
+var import_node_os = require("node:os");
+var import_node_path2 = require("node:path");
+function recorderHome(env = process.env) {
+  const configured = env.DEVERDESK_HOME?.trim();
+  return configured || (0, import_node_path2.join)((0, import_node_os.homedir)(), ".deverdesk");
+}
+
+// integrations/recorder/src/store/event-log.ts
+var import_node_fs2 = require("node:fs");
+var import_node_path3 = require("node:path");
+var MAX_LINE_BYTES = 4e3;
+var TRUNCATABLE_FIELDS = ["text", "summary", "body", "subject", "title"];
+function appendEvent(home, event) {
+  try {
+    const directory = (0, import_node_path3.join)(home, "events");
+    (0, import_node_fs2.mkdirSync)(directory, { recursive: true });
+    const date = new Date(event.t).toISOString().slice(0, 10);
+    const line = encodeEvent(event);
+    if (!line) {
+      logAppendFailure(home, "event dropped: JSONL line exceeds 4 KB");
+      return;
+    }
+    (0, import_node_fs2.appendFileSync)((0, import_node_path3.join)(directory, `${date}.jsonl`), line, "utf8");
+  } catch (error) {
+    logAppendFailure(home, `event append failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+function readEvents(home, options) {
+  const directory = (0, import_node_path3.join)(home, "events");
+  let names;
+  try {
+    names = (0, import_node_fs2.readdirSync)(directory).filter((name) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(name)).sort();
+  } catch {
+    return [];
+  }
+  if (options.days !== void 0) {
+    const now = new Date(options.now ?? Date.now());
+    const cutoff = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() - Math.max(0, Math.floor(options.days)) - 1
+    );
+    names = names.filter((name) => Date.parse(`${name.slice(0, 10)}T00:00:00.000Z`) >= cutoff);
+  }
+  const seen = /* @__PURE__ */ new Set();
+  const events = [];
+  for (const name of names) {
+    let contents;
+    try {
+      contents = (0, import_node_fs2.readFileSync)((0, import_node_path3.join)(directory, name), "utf8");
+    } catch {
+      continue;
+    }
+    for (const line of contents.split(/\r?\n/)) {
+      if (!line) continue;
+      try {
+        const event = JSON.parse(line);
+        if (!event || typeof event !== "object" || typeof event.t !== "number") continue;
+        const key = event.kind === "commit" ? `commit|${event.repo}|${event.sha}` : `${event.agent}|${event.session}|${event.kind}|${event.t}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        events.push(event);
+      } catch {
+      }
+    }
+  }
+  return events.map((event, index) => ({ event, index })).sort((a, b) => a.event.t - b.event.t || a.index - b.index).map(({ event }) => event);
+}
+function encodeEvent(event) {
+  const value = { ...event };
+  const serialize = () => `${JSON.stringify(value)}
+`;
+  let line = serialize();
+  if (Buffer.byteLength(line, "utf8") <= MAX_LINE_BYTES) return line;
+  for (const field of TRUNCATABLE_FIELDS) {
+    const original = value[field];
+    if (typeof original !== "string" || original.length === 0) continue;
+    const characters = Array.from(original);
+    let low = 0;
+    let high = characters.length;
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      value[field] = characters.slice(0, middle).join("");
+      if (Buffer.byteLength(serialize(), "utf8") <= MAX_LINE_BYTES) low = middle;
+      else high = middle - 1;
+    }
+    value[field] = characters.slice(0, low).join("");
+    line = serialize();
+    if (Buffer.byteLength(line, "utf8") <= MAX_LINE_BYTES) return line;
+  }
+  return void 0;
+}
+function logAppendFailure(home, message) {
+  try {
+    const logs = (0, import_node_path3.join)(home, "logs");
+    (0, import_node_fs2.mkdirSync)(logs, { recursive: true });
+    (0, import_node_fs2.appendFileSync)((0, import_node_path3.join)(logs, "recorder.log"), `${(/* @__PURE__ */ new Date()).toISOString()} ${message}
+`, "utf8");
+  } catch {
+  }
+}
+
+// integrations/recorder/src/commands/backfill.ts
+var import_node_fs8 = require("node:fs");
+var import_node_os2 = require("node:os");
+var import_node_path9 = require("node:path");
+
+// integrations/recorder/src/agents/claude-code-backfill.ts
+var import_promises = require("node:fs/promises");
+var import_node_path4 = require("node:path");
+
+// integrations/recorder/src/agents/backfill-common.ts
+var import_node_fs3 = require("node:fs");
+
+// integrations/recorder/src/core/constants.ts
+var MINUTE = 6e4;
+var PRESENCE_GAP = 15 * MINUTE;
+var AI_ALONE_CAP = 15 * MINUTE;
+var IDLE_ARRIVAL = 2 * 60 * MINUTE;
+var BURST_GAP = 2 * MINUTE;
+var MICRO_TASK = 3 * MINUTE;
+var MERGE_WINDOW = 2 * 60 * MINUTE;
+var MIN_ENTRY = 0.5 * MINUTE;
+var MIN_STANDALONE_TASK = 1 * MINUTE;
+var SETTLE_DELAY = PRESENCE_GAP + 3e4;
+var TASK_TITLE_MAX = 80;
+var FALLBACK_TITLE_MAX = 40;
+
+// integrations/recorder/src/agents/backfill-common.ts
+var MAX_JSONL_LINE_BYTES = 8 * 1024 * 1024;
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+async function* readJsonlLines(filePath) {
+  const stream = (0, import_node_fs3.createReadStream)(filePath, { highWaterMark: 64 * 1024 });
+  let parts = [];
+  let lineBytes = 0;
+  try {
+    for await (const chunk of stream) {
+      const data = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      let start = 0;
+      while (start < data.length) {
+        const newline = data.indexOf(10, start);
+        const end = newline === -1 ? data.length : newline;
+        const part = data.subarray(start, end);
+        if (part.length > 0) {
+          lineBytes += part.length;
+          if (lineBytes > MAX_JSONL_LINE_BYTES) throw new Error("JSONL line exceeds limit");
+          parts.push(part);
+        }
+        if (newline === -1) break;
+        let line = parts.length === 0 ? Buffer.alloc(0) : Buffer.concat(parts, lineBytes);
+        if (line.length > 0 && line[line.length - 1] === 13) line = line.subarray(0, -1);
+        yield line.toString("utf8");
+        parts = [];
+        lineBytes = 0;
+        start = newline + 1;
+      }
+    }
+    if (lineBytes > 0) {
+      let line = Buffer.concat(parts, lineBytes);
+      if (line[line.length - 1] === 13) line = line.subarray(0, -1);
+      yield line.toString("utf8");
+    }
+  } finally {
+    stream.destroy();
+  }
+}
+function firstBackfillSentence(text, maxLength) {
+  const normalized = text.trim();
+  if (!normalized) return "";
+  let end = normalized.length;
+  for (let index = 0; index < normalized.length; index += 1) {
+    if (".!?\u3002\uFF01\uFF1F".includes(normalized[index] ?? "") && (index + 1 === normalized.length || /\s/u.test(normalized[index + 1] ?? ""))) {
+      end = index + 1;
+      break;
+    }
+    if (normalized[index] === "\n" || normalized[index] === "\r") {
+      end = index;
+      break;
+    }
+  }
+  return normalized.slice(0, Math.min(end, maxLength)).trimEnd();
+}
+async function commitsBySession(sessions, findCommits, since, until) {
+  const byRepo = /* @__PURE__ */ new Map();
+  for (const session of sessions) {
+    if (!session.repo || session.startAt === void 0) continue;
+    const start = session.startAt;
+    const end = (session.activityEndAt ?? start) + PRESENCE_GAP;
+    if (end < since || start >= until) continue;
+    const intervals = byRepo.get(session.repo) ?? [];
+    intervals.push({ session, start, end });
+    byRepo.set(session.repo, intervals);
+  }
+  const result = [];
+  const seenShas = /* @__PURE__ */ new Set();
+  for (const [repo, intervals] of byRepo) {
+    const rangeStart = Math.max(Math.min(...intervals.map((interval) => interval.start)), since);
+    const rangeEnd = Math.min(Math.max(...intervals.map((interval) => interval.end)), until);
+    if (rangeStart >= rangeEnd) continue;
+    let commits;
+    try {
+      commits = await findCommits(repo, rangeStart, rangeEnd);
+    } catch {
+      continue;
+    }
+    for (const commit of commits) {
+      if (seenShas.has(commit.sha) || commit.committedAt < since || commit.committedAt >= until) continue;
+      seenShas.add(commit.sha);
+      const candidates = intervals.filter((interval) => commit.committedAt >= interval.start && commit.committedAt <= interval.end).sort((left, right) => right.start - left.start || left.session.session.localeCompare(right.session.session));
+      const owner = candidates[0]?.session;
+      const context = owner ?? intervals.map((interval) => ({
+        session: interval.session,
+        distance: commit.committedAt < interval.start ? interval.start - commit.committedAt : commit.committedAt > interval.end ? commit.committedAt - interval.end : 0
+      })).sort((left, right) => left.distance - right.distance || (right.session.startAt ?? 0) - (left.session.startAt ?? 0))[0]?.session;
+      if (!context) continue;
+      result.push({
+        commit,
+        repo,
+        session: owner?.session ?? "",
+        dir: context.dir,
+        cwd: context.cwd
+      });
+    }
+  }
+  return result;
+}
+
+// integrations/recorder/src/agents/claude-code-backfill.ts
+function parseClaudeRow(line) {
+  if (!line.includes('"type":"user"') && !line.includes('"type":"assistant"')) return void 0;
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  if (!isRecord(value) || typeof value.sessionId !== "string" || !value.sessionId) return void 0;
+  if (value.forkedFrom || value.isCompactSummary === true) return void 0;
+  const timestamp = typeof value.timestamp === "string" ? Date.parse(value.timestamp) : Number.NaN;
+  const message = isRecord(value.message) ? value.message : void 0;
+  let promptText;
+  if (value.type === "user" && value.isMeta !== true && value.isSidechain !== true && message) {
+    const content = message.content;
+    if (typeof content === "string") {
+      promptText = isHumanPrompt(value, content) ? content : void 0;
+    } else if (Array.isArray(content) && !content.some((part) => isRecord(part) && part.type === "tool_result")) {
+      const text = content.filter((part) => isRecord(part) && part.type === "text" && typeof part.text === "string").map((part) => isRecord(part) && typeof part.text === "string" ? part.text : "").join("");
+      promptText = isHumanPrompt(value, text) ? text : void 0;
+    }
+  }
+  const isStop = value.type === "assistant" && value.isSidechain !== true && message?.stop_reason === "end_turn";
+  const messageId = typeof message?.id === "string" && message.id ? message.id : void 0;
+  const requestId = typeof value.requestId === "string" && value.requestId ? value.requestId : void 0;
+  const stopKey = isStop ? messageId ? `message:${messageId}` : requestId ? `request:${requestId}` : void 0 : void 0;
+  return {
+    session: value.sessionId,
+    cwd: typeof value.cwd === "string" ? value.cwd : void 0,
+    timestamp: Number.isFinite(timestamp) ? timestamp : void 0,
+    promptText,
+    stopKey,
+    isStop
+  };
+}
+function isHumanPrompt(row, text) {
+  if (Object.prototype.hasOwnProperty.call(row, "origin")) {
+    return isRecord(row.origin) && row.origin.kind === "human";
+  }
+  return !text.startsWith("<") && !text.startsWith("[Request interrupted");
+}
+async function listClaudeFiles(root, stats) {
+  let projects;
+  try {
+    projects = await (0, import_promises.readdir)(root, { withFileTypes: true });
+  } catch {
+    stats.skippedFiles += 1;
+    return [];
+  }
+  const files = [];
+  for (const project of projects) {
+    if (!project.isDirectory()) continue;
+    let entries;
+    try {
+      entries = await (0, import_promises.readdir)((0, import_node_path4.join)(root, project.name), { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith(".jsonl")) files.push((0, import_node_path4.join)(root, project.name, entry.name));
+    }
+  }
+  return files.sort();
+}
+async function scanClaudeFile(filePath) {
+  const sessions = /* @__PURE__ */ new Map();
+  for await (const line of readJsonlLines(filePath)) {
+    const row = parseClaudeRow(line);
+    if (!row) continue;
+    const session = sessions.get(row.session) ?? { session: row.session, cwd: "", dir: "" };
+    if (row.cwd !== void 0) {
+      if (row.timestamp !== void 0 && (session.cwdAt === void 0 || row.timestamp < session.cwdAt)) {
+        session.cwd = row.cwd;
+        session.cwdAt = row.timestamp;
+      } else if (row.timestamp === void 0 && !session.cwd) {
+        session.cwd = row.cwd;
+      }
+    }
+    if (row.timestamp !== void 0) {
+      session.startAt = session.startAt === void 0 ? row.timestamp : Math.min(session.startAt, row.timestamp);
+      session.activityEndAt = session.activityEndAt === void 0 ? row.timestamp : Math.max(session.activityEndAt, row.timestamp);
+    }
+    sessions.set(row.session, session);
+  }
+  return sessions;
+}
+function mergeSession(target, incoming) {
+  for (const [id, next] of incoming) {
+    const current = target.get(id);
+    if (!current) {
+      target.set(id, next);
+      continue;
+    }
+    if (next.cwdAt !== void 0 && (current.cwdAt === void 0 || next.cwdAt < current.cwdAt)) {
+      current.cwd = next.cwd;
+      current.cwdAt = next.cwdAt;
+    } else if (next.cwdAt === void 0 && !current.cwd) {
+      current.cwd = next.cwd;
+    }
+    if (next.startAt !== void 0) current.startAt = current.startAt === void 0 ? next.startAt : Math.min(current.startAt, next.startAt);
+    if (next.activityEndAt !== void 0) {
+      current.activityEndAt = current.activityEndAt === void 0 ? next.activityEndAt : Math.max(current.activityEndAt, next.activityEndAt);
+    }
+  }
+}
+async function* backfillClaudeCode(options, stats) {
+  const paths = await listClaudeFiles(options.root, stats);
+  const readableFiles = [];
+  const summaries = /* @__PURE__ */ new Map();
+  for (const filePath of paths) {
+    stats.files += 1;
+    try {
+      mergeSession(summaries, await scanClaudeFile(filePath));
+      readableFiles.push(filePath);
+    } catch {
+      stats.skippedFiles += 1;
+    }
+  }
+  stats.sessions += summaries.size;
+  const sessions = [];
+  for (const session of summaries.values()) {
+    if (!session.cwd) continue;
+    try {
+      const resolved = await options.resolveDir(session.cwd);
+      session.dir = resolved.dir;
+      session.repo = resolved.repo;
+      sessions.push(session);
+    } catch {
+      continue;
+    }
+  }
+  const sessionById = new Map(sessions.map((session) => [session.session, session]));
+  const eventsBySession = new Map(sessions.map((session) => [session.session, []]));
+  const keyedStops = /* @__PURE__ */ new Map();
+  for (const session of sessions) {
+    if (session.startAt === void 0 || session.startAt < options.since || session.startAt >= options.until) continue;
+    eventsBySession.get(session.session)?.push({ v: 1, t: session.startAt, agent: "claude-code", session: session.session, dir: session.dir, cwd: session.cwd, backfill: true, kind: "start", source: "backfill" });
+  }
+  for (const filePath of readableFiles) {
+    try {
+      for await (const line of readJsonlLines(filePath)) {
+        const row = parseClaudeRow(line);
+        if (!row) continue;
+        const session = sessionById.get(row.session);
+        if (!session) continue;
+        const events = eventsBySession.get(session.session);
+        if (!events) continue;
+        if (row.promptText !== void 0 && row.timestamp !== void 0 && row.timestamp >= options.since && row.timestamp < options.until) {
+          events.push({ v: 1, t: row.timestamp, agent: "claude-code", session: session.session, dir: session.dir, cwd: session.cwd, backfill: true, kind: "prompt", text: firstBackfillSentence(row.promptText, 120) });
+        }
+        if (!row.isStop) continue;
+        if (row.stopKey) {
+          const stops = keyedStops.get(session.session) ?? /* @__PURE__ */ new Map();
+          stops.set(row.stopKey, row.timestamp);
+          keyedStops.set(session.session, stops);
+        } else if (row.timestamp !== void 0 && row.timestamp >= options.since && row.timestamp < options.until) {
+          events.push({ v: 1, t: row.timestamp, agent: "claude-code", session: session.session, dir: session.dir, cwd: session.cwd, backfill: true, kind: "stop" });
+        }
+      }
+    } catch {
+      stats.skippedFiles += 1;
+    }
+  }
+  for (const [sessionId, stops] of keyedStops) {
+    const session = sessionById.get(sessionId);
+    const events = eventsBySession.get(sessionId);
+    if (!session || !events) continue;
+    for (const timestamp of stops.values()) {
+      if (timestamp === void 0 || timestamp < options.since || timestamp >= options.until) continue;
+      events.push({ v: 1, t: timestamp, agent: "claude-code", session: session.session, dir: session.dir, cwd: session.cwd, backfill: true, kind: "stop" });
+    }
+  }
+  const commits = await commitsBySession(sessions, options.findCommits, options.since, options.until);
+  const unassignedCommits = [];
+  for (const { commit, repo, session, dir, cwd } of commits) {
+    const event = {
+      v: 1,
+      t: commit.committedAt,
+      agent: "claude-code",
+      session,
+      dir,
+      cwd,
+      backfill: true,
+      kind: "commit",
+      repo,
+      sha: commit.sha,
+      subject: commit.subject,
+      body: commit.body.slice(0, 500),
+      additions: commit.additions,
+      deletions: commit.deletions,
+      files: commit.files,
+      authoredAt: commit.authoredAt
+    };
+    const events = session ? eventsBySession.get(session) : void 0;
+    if (events) events.push(event);
+    else unassignedCommits.push(event);
+  }
+  for (const events of [...eventsBySession.values(), unassignedCommits]) {
+    events.sort((left, right) => left.t - right.t);
+    for (const event of events) {
+      stats.events += 1;
+      yield event;
+    }
+  }
+}
+
+// integrations/recorder/src/agents/codex-backfill.ts
+var import_promises2 = require("node:fs/promises");
+var import_node_path5 = require("node:path");
+var DAY_MS = 24 * 60 * 60 * 1e3;
+function parseCodexRow(line) {
+  if (!line.includes('"type":"session_meta"') && !line.includes('"type":"event_msg"')) return void 0;
+  let value;
+  try {
+    value = JSON.parse(line);
+  } catch {
+    return void 0;
+  }
+  if (!isRecord(value) || typeof value.type !== "string") return void 0;
+  const payload = isRecord(value.payload) ? value.payload : void 0;
+  const metadataId = payload?.id;
+  const aliasId = payload?.session_id;
+  const sessionId = typeof metadataId === "string" && metadataId.length > 0 ? metadataId : typeof aliasId === "string" && aliasId.length > 0 ? aliasId : void 0;
+  const timestamp = typeof value.timestamp === "string" ? Date.parse(value.timestamp) : Number.NaN;
+  return {
+    type: value.type,
+    timestamp: Number.isFinite(timestamp) ? timestamp : void 0,
+    sessionId,
+    cwd: typeof payload?.cwd === "string" ? payload.cwd : void 0,
+    eventType: typeof payload?.type === "string" ? payload.type : void 0
+  };
+}
+function dateFromFilename(filePath) {
+  const match = /^rollout-(\d{4}-\d{2}-\d{2})/.exec((0, import_node_path5.basename)(filePath));
+  if (!match?.[1]) return void 0;
+  const dateText = match[1];
+  const date = Date.parse(`${dateText}T00:00:00.000Z`);
+  if (!Number.isFinite(date) || new Date(date).toISOString().slice(0, 10) !== dateText) return void 0;
+  return date;
+}
+function filenameSessionId(filePath) {
+  const match = /-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i.exec((0, import_node_path5.basename)(filePath));
+  return match?.[1];
+}
+function olderThanSince(filePath, since) {
+  const fileDate = dateFromFilename(filePath);
+  if (fileDate === void 0) return false;
+  const sinceDay = Math.floor(since / DAY_MS) * DAY_MS;
+  return fileDate < sinceDay - DAY_MS;
+}
+async function listCodexFiles(root, stats) {
+  const files = [];
+  async function walk(directory, depth) {
+    let entries;
+    try {
+      entries = await (0, import_promises2.readdir)(directory, { withFileTypes: true });
+    } catch {
+      if (depth === 0) stats.skippedFiles += 1;
+      return;
+    }
+    for (const entry of entries) {
+      const path = (0, import_node_path5.join)(directory, entry.name);
+      if (depth < 3 && entry.isDirectory()) {
+        await walk(path, depth + 1);
+      } else if (depth === 3 && entry.isFile() && entry.name.startsWith("rollout-") && entry.name.endsWith(".jsonl")) {
+        files.push(path);
+      }
+    }
+  }
+  await walk(root, 0);
+  return files.sort();
+}
+async function scanCodexFile(filePath) {
+  const fallbackId = filenameSessionId(filePath);
+  let sessionId;
+  let cwd;
+  let cwdAt;
+  let startAt;
+  let activityEndAt;
+  for await (const line of readJsonlLines(filePath)) {
+    const row = parseCodexRow(line);
+    if (!row) continue;
+    if (row.type === "session_meta" && row.sessionId) sessionId = row.sessionId;
+    if (row.cwd !== void 0) {
+      if (row.timestamp !== void 0 && (cwdAt === void 0 || row.timestamp < cwdAt)) {
+        cwd = row.cwd;
+        cwdAt = row.timestamp;
+      } else if (row.timestamp === void 0 && cwd === void 0) {
+        cwd = row.cwd;
+      }
+    }
+    if (row.timestamp !== void 0) {
+      startAt = startAt === void 0 ? row.timestamp : Math.min(startAt, row.timestamp);
+      activityEndAt = activityEndAt === void 0 ? row.timestamp : Math.max(activityEndAt, row.timestamp);
+    }
+  }
+  if (!cwd) throw new Error("Codex session has no cwd");
+  const id = sessionId || fallbackId;
+  if (!id) throw new Error("Codex session has no id");
+  return { session: id, cwd, cwdAt, dir: "", startAt, activityEndAt };
+}
+function mergeSession2(target, next) {
+  const current = target.get(next.session);
+  if (!current) {
+    target.set(next.session, next);
+    return;
+  }
+  if (next.cwdAt !== void 0 && (current.cwdAt === void 0 || next.cwdAt < current.cwdAt)) {
+    current.cwd = next.cwd;
+    current.cwdAt = next.cwdAt;
+  } else if (next.cwdAt === void 0 && !current.cwd) {
+    current.cwd = next.cwd;
+  }
+  if (next.startAt !== void 0) current.startAt = current.startAt === void 0 ? next.startAt : Math.min(current.startAt, next.startAt);
+  if (next.activityEndAt !== void 0) {
+    current.activityEndAt = current.activityEndAt === void 0 ? next.activityEndAt : Math.max(current.activityEndAt, next.activityEndAt);
+  }
+}
+async function* backfillCodex(options, stats) {
+  const paths = (await listCodexFiles(options.root, stats)).filter((filePath) => !olderThanSince(filePath, options.since));
+  const readableFiles = [];
+  const summaries = /* @__PURE__ */ new Map();
+  for (const filePath of paths) {
+    stats.files += 1;
+    try {
+      mergeSession2(summaries, await scanCodexFile(filePath));
+      readableFiles.push(filePath);
+    } catch {
+      stats.skippedFiles += 1;
+    }
+  }
+  stats.sessions += summaries.size;
+  const sessions = [];
+  for (const session of summaries.values()) {
+    try {
+      const resolved = await options.resolveDir(session.cwd);
+      session.dir = resolved.dir;
+      session.repo = resolved.repo;
+      sessions.push(session);
+    } catch {
+      continue;
+    }
+  }
+  const sessionById = new Map(sessions.map((session) => [session.session, session]));
+  const eventsBySession = new Map(sessions.map((session) => [session.session, []]));
+  for (const session of sessions) {
+    if (session.startAt === void 0 || session.startAt < options.since || session.startAt >= options.until) continue;
+    eventsBySession.get(session.session)?.push({ v: 1, t: session.startAt, agent: "codex", session: session.session, dir: session.dir, cwd: session.cwd, backfill: true, kind: "start", source: "backfill" });
+  }
+  for (const filePath of readableFiles) {
+    try {
+      let fileSessionId = filenameSessionId(filePath);
+      for await (const line of readJsonlLines(filePath)) {
+        const row = parseCodexRow(line);
+        if (row?.type === "session_meta" && row.sessionId) fileSessionId = row.sessionId;
+        if (row?.type !== "event_msg" || row.timestamp === void 0 || row.timestamp < options.since || row.timestamp >= options.until) continue;
+        if (row.eventType !== "task_started" && row.eventType !== "task_complete") continue;
+        const session = sessionById.get(fileSessionId ?? "");
+        if (!session) continue;
+        eventsBySession.get(session.session)?.push({
+          v: 1,
+          t: row.timestamp,
+          agent: "codex",
+          session: session.session,
+          dir: session.dir,
+          cwd: session.cwd,
+          backfill: true,
+          kind: row.eventType === "task_started" ? "prompt" : "stop"
+        });
+      }
+    } catch {
+      stats.skippedFiles += 1;
+    }
+  }
+  const commits = await commitsBySession(sessions, options.findCommits, options.since, options.until);
+  const unassignedCommits = [];
+  for (const { commit, repo, session, dir, cwd } of commits) {
+    const event = {
+      v: 1,
+      t: commit.committedAt,
+      agent: "codex",
+      session,
+      dir,
+      cwd,
+      backfill: true,
+      kind: "commit",
+      repo,
+      sha: commit.sha,
+      subject: commit.subject,
+      body: commit.body.slice(0, 500),
+      additions: commit.additions,
+      deletions: commit.deletions,
+      files: commit.files,
+      authoredAt: commit.authoredAt
+    };
+    const events = session ? eventsBySession.get(session) : void 0;
+    if (events) events.push(event);
+    else unassignedCommits.push(event);
+  }
+  for (const events of [...eventsBySession.values(), unassignedCommits]) {
+    events.sort((left, right) => left.t - right.t);
+    for (const event of events) {
+      stats.events += 1;
+      yield event;
+    }
+  }
+}
+
+// integrations/recorder/src/git/commits.ts
+var import_node_crypto2 = require("node:crypto");
+var import_node_fs6 = require("node:fs");
+var import_node_path7 = require("node:path");
+
+// integrations/recorder/src/store/state.ts
+var import_node_fs5 = require("node:fs");
+var import_node_crypto = require("node:crypto");
+var import_node_path6 = require("node:path");
+
+// integrations/recorder/src/store/lock.ts
+var import_node_fs4 = require("node:fs");
+function createLock(path) {
+  let descriptor;
+  try {
+    descriptor = (0, import_node_fs4.openSync)(path, "wx");
+  } catch {
+    return null;
+  }
+  try {
+    (0, import_node_fs4.writeSync)(descriptor, `${process.pid} ${Date.now()}
+`);
+    return descriptor;
+  } catch {
+    (0, import_node_fs4.closeSync)(descriptor);
+    try {
+      (0, import_node_fs4.unlinkSync)(path);
+    } catch {
+    }
+    return null;
+  }
+}
+async function withLockWait(path, staleMs, timeoutMs, fn) {
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    const result = await withLock(path, staleMs, fn);
+    if (result) return result;
+    if (Date.now() >= deadline) return null;
+    await new Promise((resolve2) => setTimeout(resolve2, Math.min(25, deadline - Date.now())));
+  }
+}
+async function withLock(path, staleMs, fn) {
+  let descriptor = createLock(path);
+  if (descriptor === null) {
+    let stale = false;
+    try {
+      stale = Date.now() - (0, import_node_fs4.statSync)(path).mtimeMs > staleMs;
+    } catch {
+      stale = false;
+    }
+    if (!stale) return null;
+    try {
+      (0, import_node_fs4.unlinkSync)(path);
+    } catch {
+      return null;
+    }
+    descriptor = createLock(path);
+    if (descriptor === null) return null;
+  }
+  (0, import_node_fs4.closeSync)(descriptor);
+  try {
+    return { value: await fn() };
+  } finally {
+    try {
+      (0, import_node_fs4.unlinkSync)(path);
+    } catch {
+    }
+  }
+}
+
+// integrations/recorder/src/store/state.ts
+function emptyState() {
+  return { v: 1, repos: {}, dirCache: {}, firstLiveEvent: {}, sessionStarts: {} };
+}
+async function updateState(home, fn) {
+  return updateStateInternal(home, fn);
+}
+async function updateStateAsync(home, fn) {
+  return updateStateInternal(home, fn);
+}
+async function updateStateInternal(home, fn) {
+  (0, import_node_fs5.mkdirSync)(home, { recursive: true });
+  const lockPath = (0, import_node_path6.join)(home, "state.lock");
+  const result = await withLockWait(lockPath, 1e4, 3e3, async () => {
+    cleanStateTemps(home);
+    const state = readState(home);
+    const changed = await fn(state);
+    const next = changed ?? state;
+    await writeState(home, next);
+    return next;
+  });
+  if (result) return result.value;
+  logStateFailure(home, "Could not acquire state.lock within 3 seconds; state update skipped");
+  return readState(home);
+}
+function readState(home) {
+  try {
+    const value = JSON.parse((0, import_node_fs5.readFileSync)((0, import_node_path6.join)(home, "state.json"), "utf8"));
+    if (!isRecord2(value) || value.v !== 1 || !isRecord2(value.repos) || !isRecord2(value.dirCache) || !isRecord2(value.firstLiveEvent)) {
+      return emptyState();
+    }
+    const state = value;
+    if (!isRecord2(state.sessionStarts)) state.sessionStarts = {};
+    return state;
+  } catch {
+    return emptyState();
+  }
+}
+function readUploadedKeys(home) {
+  const done = /* @__PURE__ */ new Set();
+  const rejected = /* @__PURE__ */ new Map();
+  let contents;
+  try {
+    contents = (0, import_node_fs5.readFileSync)((0, import_node_path6.join)(home, "uploaded.jsonl"), "utf8");
+  } catch {
+    return { done, rejected };
+  }
+  for (const line of contents.split(/\r?\n/)) {
+    if (!line) continue;
+    try {
+      const value = JSON.parse(line);
+      if (!isRecord2(value) || typeof value.k !== "string" || typeof value.at !== "number") continue;
+      if (typeof value.rejected === "string") {
+        done.delete(value.k);
+        rejected.set(value.k, value.rejected);
+      } else {
+        rejected.delete(value.k);
+        done.add(value.k);
+      }
+    } catch {
+    }
+  }
+  return { done, rejected };
+}
+function appendUploaded(home, lines) {
+  if (lines.length === 0) return;
+  (0, import_node_fs5.mkdirSync)(home, { recursive: true });
+  const contents = lines.map((line) => `${JSON.stringify(line)}
+`).join("");
+  (0, import_node_fs5.appendFileSync)((0, import_node_path6.join)(home, "uploaded.jsonl"), contents, "utf8");
+}
+async function writeState(home, state) {
+  const destination = (0, import_node_path6.join)(home, "state.json");
+  const temporary = (0, import_node_path6.join)(home, `.state-${process.pid}-${(0, import_node_crypto.randomUUID)()}.tmp`);
+  try {
+    (0, import_node_fs5.writeFileSync)(temporary, `${JSON.stringify(state, null, 2)}
+`, "utf8");
+    const deadline = Date.now() + 1e3;
+    while (true) {
+      try {
+        (0, import_node_fs5.renameSync)(temporary, destination);
+        return;
+      } catch (error) {
+        if (!isRetryableRenameError(error) || Date.now() >= deadline) {
+          logStateFailure(home, `state.json write failed: ${errorMessage(error)}`);
+          return;
+        }
+        await sleep(Math.min(20 + Math.floor(Math.random() * 61), deadline - Date.now()));
+      }
+    }
+  } catch (error) {
+    logStateFailure(home, `state.json write failed: ${errorMessage(error)}`);
+  } finally {
+    try {
+      (0, import_node_fs5.unlinkSync)(temporary);
+    } catch {
+    }
+  }
+}
+function logStateFailure(home, message) {
+  try {
+    const logs = (0, import_node_path6.join)(home, "logs");
+    (0, import_node_fs5.mkdirSync)(logs, { recursive: true });
+    (0, import_node_fs5.appendFileSync)((0, import_node_path6.join)(logs, "recorder.log"), `${(/* @__PURE__ */ new Date()).toISOString()} ${message}
+`, "utf8");
+  } catch {
+  }
+}
+function cleanStateTemps(home) {
+  let names;
+  try {
+    names = (0, import_node_fs5.readdirSync)(home);
+  } catch {
+    return;
+  }
+  const cutoff = Date.now() - 10 * 6e4;
+  for (const name of names) {
+    if (!/^\.state-.*\.tmp$/.test(name)) continue;
+    const path = (0, import_node_path6.join)(home, name);
+    try {
+      if ((0, import_node_fs5.statSync)(path).mtimeMs < cutoff) (0, import_node_fs5.unlinkSync)(path);
+    } catch {
+    }
+  }
+}
+function isRetryableRenameError(error) {
+  return error instanceof Error && ["EPERM", "EBUSY", "EACCES"].includes(error.code ?? "");
+}
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+function sleep(ms) {
+  return new Promise((resolve2) => setTimeout(resolve2, ms));
+}
+function isRecord2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// integrations/recorder/src/git/commits.ts
+var RECORD_SEPARATOR = "";
+var FIELD_SEPARATOR = "";
+async function detectNewCommits(git, repoRoot, previous, sessionStartMs) {
+  const headResult = await git.run(["-C", repoRoot, "rev-parse", "HEAD"], repoRoot);
+  const head = headResult.ok ? headResult.stdout.trim() : "";
+  if (!head) return { commits: [], next: previous };
+  if (previous?.head === head) return { commits: [], next: previous };
+  const headAt = await readHeadTime(git, repoRoot, previous?.lastCommitAt ?? 0);
+  const email = await readUserEmail(git, repoRoot);
+  if (!previous) {
+    const baseline = { head, lastCommitAt: headAt, seen: [] };
+    if (sessionStartMs === void 0) return { commits: [], next: baseline };
+    const found2 = await readCommits(git, repoRoot, [["--since=@" + Math.floor(sessionStartMs / 1e3), "-n", "50"]]);
+    const commits2 = filterCommits(found2 ?? [], email, /* @__PURE__ */ new Set());
+    return { commits: commits2, next: stateAfter(baseline, commits2, headAt, head) };
+  }
+  const found = await readCommits(git, repoRoot, [
+    [`${previous.head}..HEAD`],
+    ["--since=@" + Math.floor(previous.lastCommitAt / 1e3), "-n", "50"]
+  ]);
+  if (!found) return { commits: [], next: stateAfter(previous, [], headAt, head) };
+  const commits = filterCommits(found, email, new Set(previous.seen));
+  return { commits, next: stateAfter(previous, commits, headAt, head) };
+}
+async function detectNewCommitsLocked(home, git, repoRoot, sessionStartMs, onCommits) {
+  const root = repoRoot.replace(/\\/g, "/").replace(/\/+$/, "");
+  const lockIdentity = process.platform === "win32" ? root.toLowerCase() : root;
+  const lockName = (0, import_node_crypto2.createHash)("sha256").update(lockIdentity).digest("hex");
+  const lockDirectory = (0, import_node_path7.join)(home, "locks");
+  (0, import_node_fs6.mkdirSync)(lockDirectory, { recursive: true });
+  const lockPath = (0, import_node_path7.join)(lockDirectory, `${lockName}.lock`);
+  try {
+    const locked = await withLockWait(lockPath, 6e4, 3e3, async () => {
+      const previous = readState(home).repos[root];
+      const result = await detectNewCommits(git, root, previous, sessionStartMs);
+      await onCommits?.(result.commits);
+      if (result.next) {
+        await updateStateAsync(home, async (state) => {
+          state.repos[root] = result.next;
+        });
+      }
+      return result.commits;
+    });
+    if (locked) return locked.value;
+    logStateFailure(home, `Could not acquire repository commit lock for ${root}; discovery skipped`);
+  } catch (error) {
+    logStateFailure(home, `Commit discovery failed for ${root}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return [];
+}
+function createCommitFinder(git) {
+  return async (repoRoot, sinceMs, untilMs) => {
+    const email = await readUserEmail(git, repoRoot);
+    const commits = await readCommits(git, repoRoot, [[
+      `--since=@${Math.floor(sinceMs / 1e3)}`,
+      `--until=@${Math.floor(untilMs / 1e3)}`
+    ]]);
+    return filterCommits(commits ?? [], email, /* @__PURE__ */ new Set());
+  };
+}
+function parseGitLog(output, recordMarker, fieldMarker) {
+  const recordSeparator = recordMarker ?? findMarker(output, "R") ?? RECORD_SEPARATOR;
+  const fieldSeparator = fieldMarker ?? findMarker(output, "F") ?? FIELD_SEPARATOR;
+  const commits = [];
+  for (const rawRecord of output.split(recordSeparator).slice(1)) {
+    const record = rawRecord.replace(/^\r?\n/, "");
+    const fields = [];
+    let cursor = 0;
+    for (let index = 0; index < 5; index += 1) {
+      const separator = record.indexOf(fieldSeparator, cursor);
+      if (separator < 0) break;
+      fields.push(record.slice(cursor, separator));
+      cursor = separator + fieldSeparator.length;
+    }
+    if (fields.length !== 5) continue;
+    const messageEnd = record.indexOf(fieldSeparator, cursor);
+    if (messageEnd < 0) continue;
+    const sha = fields[0];
+    const committedSeconds = fields[1];
+    const authoredSeconds = fields[2];
+    const authorEmail = fields[3];
+    const subject = fields[4] ?? "";
+    if (!sha || committedSeconds === void 0 || authoredSeconds === void 0 || authorEmail === void 0) continue;
+    const committedAt = Number(committedSeconds) * 1e3;
+    const authoredAt = Number(authoredSeconds) * 1e3;
+    if (!Number.isFinite(committedAt) || !Number.isFinite(authoredAt)) continue;
+    const message = record.slice(cursor, messageEnd).replace(/\r?\n$/, "");
+    const body = message.split(/\r?\n/).slice(1).join("\n").trim().slice(0, 500);
+    let additions = 0;
+    let deletions = 0;
+    let files = 0;
+    const numstat = record.slice(messageEnd + fieldSeparator.length);
+    for (const line of numstat.split(/\r?\n/)) {
+      if (!line) continue;
+      const firstTab = line.indexOf("	");
+      const secondTab = firstTab < 0 ? -1 : line.indexOf("	", firstTab + 1);
+      if (secondTab < 0) continue;
+      const added = line.slice(0, firstTab);
+      const deleted = line.slice(firstTab + 1, secondTab);
+      if (!added || !deleted) continue;
+      files += 1;
+      if (added !== "-") additions += toCount(added);
+      if (deleted !== "-") deletions += toCount(deleted);
+    }
+    commits.push({
+      sha,
+      committedAt,
+      authoredAt,
+      authorEmail,
+      subject,
+      body,
+      additions,
+      deletions,
+      files
+    });
+  }
+  return commits.reverse();
+}
+async function readCommits(git, repoRoot, ranges) {
+  for (const range of ranges) {
+    for (const includeNumstat of [true, false]) {
+      const result = await runLog(git, repoRoot, range, includeNumstat);
+      if (result.ok) return parseGitLog(result.stdout, result.recordSeparator, result.fieldSeparator);
+    }
+  }
+  return void 0;
+}
+async function runLog(git, repoRoot, extra, includeNumstat) {
+  const nonce = (0, import_node_crypto2.randomBytes)(8).toString("hex");
+  const recordSeparator = `${String.fromCharCode(30)}${nonce}R${String.fromCharCode(30)}`;
+  const fieldSeparator = `${String.fromCharCode(31)}${nonce}F${String.fromCharCode(31)}`;
+  const format = `${recordSeparator}%H${fieldSeparator}%ct${fieldSeparator}%at${fieldSeparator}%ae${fieldSeparator}%s${fieldSeparator}%B${fieldSeparator}`;
+  const result = await git.run([
+    "-C",
+    repoRoot,
+    "log",
+    "--no-merges",
+    `--format=${format}`,
+    ...includeNumstat ? ["--numstat"] : [],
+    ...extra
+  ], repoRoot);
+  return { ...result, recordSeparator, fieldSeparator };
+}
+function findMarker(output, ending) {
+  const separator = String.fromCharCode(ending === "R" ? 30 : 31);
+  let index = output.indexOf(separator);
+  while (index >= 0) {
+    const candidate = output.slice(index, index + 19);
+    const nonce = candidate.slice(1, 17);
+    if (candidate[17] === ending && candidate[18] === separator && nonce.length === 16 && [...nonce].every((character) => "0123456789abcdef".includes(character))) return candidate;
+    index = output.indexOf(separator, index + 1);
+  }
+  return void 0;
+}
+async function readUserEmail(git, repoRoot) {
+  const result = await git.run(["-C", repoRoot, "config", "user.email"], repoRoot);
+  const email = result.ok ? result.stdout.trim() : "";
+  return email ? email.toLocaleLowerCase() : void 0;
+}
+async function readHeadTime(git, repoRoot, fallback) {
+  const result = await git.run(["-C", repoRoot, "log", "-1", "--format=%ct", "HEAD"], repoRoot);
+  const seconds = result.ok ? Number(result.stdout.trim()) : Number.NaN;
+  return Number.isFinite(seconds) ? seconds * 1e3 : fallback;
+}
+function filterCommits(commits, email, seen) {
+  return commits.filter((commit) => {
+    if (email && commit.authorEmail.toLocaleLowerCase() !== email) return false;
+    const key = `${commit.authoredAt}|${commit.subject}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function stateAfter(previous, commits, headAt, head = previous.head) {
+  const seen = [...previous.seen];
+  for (const commit of commits) {
+    const key = `${commit.authoredAt}|${commit.subject}`;
+    if (!seen.includes(key)) seen.push(key);
+  }
+  return { head, lastCommitAt: headAt || commits.at(-1)?.committedAt || previous.lastCommitAt, seen: seen.slice(-200) };
+}
+function toCount(value) {
+  const count = Number(value);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+}
+
+// integrations/recorder/src/store/privacy.ts
+var import_node_fs7 = require("node:fs");
+var import_node_path8 = require("node:path");
+function isPromptTextAllowed(home, env) {
+  if (env.DEVERDESK_NO_PROMPT_TEXT === "1") return false;
+  try {
+    const config = JSON.parse((0, import_node_fs7.readFileSync)((0, import_node_path8.join)(home, "config.json"), "utf8"));
+    if (isRecord3(config) && isRecord3(config.privacy) && config.privacy.promptText === false) return false;
+  } catch {
+  }
+  return true;
+}
+function isRecord3(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// integrations/recorder/src/commands/backfill.ts
+var DAY_MS2 = 24 * 60 * 60 * 1e3;
+function emptyStats() {
+  return { files: 0, sessions: 0, events: 0, skippedFiles: 0 };
+}
+function withoutPromptText(event) {
+  const safe = { ...event };
+  delete safe.text;
+  return safe;
+}
+function eventIdentity(event) {
+  return `${event.session}|${event.kind}|${event.t}`;
+}
+function defaultResolveFirstLive(home) {
+  return readState(home).firstLiveEvent;
+}
+async function runBackfill(options, dependencies) {
+  if (!Number.isSafeInteger(options.days) || options.days < 1) throw new Error("--days \u5FC5\u987B\u662F\u6B63\u6574\u6570");
+  const now = dependencies.now ?? Date.now();
+  const home = dependencies.home ?? recorderHome(dependencies.env);
+  const since = now - options.days * DAY_MS2;
+  const firstLive = (dependencies.readFirstLive ?? defaultResolveFirstLive)(home);
+  const git = dependencies.git ?? createGitRunner();
+  const resolveDir = dependencies.resolveDir ?? createDirNameResolver(git, dependencies.pathExists ?? (async (path) => (0, import_node_fs8.existsSync)(path)));
+  const findCommits = dependencies.findCommits ?? createCommitFinder(git);
+  const env = dependencies.env;
+  const promptTextAllowed = isPromptTextAllowed(home, env);
+  const selected = options.agent === "all" ? ["claude-code", "codex"] : [options.agent];
+  const existing = (dependencies.readEvents ?? readEvents)(home, { now });
+  const identities = new Set(existing.map(eventIdentity));
+  const reports = [];
+  for (const agent of selected) {
+    const stats = emptyStats();
+    const agentOptions = {
+      root: agent === "claude-code" ? (0, import_node_path9.join)(env.CLAUDE_CONFIG_DIR || (0, import_node_path9.join)((0, import_node_os2.homedir)(), ".claude"), "projects") : (0, import_node_path9.join)(env.CODEX_HOME || (0, import_node_path9.join)((0, import_node_os2.homedir)(), ".codex"), "sessions"),
+      since,
+      until: firstLive[agent] ?? Number.POSITIVE_INFINITY,
+      resolveDir,
+      findCommits
+    };
+    const generate = agent === "claude-code" ? dependencies.backfillClaudeCode ?? backfillClaudeCode : dependencies.backfillCodex ?? backfillCodex;
+    let added = 0;
+    const pendingEvents = [];
+    for await (const event of generate(agentOptions, stats)) {
+      const storedEvent = event.kind === "prompt" && !promptTextAllowed ? withoutPromptText(event) : event;
+      const identity = eventIdentity(storedEvent);
+      if (identities.has(identity)) continue;
+      identities.add(identity);
+      added += 1;
+      pendingEvents.push(storedEvent);
+    }
+    if (!options.dryRun) {
+      for (const event of pendingEvents) (dependencies.appendEvent ?? appendEvent)(home, event);
+    }
+    reports.push(`${agent}\uFF1A\u6587\u4EF6 ${stats.files}\uFF0C\u4F1A\u8BDD ${stats.sessions}\uFF0C\u4E8B\u4EF6 ${added}${stats.skippedFiles ? `\uFF0C\u8DF3\u8FC7\u6587\u4EF6 ${stats.skippedFiles}` : ""}`);
+  }
+  const heading = options.dryRun ? "\u56DE\u586B\u9884\u89C8" : "\u56DE\u586B\u5B8C\u6210";
+  return `${heading}
+${reports.join("\n")}
+\u8FD0\u884C deverdesk-recorder sync \u4E0A\u4F20\u5DF2\u7ED1\u5B9A\u76EE\u5F55\u7684\u8BB0\u5F55\u3002`;
+}
+
+// integrations/recorder/src/commands/doctor.ts
+var import_node_fs11 = require("node:fs");
+var import_node_os4 = require("node:os");
+var import_node_path12 = require("node:path");
+
+// src/sync/recorder-protocol.ts
+var RECORDER_PATHS = {
+  bindings: "/api/recorder/bindings",
+  briefing: "/api/recorder/briefing",
+  upload: "/api/recorder/upload",
+  live: "/api/recorder/live"
+};
+var UPLOAD_MAX_TASKS = 10;
+var UPLOAD_MAX_ENTRIES_PER_TASK = 20;
+var UPLOAD_MAX_COMMITS_PER_TASK = 20;
+var UPLOAD_MAX_CHANGES = 30;
+var UPLOAD_TITLE_MAX = 80;
+var LIVE_EXPIRE_MS = 5 * 6e4;
+var LIVE_MAX_WINDOWS = 20;
+
+// src/domain/dir-names.ts
+function dirNameKey(name) {
+  return name.trim().normalize("NFC").toLowerCase();
+}
+
+// integrations/recorder/src/core/dedupe.ts
+var KIND_ORDER = {
+  start: 0,
+  stop: 1,
+  prompt: 2,
+  end: 3,
+  done: 4,
+  commit: 5
+};
+function compareText(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function nonempty(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+function commitDirectory(commit) {
+  if (nonempty(commit.dir)) return commit.dir;
+  const repo = commit.repo.replace(/[\\/]\.git(?:[\\/])?$/i, "");
+  return dirNameFromPath(repo);
+}
+function validKind(value) {
+  return value === "start" || value === "stop" || value === "prompt" || value === "end" || value === "done" || value === "commit";
+}
+function validateEvents(events) {
+  const valid = [];
+  for (const value of events) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const record = value;
+    if (!Number.isFinite(record.t) || !nonempty(record.agent) || !nonempty(record.session) || !validKind(record.kind)) continue;
+    if (record.kind === "commit") {
+      if (!nonempty(record.repo) || !nonempty(record.sha) || !nonempty(record.subject)) continue;
+      const commit = record;
+      const dir = commitDirectory(commit);
+      if (!nonempty(dir)) continue;
+      valid.push({
+        ...record,
+        dir,
+        additions: Number.isFinite(record.additions) ? record.additions : 0,
+        deletions: Number.isFinite(record.deletions) ? record.deletions : 0
+      });
+      continue;
+    }
+    if (!nonempty(record.dir)) continue;
+    valid.push(record);
+  }
+  return valid;
+}
+function dedupeKeys(event) {
+  if (event.kind === "commit") {
+    return [
+      JSON.stringify(["commit-repo", event.repo, event.sha]),
+      JSON.stringify(["commit-directory", commitDirectory(event).toLowerCase(), event.sha])
+    ];
+  }
+  return [JSON.stringify([event.agent, event.session, event.kind, event.t])];
+}
+function canonical(event) {
+  const record = event;
+  const normalized = Object.fromEntries(Object.keys(record).sort().map((key) => [key, record[key]]));
+  return JSON.stringify(normalized) ?? "";
+}
+function dedupeAndSort(events) {
+  const candidates = validateEvents(events).map((event, index) => {
+    const identity = dedupeKeys(event);
+    return {
+      event,
+      index,
+      identity,
+      sortKey: event.kind === "commit" ? JSON.stringify(["commit", event.repo, event.sha]) : identity[0] ?? "",
+      value: canonical(event)
+    };
+  });
+  const parents = candidates.map((_, index) => index);
+  const owners = /* @__PURE__ */ new Map();
+  function findRoot(index) {
+    let root = index;
+    while (parents[root] !== root) root = parents[root] ?? root;
+    let current = index;
+    while (parents[current] !== current) {
+      const parent = parents[current];
+      if (parent === void 0) break;
+      parents[current] = root;
+      current = parent;
+    }
+    return root;
+  }
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    if (!candidate) continue;
+    for (const key of candidate.identity) {
+      const owner = owners.get(key);
+      if (owner !== void 0) {
+        const currentRoot = findRoot(index);
+        const ownerRoot = findRoot(owner);
+        if (currentRoot !== ownerRoot) parents[ownerRoot] = currentRoot;
+      }
+      owners.set(key, index);
+    }
+  }
+  const groups = /* @__PURE__ */ new Map();
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    if (!candidate) continue;
+    const root = findRoot(index);
+    const group = groups.get(root) ?? [];
+    group.push(candidate);
+    groups.set(root, group);
+  }
+  const unique = [...groups.values()].map((group) => group.reduce((best, candidate) => compareText(candidate.value, best.value) < 0 || candidate.value === best.value && candidate.index < best.index ? candidate : best));
+  unique.sort((a, b) => a.event.t - b.event.t || KIND_ORDER[a.event.kind] - KIND_ORDER[b.event.kind] || compareText(a.sortKey, b.sortKey) || compareText(a.value, b.value) || a.index - b.index);
+  return unique.map(({ event }) => event);
+}
+
+// integrations/recorder/src/core/attribution.ts
+function commitIdentity(commit) {
+  return JSON.stringify([commitDirectory(commit).toLowerCase(), commit.sha]);
+}
+function lastBefore(events, t) {
+  let low = 0;
+  let high = events.length;
+  while (low < high) {
+    const middle = low + high >>> 1;
+    const event = events[middle];
+    if (event && event.t < t) low = middle + 1;
+    else high = middle;
+  }
+  return events[low - 1];
+}
+function sessionBefore(a, b) {
+  if (a.session !== b.session) return a.session < b.session ? -1 : 1;
+  if (a.agent !== b.agent) return a.agent < b.agent ? -1 : 1;
+  return 0;
+}
+function assignCommits(windows, commits) {
+  const assigned = /* @__PURE__ */ new Map();
+  for (const commit of commits) {
+    const candidates = [...windows.values()].filter((window) => window.dir.toLowerCase() === commit.dir.toLowerCase()).map((window) => ({ window, last: lastBefore(window.presenceEvents, commit.t) })).filter((candidate) => candidate.last !== void 0);
+    const prompts = candidates.filter((candidate) => candidate.last.kind === "prompt");
+    prompts.sort((a, b) => b.last.t - a.last.t || sessionBefore(a.window, b.window));
+    if (prompts[0]) {
+      assigned.set(commitIdentity(commit), prompts[0].window);
+      continue;
+    }
+    const recent = candidates.filter((candidate) => commit.t - candidate.last.t < PRESENCE_GAP);
+    recent.sort((a, b) => b.last.t - a.last.t || sessionBefore(a.window, b.window));
+    if (recent[0]) assigned.set(commitIdentity(commit), recent[0].window);
+  }
+  return assigned;
+}
+
+// integrations/recorder/src/core/presence.ts
+function windowKey(agent, session) {
+  return `${agent}|${session}`;
+}
+function groupWindows(events) {
+  const windows = /* @__PURE__ */ new Map();
+  for (const event of events) {
+    if (event.kind === "commit") continue;
+    const key = windowKey(event.agent, event.session);
+    let window = windows.get(key);
+    if (!window) {
+      window = { key, agent: event.agent, session: event.session, dir: event.dir, events: [], presenceEvents: [] };
+      windows.set(key, window);
+    }
+    window.events.push(event);
+    if (event.kind === "prompt" || event.kind === "stop" || event.kind === "end") window.presenceEvents.push(event);
+  }
+  return windows;
+}
+function coalesceIntervals(intervals) {
+  const sorted = intervals.filter((interval) => interval.end > interval.start).map((interval) => ({ ...interval })).sort((a, b) => a.start - b.start || a.end - b.end);
+  const merged = [];
+  for (const interval of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && interval.start <= last.end) last.end = Math.max(last.end, interval.end);
+    else merged.push(interval);
+  }
+  return merged;
+}
+function buildPresenceIntervals(windows, now) {
+  const result = /* @__PURE__ */ new Map();
+  for (const [key, window] of windows) {
+    const signals = window.presenceEvents.filter((event) => event.t <= now);
+    const intervals = [];
+    for (let index = 0; index < signals.length; index += 1) {
+      const current = signals[index];
+      const next = signals[index + 1];
+      if (!current) continue;
+      if (current.kind === "prompt") {
+        const end = Math.min(current.t + AI_ALONE_CAP, next?.t ?? now, now);
+        if (end > current.t) intervals.push({ start: current.t, end });
+      } else if (next && (next.kind === "prompt" || next.kind === "end") && next.t - current.t < PRESENCE_GAP) {
+        if (next.t > current.t) intervals.push({ start: current.t, end: next.t });
+      }
+    }
+    result.set(key, coalesceIntervals(intervals));
+  }
+  return result;
+}
+
+// integrations/recorder/src/core/share.ts
+function compareText2(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function splitAndShare(source) {
+  const intervals = /* @__PURE__ */ new Map();
+  const endpoints = [];
+  for (const [key, raw] of source) {
+    const merged = coalesceIntervals(raw);
+    intervals.set(key, merged);
+    for (const interval of merged) {
+      endpoints.push({ t: interval.start, windowKey: key, delta: 1 });
+      endpoints.push({ t: interval.end, windowKey: key, delta: -1 });
+    }
+  }
+  const runs = new Map([...intervals.keys()].map((key) => [key, []]));
+  endpoints.sort((a, b) => a.t - b.t || a.delta - b.delta || compareText2(a.windowKey, b.windowKey));
+  const active = /* @__PURE__ */ new Set();
+  let cursor = endpoints[0]?.t;
+  let index = 0;
+  while (index < endpoints.length) {
+    const t = endpoints[index]?.t;
+    if (t === void 0) break;
+    if (cursor !== void 0 && t > cursor && active.size > 0) {
+      const duration = t - cursor;
+      const exactMinutes2 = duration / 6e4 / active.size;
+      for (const key of active) {
+        const fragment = { start: cursor, end: t, exactMinutes: exactMinutes2, activeWindows: active.size };
+        const windowRuns = runs.get(key);
+        if (!windowRuns) continue;
+        const last = windowRuns[windowRuns.length - 1];
+        if (last && last.end === cursor) {
+          last.end = t;
+          last.exactMinutes += exactMinutes2;
+          last.fragments.push(fragment);
+        } else {
+          windowRuns.push({ start: cursor, end: t, exactMinutes: exactMinutes2, fragments: [fragment] });
+        }
+      }
+    }
+    while (index < endpoints.length && endpoints[index]?.t === t) {
+      const endpoint = endpoints[index];
+      if (endpoint) {
+        if (endpoint.delta < 0) active.delete(endpoint.windowKey);
+        else active.add(endpoint.windowKey);
+      }
+      index += 1;
+    }
+    cursor = t;
+  }
+  return runs;
+}
+function exactMinutesBetween(run, start, end) {
+  let low = 0;
+  let high = run.fragments.length;
+  while (low < high) {
+    const middle = low + high >>> 1;
+    const fragment = run.fragments[middle];
+    if (fragment && fragment.end <= start) low = middle + 1;
+    else high = middle;
+  }
+  let minutes = 0;
+  for (let index = low; index < run.fragments.length; index += 1) {
+    const fragment = run.fragments[index];
+    if (!fragment || fragment.start >= end) break;
+    const from = Math.max(start, fragment.start);
+    const to = Math.min(end, fragment.end);
+    if (to > from) minutes += (to - from) / 6e4 / fragment.activeWindows;
+  }
+  return minutes;
+}
+
+// integrations/recorder/src/core/rounding.ts
+var EPSILON = 1e-9;
+function roundEntries(rawEntries, taskKey2, sourceMarker) {
+  const kept = rawEntries.map((entry, index) => ({ ...entry, index })).filter((entry) => entry.exactMinutes + EPSILON >= MIN_ENTRY / 6e4);
+  const exactMinutes2 = kept.reduce((sum, entry) => sum + entry.exactMinutes, 0);
+  const totalMinutes = Math.floor(exactMinutes2 + 0.5 + EPSILON);
+  const allocations = kept.map((entry) => ({
+    ...entry,
+    minutes: Math.floor(entry.exactMinutes),
+    fraction: entry.exactMinutes - Math.floor(entry.exactMinutes)
+  }));
+  let remainder = totalMinutes - allocations.reduce((sum, entry) => sum + entry.minutes, 0);
+  const remainderOrder = [...allocations].sort((a, b) => {
+    const difference = b.fraction - a.fraction;
+    if (Math.abs(difference) > EPSILON) return difference;
+    return a.start - b.start || a.index - b.index;
+  });
+  for (const entry of remainderOrder) {
+    if (remainder <= 0) break;
+    entry.minutes += 1;
+    remainder -= 1;
+  }
+  const entries = allocations.filter((entry) => entry.minutes > 0).sort((a, b) => a.start - b.start || a.end - b.end || a.index - b.index).map((entry) => ({
+    key: `${taskKey2}#${entry.start}#${sourceMarker}`,
+    start: entry.start,
+    end: entry.end,
+    minutes: entry.minutes,
+    exactMinutes: entry.exactMinutes
+  }));
+  return { entries, minutes: entries.reduce((sum, entry) => sum + entry.minutes, 0), exactMinutes: exactMinutes2 };
+}
+
+// integrations/recorder/src/core/titles.ts
+var COMMIT_PREFIX = /^\s*(?:feat|fix|docs|refactor|test|chore|perf|style|build|ci|revert)(?:\([^()\r\n]*\))?!?\s*[:：]\s*/i;
+var TASK_REFERENCE = /\bT-(\d{1,6})\b/i;
+var TASK_REFERENCE_LINE = /^\s*(?:Closes|Fixes|Refs|Task|Done|完成了?|关闭了?)(?:(?:\s*[:：]\s*)|\s+|(?=T-))/i;
+function truncate(value, max) {
+  const chars = [...value];
+  return chars.length > max ? `${chars.slice(0, Math.max(0, max - 1)).join("")}\u2026` : value;
+}
+function cleanCommitSubject(subject) {
+  const stripped = subject.replace(COMMIT_PREFIX, "").trim();
+  return truncate(stripped || subject, TASK_TITLE_MAX);
+}
+function taskSeqFromCommit(commit) {
+  const subjectFirstLine = commit.subject.split(/\r?\n/, 1)[0] ?? "";
+  const firstLineRef = subjectFirstLine.match(TASK_REFERENCE);
+  if (firstLineRef?.[1]) return Number(firstLineRef[1]);
+  const bodyLines = (commit.body ?? "").split(/\r?\n/);
+  for (const line of bodyLines) {
+    const prefix = line.match(TASK_REFERENCE_LINE);
+    if (!prefix) continue;
+    const match = line.slice(prefix[0].length).match(TASK_REFERENCE);
+    if (match?.[1]) return Number(match[1]);
+  }
+  return void 0;
+}
+function firstSentence(text) {
+  return text.split(/[。！？!?\r\n]+|\.(?=\s|$)/).map((sentence) => sentence.trim()).find(Boolean) ?? "";
+}
+function fallbackTitle(events, start, end, clock = utcTime, range = { start, end }) {
+  const prompts = events.filter((event) => event.kind === "prompt" && event.t >= start && event.t <= end);
+  for (const prompt of prompts) {
+    if (!prompt.text?.trim()) continue;
+    const sentence = firstSentence(prompt.text);
+    if (sentence) return truncate(sentence, FALLBACK_TITLE_MAX);
+  }
+  return `Coding ${clock(range.start)}\u2013${clock(range.end)}`;
+}
+function utcTime(t) {
+  const date = new Date(t);
+  if (Number.isNaN(date.getTime())) return "00:00";
+  return date.toISOString().slice(11, 16);
+}
+
+// integrations/recorder/src/core/arrivals.ts
+var EPSILON2 = 1e-9;
+function compareText3(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function effectiveCommitTime(commit) {
+  return Number.isFinite(commit.seenAt) ? Math.max(commit.t, commit.seenAt) : commit.t;
+}
+function motionOrder(event) {
+  if (event.kind === "start") return 0;
+  if (event.kind === "stop") return 1;
+  if (event.kind === "prompt") return 2;
+  if (event.kind === "end") return 3;
+  if (event.kind === "done") return 4;
+  return 5;
+}
+function markerFor(event) {
+  return `${event.kind === "done" ? "d" : "e"}:${event.t}`;
+}
+function idleTime(at, runs) {
+  let end = at;
+  for (const run of runs) {
+    if (run.start <= at) end = Math.max(end, run.end);
+    else break;
+  }
+  return end;
+}
+function collectArrivals(windows, runs, assignments, commits, now) {
+  const result = new Map([...windows.keys()].map((key) => [key, []]));
+  const assignedCommits = /* @__PURE__ */ new Map();
+  for (const event of commits) {
+    if (event.t > now || effectiveCommitTime(event) > now) continue;
+    const owner = assignments.get(commitIdentity(event));
+    if (!owner) continue;
+    const list = assignedCommits.get(owner.key) ?? [];
+    list.push(event);
+    assignedCommits.set(owner.key, list);
+  }
+  for (const [key, commits2] of assignedCommits) {
+    commits2.sort((a, b) => effectiveCommitTime(a) - effectiveCommitTime(b) || a.t - b.t || compareText3(a.repo, b.repo) || compareText3(a.sha, b.sha));
+    const arrivals = result.get(key);
+    if (!arrivals) continue;
+    let index = 0;
+    while (index < commits2.length) {
+      const batch = [];
+      const first = commits2[index];
+      if (!first) break;
+      batch.push(first);
+      index += 1;
+      let previous = first;
+      while (index < commits2.length) {
+        const next = commits2[index];
+        if (!next || next.t < previous.t || next.t - previous.t >= BURST_GAP || effectiveCommitTime(next) - effectiveCommitTime(previous) >= BURST_GAP) break;
+        batch.push(next);
+        previous = next;
+        index += 1;
+      }
+      const last = batch[batch.length - 1];
+      if (last) arrivals.push({
+        source: "commit",
+        t: last.t,
+        orderAt: effectiveCommitTime(last),
+        marker: `c:${first.sha}`,
+        commits: batch
+      });
+    }
+  }
+  for (const [key, window] of windows) {
+    const arrivals = result.get(key);
+    const windowRuns = runs.get(key) ?? [];
+    if (!arrivals) continue;
+    for (const event of window.events) {
+      if (event.t > now) continue;
+      if (event.kind === "done") arrivals.push({ source: "done", t: event.t, orderAt: event.t, marker: markerFor(event), event });
+    }
+    const signals = window.presenceEvents.filter((event) => event.t <= now);
+    for (let index = 0; index < signals.length; index += 1) {
+      const event = signals[index];
+      if (event?.kind !== "end") continue;
+      const next = signals[index + 1];
+      const confirmed = next ? next.t - event.t >= PRESENCE_GAP : now - event.t >= PRESENCE_GAP;
+      if (confirmed) arrivals.push({ source: "end", t: event.t, orderAt: event.t, marker: markerFor(event), event });
+    }
+    const motions = [
+      ...window.events.filter((event) => event.t <= now),
+      ...(assignedCommits.get(key) ?? []).filter((event) => event.t <= now && effectiveCommitTime(event) <= now)
+    ];
+    motions.sort((a, b) => a.t - b.t || motionOrder(a) - motionOrder(b) || (a.kind === "commit" && b.kind === "commit" ? compareText3(a.repo, b.repo) || compareText3(a.sha, b.sha) : compareText3(a.kind, b.kind)));
+    for (let index = 0; index < motions.length; index += 1) {
+      const previous = motions[index];
+      const next = motions[index + 1];
+      if (!previous) continue;
+      if (next && next.t - previous.t >= IDLE_ARRIVAL) {
+        const t = idleTime(previous.t, windowRuns);
+        arrivals.push({ source: "idle", t, orderAt: t, marker: `i:${t}` });
+      }
+      if (!next && now - previous.t >= IDLE_ARRIVAL) {
+        const t = idleTime(previous.t, windowRuns);
+        arrivals.push({ source: "idle", t, orderAt: t, marker: `i:${t}` });
+      }
+    }
+    arrivals.sort((a, b) => a.orderAt - b.orderAt || sourceOrder(a.source) - sourceOrder(b.source) || a.t - b.t || compareText3(a.marker, b.marker));
+  }
+  return result;
+}
+function sourceOrder(source) {
+  if (source === "commit") return 0;
+  if (source === "done") return 1;
+  if (source === "end") return 2;
+  return 3;
+}
+function entriesBetween(state, end) {
+  const entries = [];
+  while (state.runIndex < state.runs.length) {
+    const run = state.runs[state.runIndex];
+    if (!run || run.end > state.cursor) break;
+    state.runIndex += 1;
+  }
+  for (let index = state.runIndex; index < state.runs.length; index += 1) {
+    const run = state.runs[index];
+    if (!run || run.start >= end) break;
+    const start = Math.max(state.cursor, run.start);
+    const finish = Math.min(end, run.end);
+    if (finish > start) {
+      entries.push({ start, end: finish, exactMinutes: exactMinutesBetween(run, start, finish) });
+    }
+    if (run.end <= end) state.runIndex = index + 1;
+  }
+  return entries;
+}
+function below(value, threshold) {
+  return value + EPSILON2 < threshold;
+}
+function exactMinutes(entries) {
+  return entries.reduce((sum, entry) => sum + entry.exactMinutes, 0);
+}
+function rowWeight(commit) {
+  return Math.max(1, commit.additions + commit.deletions);
+}
+function weighted(entries, weight, totalWeight) {
+  return entries.map((entry) => ({ ...entry, exactMinutes: entry.exactMinutes * weight / totalWeight }));
+}
+function taskKey(window, marker) {
+  return `${window.agent}:${window.session}:${marker}`;
+}
+function mapEntryKeys(entries, key, marker) {
+  return entries.map((entry) => ({
+    key: `${key}#${entry.start}#${marker}`,
+    start: entry.start,
+    end: entry.end,
+    minutes: entry.minutes
+  }));
+}
+function canMerge(state, t) {
+  const previous = state.tasks[state.tasks.length - 1];
+  if (!previous || t < previous.finishedAt || t - previous.finishedAt > MERGE_WINDOW) return void 0;
+  return previous;
+}
+function baseTask(state, source, marker, t, title, entries, commits = [], taskSeq) {
+  const key = taskKey(state.window, marker);
+  return {
+    key,
+    agent: state.window.agent,
+    session: state.window.session,
+    dir: state.window.dir,
+    source,
+    title,
+    finishedAt: t,
+    commits,
+    ...taskSeq === void 0 ? {} : { taskSeq },
+    entries: mapEntryKeys(entries, key, marker)
+  };
+}
+function appendTo(previous, entries, marker, commits = []) {
+  previous.entries.push(...mapEntryKeys(entries, previous.key, marker));
+  previous.commits.push(...commits);
+}
+function processCommitBatch(state, arrival, raw) {
+  const commits = arrival.commits ?? [];
+  const weights = commits.map(rowWeight);
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  for (let index = 0; index < commits.length; index += 1) {
+    const commit = commits[index];
+    const weight = weights[index];
+    if (!commit || weight === void 0) continue;
+    const marker = `c:${commit.sha}`;
+    const key = taskKey(state.window, marker);
+    const allocated = weighted(raw, weight, totalWeight || 1);
+    const exact = exactMinutes(allocated);
+    const taskSeq = taskSeqFromCommit(commit);
+    const previous = taskSeq === void 0 && below(exact, MICRO_TASK / 6e4) ? canMerge(state, arrival.t) : void 0;
+    const rounded = roundEntries(allocated, previous?.key ?? key, marker);
+    const taskCommits = [{ sha: commit.sha, subject: commit.subject }];
+    if (taskSeq !== void 0) {
+      state.tasks.push(baseTask(state, "commit", marker, arrival.t, cleanCommitSubject(commit.subject), rounded.entries, taskCommits, taskSeq));
+    } else if (previous) {
+      appendTo(previous, rounded.entries, marker, taskCommits);
+    } else if (!below(exact, MICRO_TASK / 6e4) || !below(exact, MIN_STANDALONE_TASK / 6e4)) {
+      state.tasks.push(baseTask(state, "commit", marker, arrival.t, cleanCommitSubject(commit.subject), rounded.entries, taskCommits));
+    }
+  }
+}
+function processArrival(state, arrival, clock) {
+  const raw = entriesBetween(state, arrival.t);
+  if (arrival.source === "commit") {
+    processCommitBatch(state, arrival, raw);
+    state.cursor = Math.max(state.cursor, arrival.t);
+    return;
+  }
+  const ownKey = taskKey(state.window, arrival.marker);
+  const exact = exactMinutes(raw);
+  const previous = below(exact, MICRO_TASK / 6e4) ? canMerge(state, arrival.t) : void 0;
+  const rounded = roundEntries(raw, previous?.key ?? ownKey, arrival.marker);
+  if (previous) {
+    appendTo(previous, rounded.entries, arrival.marker);
+  } else if (arrival.source === "done" || !below(exact, MICRO_TASK / 6e4)) {
+    const firstEntry = rounded.entries[0];
+    const lastEntry = rounded.entries[rounded.entries.length - 1];
+    const title = arrival.event?.kind === "done" ? arrival.event.title : fallbackTitle(
+      state.window.events,
+      state.cursor,
+      arrival.t,
+      clock,
+      {
+        start: firstEntry?.start ?? raw[0]?.start ?? state.cursor,
+        end: lastEntry?.end ?? raw[raw.length - 1]?.end ?? arrival.t
+      }
+    );
+    state.tasks.push(baseTask(state, arrival.source, arrival.marker, arrival.t, title, rounded.entries));
+  }
+  state.cursor = Math.max(state.cursor, arrival.t);
+}
+function buildTasksByWindow(windows, runs, assignments, commits, now, clock) {
+  const arrivals = collectArrivals(windows, runs, assignments, commits, now);
+  const tasks = /* @__PURE__ */ new Map();
+  const cursors = /* @__PURE__ */ new Map();
+  for (const [key, window] of windows) {
+    const windowRuns = runs.get(key) ?? [];
+    const firstCounted = windowRuns[0]?.start;
+    const stableArrivals = (arrivals.get(key) ?? []).filter((arrival) => arrival.orderAt <= now && arrival.t + SETTLE_DELAY <= now);
+    const firstArrival = stableArrivals[0];
+    const initialCursor = firstCounted ?? firstArrival?.t ?? 0;
+    const state = { window, runs: windowRuns, runIndex: 0, cursor: initialCursor, tasks: [] };
+    for (const arrival of stableArrivals) processArrival(state, arrival, clock);
+    tasks.set(key, state.tasks);
+    cursors.set(key, state.cursor);
+  }
+  return { tasks, cursors };
+}
+function allWindowTasks(tasks) {
+  return [...tasks.values()].flatMap((windowTasks) => [...windowTasks]).sort((a, b) => a.finishedAt - b.finishedAt || compareText3(a.key, b.key));
+}
+
+// integrations/recorder/src/core/engine.ts
+function compareText4(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function currentTail(window, now) {
+  const signals = window.presenceEvents.filter((event) => event.t <= now);
+  const last = signals[signals.length - 1];
+  if (!last || last.kind === "prompt") return void 0;
+  return now - last.t < PRESENCE_GAP && now > last.t ? { start: last.t, end: now } : void 0;
+}
+function isOpen(window, now) {
+  const signals = window.presenceEvents.filter((event) => event.t <= now);
+  const last = signals[signals.length - 1];
+  if (!last) return false;
+  if (last.kind === "prompt") return now < last.t + AI_ALONE_CAP;
+  return now - last.t < PRESENCE_GAP;
+}
+function openWindows(windows, confirmed, cursors, now) {
+  const activeIntervals = /* @__PURE__ */ new Map();
+  for (const [key, intervals] of confirmed) activeIntervals.set(key, [...intervals]);
+  for (const [key, window] of windows) {
+    if (!isOpen(window, now)) continue;
+    const tail = currentTail(window, now);
+    if (tail) activeIntervals.set(key, coalesceIntervals([...activeIntervals.get(key) ?? [], tail]));
+  }
+  const shared = splitAndShare(activeIntervals);
+  const open = [];
+  for (const [key, window] of windows) {
+    if (!isOpen(window, now)) continue;
+    const cursor = cursors.get(key) ?? 0;
+    const runs = shared.get(key) ?? [];
+    let since;
+    let exactMinutes2 = 0;
+    for (const run of runs) {
+      const start = Math.max(cursor, run.start);
+      if (run.end <= start) continue;
+      if (since === void 0) since = start;
+      exactMinutes2 += exactMinutesBetween(run, start, run.end);
+    }
+    if (since === void 0) continue;
+    open.push({
+      session: window.session,
+      dir: window.dir,
+      agent: window.agent,
+      since,
+      minutes: Math.floor(exactMinutes2 + 0.5 + 1e-9)
+    });
+  }
+  return open.sort((a, b) => compareText4(a.agent, b.agent) || compareText4(a.session, b.session));
+}
+function computeTasks(events, now, options) {
+  const ordered = dedupeAndSort(events);
+  const windows = groupWindows(ordered);
+  const presence = buildPresenceIntervals(windows, now);
+  const shared = splitAndShare(presence);
+  const commits = ordered.filter((event) => event.kind === "commit" && event.t <= now && (Number.isFinite(event.seenAt) ? Math.max(event.t, event.seenAt) <= now : true));
+  const assignments = assignCommits(windows, commits);
+  const built = buildTasksByWindow(windows, shared, assignments, commits, now, options?.clock);
+  const tasks = allWindowTasks(built.tasks);
+  return { tasks, open: openWindows(windows, presence, built.cursors, now) };
+}
+
+// integrations/recorder/src/store/config.ts
+var import_node_fs9 = require("node:fs");
+var import_node_path10 = require("node:path");
+function loadCredentials(home, env = process.env) {
+  const candidates = [
+    { url: env.DEVERDESK_URL, token: env.DEVERDESK_TOKEN, source: "env" },
+    { url: env.CLAUDE_PLUGIN_OPTION_SERVER_URL, token: env.CLAUDE_PLUGIN_OPTION_TOKEN, source: "plugin" }
+  ];
+  for (const candidate of candidates) {
+    const credentials = normalizeCredentials(candidate.url, candidate.token, candidate.source);
+    if (credentials) return credentials;
+  }
+  try {
+    const config = JSON.parse((0, import_node_fs9.readFileSync)((0, import_node_path10.join)(home, "config.json"), "utf8"));
+    if (!isRecord4(config)) return null;
+    return normalizeCredentials(config.url, config.token, "config");
+  } catch {
+    return null;
+  }
+}
+function saveConfig(home, config) {
+  (0, import_node_fs9.mkdirSync)(home, { recursive: true });
+  const filePath = (0, import_node_path10.join)(home, "config.json");
+  (0, import_node_fs9.writeFileSync)(filePath, `${JSON.stringify(config, null, 2)}
+`, { encoding: "utf8", mode: 384 });
+  try {
+    (0, import_node_fs9.chmodSync)(filePath, 384);
+  } catch {
+  }
+}
+function normalizeCredentials(url, token, source) {
+  if (typeof url !== "string" || typeof token !== "string" || token.length === 0) return null;
+  const normalizedUrl = url.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(normalizedUrl)) return null;
+  return { url: normalizedUrl, token, source };
+}
+function isRecord4(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// integrations/recorder/src/upload/client.ts
+var RecorderHttpError = class extends Error {
+  status;
+  kind;
+  constructor(status, kind, message) {
+    super(message);
+    this.name = "RecorderHttpError";
+    this.status = status;
+    this.kind = kind;
+  }
+};
+var CLIENT_VERSION = "0.1.0";
+var RETRY_DELAYS = [500, 1500];
+function defaultSleep(ms) {
+  return new Promise((resolve2) => setTimeout(resolve2, ms));
+}
+function responseMessage(body, fallback) {
+  if (typeof body === "object" && body !== null && "message" in body && typeof body.message === "string") {
+    return body.message;
+  }
+  if (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string") {
+    return body.error;
+  }
+  return fallback;
+}
+function kindForStatus(status) {
+  if (status === 401) return "auth";
+  if (status === 403) return "forbidden";
+  if (status >= 500) return "server";
+  return "invalid";
+}
+function createClient(options) {
+  const baseUrl = options.url.replace(/\/+$/u, "");
+  const fetcher = options.fetch ?? globalThis.fetch;
+  const timeoutMs = options.timeoutMs ?? 15e3;
+  const sleep2 = options.sleep ?? defaultSleep;
+  async function request(path, init = {}) {
+    let lastError;
+    for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetcher(`${baseUrl}${path}`, {
+          ...init,
+          headers: {
+            Authorization: `Bearer ${options.token}`,
+            "Content-Type": "application/json",
+            "User-Agent": `deverdesk-recorder/${CLIENT_VERSION}`,
+            ...init.headers
+          },
+          signal: controller.signal
+        });
+        if (!response.ok) {
+          let body;
+          try {
+            body = await response.json();
+          } catch {
+            body = void 0;
+          }
+          const status = response.status;
+          const error = new RecorderHttpError(status, kindForStatus(status), responseMessage(body, `\u670D\u52A1\u5668\u8FD4\u56DE HTTP ${status}`));
+          if (status >= 500 && attempt < RETRY_DELAYS.length) {
+            lastError = error;
+            await sleep2(RETRY_DELAYS[attempt] ?? 1500);
+            continue;
+          }
+          throw error;
+        }
+        if (response.status === 204) return void 0;
+        return await response.json();
+      } catch (error) {
+        if (error instanceof RecorderHttpError) throw error;
+        const timedOut = controller.signal.aborted;
+        lastError = new RecorderHttpError(0, "network", timedOut ? "\u8FDE\u63A5\u670D\u52A1\u5668\u8D85\u65F6" : `\u65E0\u6CD5\u8FDE\u63A5\u670D\u52A1\u5668\uFF1A${error instanceof Error ? error.message : String(error)}`);
+        if (attempt < RETRY_DELAYS.length) {
+          await sleep2(RETRY_DELAYS[attempt] ?? 1500);
+          continue;
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+    throw lastError ?? new RecorderHttpError(0, "network", "\u65E0\u6CD5\u8FDE\u63A5\u670D\u52A1\u5668");
+  }
+  return {
+    getBindings: () => request(RECORDER_PATHS.bindings),
+    getBriefing: (dir) => request(`${RECORDER_PATHS.briefing}?dir=${encodeURIComponent(dir)}`),
+    upload: (payload) => request(RECORDER_PATHS.upload, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+    putLive: async (payload) => {
+      await request(RECORDER_PATHS.live, { method: "PUT", body: JSON.stringify(payload) });
+    }
+  };
+}
+
+// integrations/recorder/src/commands/setup.ts
+var import_node_crypto3 = require("node:crypto");
+var import_node_fs10 = require("node:fs");
+var import_node_os3 = require("node:os");
+var import_node_path11 = require("node:path");
+var CODEX_HOOK_EVENTS = /* @__PURE__ */ new Set(["SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"]);
+function isManagedRecorderCommand(command) {
+  return /\bhook\s+codex\b/iu.test(command) && /(?:^|[\\/\s])deverdesk-recorder(?:\.(?:[cm]?js|exe))?(?=[\s"']|$)/iu.test(command);
+}
+function managedRecorderPathFromCommand(command) {
+  if (!isManagedRecorderCommand(command)) return void 0;
+  const match = /(?:"([^"]+)"|'([^']+)'|(\S+))\s+hook\s+codex\s+\S+/iu.exec(command);
+  const path = match?.[1] ?? match?.[2] ?? match?.[3];
+  return path ? (0, import_node_path11.resolve)(path) : void 0;
+}
+function resolveCodexHome(configured, homeDir = (0, import_node_os3.homedir)()) {
+  return configured?.trim() ? configured : (0, import_node_path11.join)(homeDir, ".codex");
+}
+function writeHooksAtomically(path, next, now) {
+  (0, import_node_fs10.mkdirSync)((0, import_node_path11.dirname)(path), { recursive: true });
+  const tempPath = `${path}.${process.pid}.${(0, import_node_crypto3.randomUUID)()}.tmp`;
+  let backup;
+  try {
+    (0, import_node_fs10.writeFileSync)(tempPath, `${JSON.stringify(next, null, 2)}
+`, { encoding: "utf8", flag: "wx" });
+    if ((0, import_node_fs10.existsSync)(path)) {
+      const stamp = new Date(now).toISOString().replace(/[:.]/gu, "-");
+      backup = `${path}.bak-${stamp}`;
+      (0, import_node_fs10.copyFileSync)(path, backup);
+    }
+    (0, import_node_fs10.renameSync)(tempPath, path);
+    return backup;
+  } finally {
+    try {
+      (0, import_node_fs10.unlinkSync)(tempPath);
+    } catch {
+    }
+  }
+}
+function sameRecorderPath(sourcePath, targetPath) {
+  if ((0, import_node_path11.resolve)(sourcePath) === (0, import_node_path11.resolve)(targetPath)) return true;
+  try {
+    return (0, import_node_fs10.realpathSync)(sourcePath) === (0, import_node_fs10.realpathSync)(targetPath);
+  } catch {
+    return false;
+  }
+}
+function installRecorder(sourcePath, recorderDirectory) {
+  const targetPath = (0, import_node_path11.resolve)(recorderDirectory, "bin", "deverdesk-recorder");
+  if (sameRecorderPath(sourcePath, targetPath)) return targetPath;
+  const tempPath = `${targetPath}.${process.pid}.${(0, import_node_crypto3.randomUUID)()}.tmp`;
+  try {
+    (0, import_node_fs10.mkdirSync)((0, import_node_path11.dirname)(targetPath), { recursive: true });
+    (0, import_node_fs10.copyFileSync)(sourcePath, tempPath);
+    if (process.platform !== "win32") (0, import_node_fs10.chmodSync)(tempPath, 493);
+    (0, import_node_fs10.renameSync)(tempPath, targetPath);
+  } catch (error) {
+    throw new Error(`\u65E0\u6CD5\u5B89\u88C5 Codex \u8BB0\u5F55\u5668\u5230\u56FA\u5B9A\u4F4D\u7F6E ${targetPath}\uFF08\u6765\u6E90 ${(0, import_node_path11.resolve)(sourcePath)}\uFF09\uFF1A${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    try {
+      (0, import_node_fs10.unlinkSync)(tempPath);
+    } catch {
+    }
+  }
+  return targetPath;
+}
+function isRecord5(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function recorderHookCommand(cliPath, event) {
+  return {
+    type: "command",
+    command: `node "${cliPath}" hook codex ${event}`,
+    ...event === "SessionEnd" ? { timeout: 3 } : {}
+  };
+}
+function prepareHooksFile(source, cliPath) {
+  if (!isRecord5(source)) throw new Error("hooks.json \u9876\u5C42\u5FC5\u987B\u662F JSON \u5BF9\u8C61");
+  const root = { ...source };
+  const existingHooks = root.hooks ?? {};
+  if (!isRecord5(existingHooks)) throw new Error("hooks.json \u7684 hooks \u5FC5\u987B\u662F\u5BF9\u8C61");
+  const hooks = { ...existingHooks };
+  for (const [event, value] of Object.entries(hooks)) {
+    if (!CODEX_HOOK_EVENTS.has(event) || !Array.isArray(value)) continue;
+    const groups = value.flatMap((group) => {
+      if (!isRecord5(group) || !Array.isArray(group.hooks)) return [group];
+      const commands = group.hooks.filter((item) => !(isRecord5(item) && typeof item.command === "string" && isManagedRecorderCommand(item.command)));
+      if (commands.length === 0) return [];
+      return [{ ...group, hooks: commands }];
+    });
+    hooks[event] = groups;
+  }
+  const absoluteCliPath = (0, import_node_path11.resolve)(cliPath);
+  for (const event of ["SessionStart", "UserPromptSubmit", "Stop", "SessionEnd"]) {
+    const groups = Array.isArray(hooks[event]) ? [...hooks[event]] : [];
+    groups.push({ hooks: [recorderHookCommand(absoluteCliPath, event)] });
+    hooks[event] = groups;
+  }
+  root.hooks = hooks;
+  return root;
+}
+function validateUrl(input) {
+  let parsed;
+  try {
+    parsed = new URL(input.trim());
+  } catch {
+    throw new Error("\u670D\u52A1\u5668\u5730\u5740\u5FC5\u987B\u662F\u6709\u6548\u7684 http \u6216 https \u5730\u5740");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:" || !parsed.hostname) {
+    throw new Error("\u670D\u52A1\u5668\u5730\u5740\u5FC5\u987B\u662F\u6709\u6548\u7684 http \u6216 https \u5730\u5740");
+  }
+  return input.trim().replace(/\/+$/u, "");
+}
+async function runSetup(options, dependencies) {
+  const url = validateUrl(options.url);
+  const token = options.token.trim();
+  if (!token) throw new Error("\u4EE4\u724C\u4E0D\u80FD\u4E3A\u7A7A");
+  const client = (dependencies.createClient ?? ((serverUrl, accessToken) => createClient({ url: serverUrl, token: accessToken })))(url, token);
+  try {
+    await client.getBindings();
+  } catch (error) {
+    if (error instanceof RecorderHttpError && error.kind === "auth") throw new Error("\u4EE4\u724C\u65E0\u6548\u6216\u5DF2\u8FC7\u671F\uFF0C\u672A\u4FDD\u5B58\u914D\u7F6E");
+    if (error instanceof RecorderHttpError && error.kind === "forbidden") throw new Error("\u4EE4\u724C\u6CA1\u6709\u8BFB\u53D6\u7ED1\u5B9A\u6E05\u5355\u7684\u6743\u9650\uFF0C\u672A\u4FDD\u5B58\u914D\u7F6E");
+    throw new Error(`\u8FDE\u63A5\u670D\u52A1\u5668\u5931\u8D25\uFF0C\u672A\u4FDD\u5B58\u914D\u7F6E\uFF1A${error instanceof Error ? error.message : String(error)}`);
+  }
+  const codexHome = resolveCodexHome(dependencies.codexHome ?? dependencies.env.CODEX_HOME, dependencies.homeDir);
+  const hooksPath = (0, import_node_path11.join)(codexHome, "hooks.json");
+  let existingHooks;
+  let nextHooks;
+  if (options.installCodexHooks) {
+    existingHooks = { hooks: {} };
+    if ((0, import_node_fs10.existsSync)(hooksPath)) {
+      try {
+        existingHooks = JSON.parse((0, import_node_fs10.readFileSync)(hooksPath, "utf8"));
+      } catch {
+        throw new Error("Codex hooks.json \u683C\u5F0F\u9519\u8BEF\uFF0C\u672A\u4FEE\u6539\u6587\u4EF6\u6216\u4FDD\u5B58\u914D\u7F6E");
+      }
+    }
+  }
+  const home = dependencies.home ?? recorderHome(dependencies.env);
+  let recorderPath;
+  if (options.installCodexHooks) {
+    recorderPath = installRecorder(dependencies.cliPath, home);
+    nextHooks = prepareHooksFile(existingHooks, recorderPath);
+  }
+  ;
+  (dependencies.saveConfig ?? saveConfig)(home, { url, token });
+  let hookMessage = "";
+  if (nextHooks && recorderPath) {
+    const backup = writeHooksAtomically(hooksPath, nextHooks, dependencies.now ?? Date.now());
+    hookMessage = `\uFF0C\u5DF2\u5B89\u88C5 Codex \u94A9\u5B50\uFF1A\u56FA\u5B9A\u8BB0\u5F55\u5668\u8DEF\u5F84 ${recorderPath}\uFF1Bhooks.json ${hooksPath}\uFF1B\u5907\u4EFD ${backup ?? "\u65E0\uFF08\u539F\u6587\u4EF6\u4E0D\u5B58\u5728\uFF09"}`;
+  }
+  const warning = token.startsWith("dd_") ? "" : "\u8B66\u544A\uFF1A\u4EE4\u724C\u901A\u5E38\u4EE5 dd_ \u5F00\u5934\u3002\n";
+  return `${warning}\u914D\u7F6E\u5DF2\u4FDD\u5B58\uFF1A${url}${hookMessage}`;
+}
+
+// integrations/recorder/src/commands/doctor.ts
+function eventLogBytes(home) {
+  let total = 0;
+  try {
+    for (const name of (0, import_node_fs11.readdirSync)((0, import_node_path12.join)(home, "events"))) {
+      if (name.endsWith(".jsonl")) total += (0, import_node_fs11.statSync)((0, import_node_path12.join)(home, "events", name)).size;
+    }
+  } catch {
+    return 0;
+  }
+  return total;
+}
+function formatBytes(bytes) {
+  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+function isRecord6(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isFile(path) {
+  try {
+    return (0, import_node_fs11.statSync)(path).isFile();
+  } catch {
+    return false;
+  }
+}
+function codexHookChecks(env, homeDir = (0, import_node_os4.homedir)()) {
+  const configuredHome = env.CODEX_HOME?.trim();
+  const codexHome = configuredHome || (0, import_node_path12.join)(homeDir, ".codex");
+  const hooksPath = (0, import_node_path12.join)(codexHome, "hooks.json");
+  if (!(0, import_node_fs11.existsSync)(hooksPath)) return [];
+  let source;
+  try {
+    source = JSON.parse((0, import_node_fs11.readFileSync)(hooksPath, "utf8"));
+  } catch {
+    return [{ status: "warning", label: "Codex \u94A9\u5B50", message: `\u65E0\u6CD5\u89E3\u6790\uFF1A${hooksPath}` }];
+  }
+  if (!isRecord6(source) || !isRecord6(source.hooks)) return [];
+  const targets = [];
+  for (const [event, groups] of Object.entries(source.hooks)) {
+    if (!Array.isArray(groups)) continue;
+    for (const group of groups) {
+      if (!isRecord6(group) || !Array.isArray(group.hooks)) continue;
+      for (const hook of group.hooks) {
+        if (!isRecord6(hook) || typeof hook.command !== "string") continue;
+        const path = managedRecorderPathFromCommand(hook.command);
+        if (path) targets.push({ event, path });
+      }
+    }
+  }
+  if (targets.length === 0) return [];
+  const missing = targets.filter((target) => !isFile(target.path));
+  if (missing.length > 0) {
+    return missing.map(({ event, path }) => ({
+      status: "fail",
+      label: "Codex \u94A9\u5B50",
+      message: `${event} \u6307\u5411\u7684\u6587\u4EF6\u4E0D\u5B58\u5728\uFF08${path}\uFF09\uFF0C\u91CD\u65B0\u8FD0\u884C deverdesk-recorder setup --install-codex-hooks`
+    }));
+  }
+  const paths = [...new Set(targets.map((target) => target.path))];
+  return [{ status: "pass", label: "Codex \u94A9\u5B50", message: `\u8BB0\u5F55\u5668\u6587\u4EF6\uFF1A${paths.join("\u3001")}` }];
+}
+async function canWriteHome(home) {
+  const probe = (0, import_node_path12.join)(home, `.doctor-${process.pid}-${Date.now()}`);
+  try {
+    (0, import_node_fs11.mkdirSync)(home, { recursive: true });
+    (0, import_node_fs11.writeFileSync)(probe, "", { flag: "wx" });
+    (0, import_node_fs11.unlinkSync)(probe);
+    return true;
+  } catch {
+    try {
+      (0, import_node_fs11.unlinkSync)(probe);
+    } catch {
+    }
+    return false;
+  }
+}
+async function runDoctor(dependencies) {
+  const now = dependencies.now ?? Date.now();
+  const home = dependencies.home ?? recorderHome(dependencies.env);
+  const checks = [];
+  const nodeVersion = dependencies.nodeVersion ?? process.versions.node;
+  const major = Number(/^v?(\d+)/u.exec(nodeVersion)?.[1] ?? 0);
+  checks.push({ status: major >= 18 ? "pass" : "fail", label: "Node", message: `${nodeVersion}${major >= 18 ? "" : "\uFF08\u9700\u8981 18 \u4EE5\u4E0A\uFF09"}` });
+  try {
+    const git = dependencies.git ?? createGitRunner();
+    const result = await git.run(["--version"], dependencies.cwd ?? process.cwd());
+    const version = result.stdout.trim() || result.stderr.trim();
+    checks.push({ status: result.ok ? "pass" : "fail", label: "git", message: result.ok ? version : "\u672A\u5B89\u88C5\u6216\u4E0D\u53EF\u7528" });
+  } catch {
+    checks.push({ status: "fail", label: "git", message: "\u672A\u5B89\u88C5\u6216\u4E0D\u53EF\u7528" });
+  }
+  const writable = await canWriteHome(home);
+  checks.push({ status: writable ? "pass" : "fail", label: "\u672C\u673A\u76EE\u5F55", message: writable ? `${home} \u53EF\u5199` : `${home} \u4E0D\u53EF\u5199` });
+  const credentials = Object.hasOwn(dependencies, "credentials") ? dependencies.credentials ?? null : (dependencies.loadCredentials ?? loadCredentials)(home, dependencies.env);
+  checks.push({
+    status: credentials ? "pass" : "warning",
+    label: "\u51ED\u636E",
+    message: credentials ? `\u6765\u6E90\uFF1A${credentials.source}` : "\u5C1A\u672A\u914D\u7F6E"
+  });
+  if (credentials) {
+    const client = dependencies.client ?? (dependencies.createClient ?? ((value) => createClient({ url: value.url, token: value.token })))(credentials);
+    try {
+      const response = await client.getBindings();
+      checks.push({ status: "pass", label: "\u670D\u52A1\u5668", message: `\u5DF2\u8FDE\u63A5\uFF0C${response.bindings.length} \u4E2A\u7ED1\u5B9A\u76EE\u5F55` });
+      const events = (dependencies.readEvents ?? readEvents)(home, { now });
+      const open = (dependencies.compute ?? computeTasks)(events, now).open;
+      const boundDirs = new Set(response.bindings.map((binding) => dirNameKey(binding.dir)));
+      const windows = open.filter((window) => boundDirs.has(dirNameKey(window.dir))).slice(0, LIVE_MAX_WINDOWS).map((window) => ({ session: window.session, dir: window.dir, agent: window.agent, since: window.since, minutes: window.minutes }));
+      if (windows.length === 0) {
+        checks.push({ status: "warning", label: "\u4EE4\u724C\u6743\u9650", message: "\u6CA1\u6709\u8FDB\u884C\u4E2D\u7684\u5DF2\u7ED1\u5B9A\u7A97\u53E3\uFF0C\u672A\u53D1\u9001\u5199\u5165\u63A2\u6D4B" });
+      } else {
+        try {
+          await client.putLive({ windows });
+          checks.push({ status: "pass", label: "\u4EE4\u724C\u6743\u9650", message: "\u53EF\u4EE5\u76F4\u63A5\u5199\u5165\u8BB0\u5F55" });
+        } catch (error) {
+          if (error instanceof RecorderHttpError && error.kind === "forbidden") {
+            checks.push({ status: "fail", label: "\u4EE4\u724C\u6743\u9650", message: "\u9700\u8981\u300E\u76F4\u63A5\u6539\u300F\u6743\u9650\u7684\u4EE4\u724C" });
+          } else {
+            checks.push({ status: "fail", label: "\u4EE4\u724C\u6743\u9650", message: error instanceof Error ? error.message : String(error) });
+          }
+        }
+      }
+    } catch (error) {
+      checks.push({ status: "fail", label: "\u670D\u52A1\u5668", message: error instanceof Error ? error.message : String(error) });
+    }
+  } else {
+    checks.push({ status: "warning", label: "\u670D\u52A1\u5668", message: "\u672A\u68C0\u67E5\uFF08\u6CA1\u6709\u51ED\u636E\uFF09" });
+  }
+  const state = (dependencies.readState ?? readState)(home);
+  if (state.lastHook) {
+    const minutes = Math.max(0, Math.floor((now - state.lastHook.at) / 6e4));
+    checks.push({ status: "pass", label: "\u6700\u8FD1\u94A9\u5B50", message: `${minutes} \u5206\u949F\u524D\uFF0C${state.lastHook.agent} ${state.lastHook.event}` });
+  } else {
+    checks.push({ status: "warning", label: "\u6700\u8FD1\u94A9\u5B50", message: "\u8FD8\u6CA1\u6536\u5230\u4EFB\u4F55\u94A9\u5B50\u4E8B\u4EF6\uFF0C\u68C0\u67E5\u63D2\u4EF6\u662F\u5426\u542F\u7528\u3001\u5BBF\u4E3B\u662F\u5426\u52A0\u8F7D\u63D2\u4EF6\u94A9\u5B50" });
+  }
+  if (state.lastSync) {
+    checks.push({ status: state.lastSync.ok ? "pass" : "warning", label: "\u6700\u8FD1\u540C\u6B65", message: state.lastSync.ok ? "\u6210\u529F" : state.lastSync.message ?? "\u5931\u8D25" });
+  } else {
+    checks.push({ status: "warning", label: "\u6700\u8FD1\u540C\u6B65", message: "\u5C1A\u65E0\u540C\u6B65\u8BB0\u5F55" });
+  }
+  checks.push({ status: "pass", label: "\u4E8B\u4EF6\u65E5\u5FD7", message: formatBytes(eventLogBytes(home)) });
+  checks.push(...codexHookChecks(dependencies.env, dependencies.homeDir));
+  const labels = { pass: "\u901A\u8FC7", warning: "\u8B66\u544A", fail: "\u5931\u8D25" };
+  return { checks, output: checks.map((check) => `${labels[check.status]} - ${check.label}\uFF1A${check.message}`).join("\n") };
+}
+
+// integrations/recorder/src/commands/done.ts
+function invalidTitle() {
+  return Object.assign(new Error("\u6807\u9898\u4E0D\u80FD\u4E3A\u7A7A"), { exitCode: 2 });
+}
+async function runDone(options, dependencies) {
+  const title = Array.from(options.title.trim()).slice(0, 80).join("");
+  if (!title) throw invalidTitle();
+  const now = dependencies.now ?? Date.now();
+  const resolved = await dependencies.resolveDirName(dependencies.cwd);
+  const events = (dependencies.readEvents ?? readEvents)(dependencies.home, { now });
+  const recent = events.filter((event2) => event2.dir !== void 0 && dirNameKey(event2.dir) === dirNameKey(resolved.dir) && event2.session.length > 0).sort((left, right) => right.t - left.t)[0];
+  const environmentSession = dependencies.env.CLAUDE_CODE_SESSION_ID;
+  const session = options.session || environmentSession || recent?.session || `manual-${new Date(now).toISOString().slice(0, 10)}`;
+  const agent = options.agent ?? (environmentSession ? "claude-code" : recent?.agent ?? "codex");
+  const event = {
+    v: 1,
+    t: now,
+    agent,
+    session,
+    dir: resolved.dir,
+    cwd: dependencies.cwd,
+    kind: "done",
+    title
+  };
+  (dependencies.appendEvent ?? appendEvent)(dependencies.home, event);
+  if (loadCredentials(dependencies.home, dependencies.env)) dependencies.spawnBackgroundSync();
+  return `\u5DF2\u8BB0\u4E0B\uFF1A${title}`;
+}
+
+// integrations/recorder/src/commands/hook.ts
+var import_node_fs14 = require("node:fs");
+var import_node_path15 = require("node:path");
+
+// integrations/recorder/src/agents/text.ts
+var SENTENCE_END = /* @__PURE__ */ new Set(["\u3002", "\uFF01", "\uFF1F", ".", "!", "?"]);
+function firstSentence2(text, max) {
+  if (typeof text !== "string" || max <= 0) return void 0;
+  let start = 0;
+  const candidates = [];
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === "\n" || character === "\r" || character !== void 0 && SENTENCE_END.has(character)) {
+      const end = character === "\n" || character === "\r" ? index : index + 1;
+      candidates.push(text.slice(start, end));
+      if (character === "\r" && text[index + 1] === "\n") index += 1;
+      start = index + 1;
+    }
+  }
+  if (start < text.length) candidates.push(text.slice(start));
+  for (const candidate of candidates) {
+    const trimmed = candidate.trim();
+    if (!trimmed || trimmed.startsWith("/")) continue;
+    return Array.from(trimmed).slice(0, Math.floor(max)).join("");
+  }
+  return void 0;
+}
+
+// integrations/recorder/src/agents/claude-code.ts
+function parseClaudeCodeHook(eventName, payload, env = process.env) {
+  if (!isRecord7(payload)) return null;
+  const session = requiredString(payload.session_id);
+  const cwd = requiredString(payload.cwd) ?? requiredString(env.CLAUDE_PROJECT_DIR);
+  if (!session || !cwd) return null;
+  const parsed = { session, cwd };
+  if (eventName === "SessionStart") {
+    const source = optionalString(payload.source);
+    if (source) parsed.source = source;
+  } else if (eventName === "UserPromptSubmit") {
+    parsed.text = firstSentence2(payload.prompt, 120);
+  } else if (eventName === "Stop") {
+    parsed.summary = firstSentence2(payload.last_assistant_message, 200);
+  } else if (eventName === "SessionEnd") {
+    const reason = optionalString(payload.reason);
+    if (reason) parsed.reason = reason;
+  } else if (eventName === "PostToolUse") {
+    const toolInput = isRecord7(payload.tool_input) ? payload.tool_input : void 0;
+    const command = typeof toolInput?.command === "string" ? toolInput.command : "";
+    if (payload.tool_name !== "Bash" || !/\bgit\b/i.test(command) || !/\bcommit\b/i.test(command)) return null;
+    parsed.commitCommand = true;
+  }
+  return parsed;
+}
+function requiredString(value) {
+  return typeof value === "string" && value.trim() ? value : void 0;
+}
+function optionalString(value) {
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function isRecord7(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// integrations/recorder/src/agents/codex.ts
+function parseCodexHook(eventName, payload) {
+  if (!isRecord8(payload)) return null;
+  const session = requiredString2(payload.session_id) ?? requiredString2(payload.thread_id);
+  const cwd = requiredString2(payload.cwd);
+  if (!session || !cwd) return null;
+  const parsed = { session, cwd };
+  if (eventName === "SessionStart") {
+    const source = optionalString2(payload.source);
+    if (source) parsed.source = source;
+  } else if (eventName === "UserPromptSubmit") {
+    parsed.text = firstSentence2(payload.prompt, 120);
+  } else if (eventName === "Stop") {
+    parsed.summary = firstSentence2(payload.last_assistant_message, 200);
+  } else if (eventName === "SessionEnd") {
+    const reason = optionalString2(payload.reason);
+    if (reason) parsed.reason = reason;
+  } else if (eventName === "PostToolUse") {
+    const toolInput = isRecord8(payload.tool_input) ? payload.tool_input : void 0;
+    const command = typeof toolInput?.command === "string" ? toolInput.command : "";
+    if (payload.tool_name !== "Bash" || !isGitCommitCommand(command)) return null;
+    parsed.commitCommand = true;
+  }
+  return parsed;
+}
+function isGitCommitCommand(command) {
+  const segments = command.replaceAll("&&", ";").replaceAll("||", ";").replaceAll("|", ";").replaceAll(String.fromCharCode(10), ";").split(";");
+  return segments.some((part) => {
+    const tokens = (part.match(/"[^"]*"|'[^']*'|[^ ]+/g) ?? []).map((token) => {
+      const quoted = token.startsWith('"') && token.endsWith('"') || token.startsWith("'") && token.endsWith("'");
+      return quoted ? token.slice(1, -1) : token;
+    });
+    let index = 0;
+    while (/^[A-Za-z_][A-Za-z0-9_]*=/u.test(tokens[index] ?? "")) index += 1;
+    let executable = tokens[index]?.toLowerCase() ?? "";
+    if (executable.endsWith(".exe")) executable = executable.slice(0, -4);
+    const basenameStart = Math.max(executable.lastIndexOf("/"), executable.lastIndexOf(String.fromCharCode(92))) + 1;
+    if (executable.slice(basenameStart) !== "git") return false;
+    index += 1;
+    while (index < tokens.length) {
+      const option = tokens[index];
+      if (option === "-C" || option === "-c" || option === "--git-dir" || option === "--work-tree" || option === "--namespace") {
+        index += 2;
+        continue;
+      }
+      if (option?.startsWith("--git-dir=") || option?.startsWith("--work-tree=") || option?.startsWith("--namespace=") || option === "--no-pager") {
+        index += 1;
+        continue;
+      }
+      break;
+    }
+    return tokens[index] === "commit";
+  });
+}
+function requiredString2(value) {
+  return typeof value === "string" && value.trim() ? value : void 0;
+}
+function optionalString2(value) {
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function isRecord8(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// integrations/recorder/src/sync/briefing.ts
+var import_node_fs12 = require("node:fs");
+var import_node_http = require("node:http");
+var import_node_https = require("node:https");
+var import_node_path13 = require("node:path");
+var CACHE_TTL_MS = 10 * 6e4;
+var BRIEFING_BUDGET_MS = 800;
+async function fetchBriefing(credentials, dir, options = {}) {
+  const home = options.home ?? recorderHome();
+  const now = options.now ?? Date.now();
+  const key = dir.toLowerCase();
+  try {
+    const cache = readCache(home);
+    const cached = cache[key];
+    if (cached && now >= cached.at && now - cached.at < CACHE_TTL_MS) return cached.response;
+    const url = new URL(`${credentials.url.replace(/\/+$/, "")}/api/recorder/briefing?dir=${encodeURIComponent(dir)}`);
+    const payload = await requestBriefing(url, credentials.token, options.timeoutMs ?? BRIEFING_BUDGET_MS);
+    if (!isBriefingResponse(payload)) return null;
+    cache[key] = { at: now, response: payload };
+    (0, import_node_fs12.mkdirSync)(home, { recursive: true });
+    (0, import_node_fs12.writeFileSync)((0, import_node_path13.join)(home, "briefing-cache.json"), `${JSON.stringify(cache)}
+`, { encoding: "utf8", mode: 384 });
+    return payload;
+  } catch {
+    return null;
+  }
+}
+function requestBriefing(url, token, timeoutMs) {
+  if (url.protocol !== "http:" && url.protocol !== "https:") return Promise.resolve(null);
+  return new Promise((resolve2) => {
+    let settled = false;
+    let timeout;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      if (timeout) clearTimeout(timeout);
+      resolve2(value);
+    };
+    const onResponse = (response) => {
+      if (response.statusCode === void 0 || response.statusCode < 200 || response.statusCode >= 300) {
+        response.destroy();
+        finish(null);
+        return;
+      }
+      response.setEncoding("utf8");
+      let body = "";
+      response.on("data", (chunk) => {
+        body += chunk;
+      });
+      response.once("aborted", () => finish(null));
+      response.once("error", () => finish(null));
+      response.once("end", () => {
+        if (!response.complete) {
+          finish(null);
+          return;
+        }
+        try {
+          finish(JSON.parse(body));
+        } catch {
+          finish(null);
+        }
+      });
+    };
+    try {
+      const options = { method: "GET", headers: { Authorization: `Bearer ${token}` } };
+      const request = url.protocol === "https:" ? (0, import_node_https.request)(url, options, onResponse) : (0, import_node_http.request)(url, options, onResponse);
+      request.once("error", () => finish(null));
+      timeout = setTimeout(() => {
+        finish(null);
+        request.destroy();
+      }, timeoutMs);
+      request.end();
+    } catch {
+      finish(null);
+    }
+  });
+}
+function formatBriefing(briefing) {
+  if (!briefing.bound) return "";
+  const extended = briefing;
+  const more = extended.more ?? { plannedToday: 0, overdue: 0, open: 0 };
+  const blocks = [];
+  if (briefing.project) {
+    blocks.push(`DeverDesk \xB7 \u526F\u4E1A\u300C${briefing.project.name}\u300D\uFF08${stageLabel(briefing.project.stage)}\uFF09`);
+  }
+  const shown = /* @__PURE__ */ new Set();
+  const countLabel = (count) => count > 0 ? `\uFF08\u53E6\u6709 ${count} \u9879\uFF09` : "";
+  if (briefing.plannedToday.length > 0 || more.plannedToday > 0) {
+    blocks.push(`\u4ECA\u5929\u8BA1\u5212${countLabel(more.plannedToday)}\uFF1A${briefing.plannedToday.map((task) => {
+      shown.add(task.code);
+      return `${task.code} ${task.title}\uFF08${task.estimateMin}m\uFF0C${priorityLabel(task.priority)}\uFF09`;
+    }).join("\uFF1B")}`);
+  }
+  if (briefing.overdue.length > 0 || more.overdue > 0) {
+    blocks.push(`\u5DF2\u903E\u671F${countLabel(more.overdue)}\uFF1A${briefing.overdue.map((task) => {
+      shown.add(task.code);
+      return `${task.code} ${task.title}${task.dueOn ? `\uFF08\u622A\u6B62 ${task.dueOn.slice(5)}\uFF09` : ""}`;
+    }).join("\uFF1B")}`);
+  }
+  const otherOpen = briefing.open.filter((task) => !shown.has(task.code)).slice(0, 15);
+  if (otherOpen.length > 0 || more.open > 0) {
+    blocks.push(`\u5176\u4ED6\u6CA1\u505A\u5B8C\u7684${countLabel(more.open)}\uFF1A${otherOpen.map((task) => `${task.code} ${task.title}`).join("\uFF1B")}`);
+  }
+  const reminder = "\u63D0\u4EA4\u8BF4\u660E\u91CC\u5199 Closes T-141 \u4E4B\u7C7B\u7684\u7F16\u53F7\uFF0C\u8FD9\u6B21\u63D0\u4EA4\u5C31\u4F1A\u628A\u90A3\u4E2A\u4EFB\u52A1\u6807\u6210\u5B8C\u6210\uFF1B\u6CA1\u5199\u7F16\u53F7\u7684\u63D0\u4EA4\u4F1A\u81EA\u52A8\u8BB0\u6210\u65B0\u4EFB\u52A1\u3002";
+  const notice = "\u7B80\u62A5\u6709\u5185\u5BB9\u672A\u663E\u793A";
+  const selected = [];
+  const lengthOf = (lines) => Array.from(lines.join("\n")).length;
+  let truncated = false;
+  for (const block of blocks) {
+    if (lengthOf([...selected, block, reminder]) <= 1200) selected.push(block);
+    else truncated = true;
+  }
+  if (truncated) {
+    while (selected.length > 0 && lengthOf([...selected, notice, reminder]) > 1200) selected.pop();
+    return [...selected, notice, reminder].join("\n");
+  }
+  return [...selected, reminder].join("\n");
+}
+function readCache(home) {
+  try {
+    const value = JSON.parse((0, import_node_fs12.readFileSync)((0, import_node_path13.join)(home, "briefing-cache.json"), "utf8"));
+    if (!isRecord9(value)) return {};
+    const entries = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (!isRecord9(item) || typeof item.at !== "number" || !isBriefingResponse(item.response)) continue;
+      entries[key] = { at: item.at, response: item.response };
+    }
+    return entries;
+  } catch {
+    return {};
+  }
+}
+function isBriefingResponse(value) {
+  if (!isRecord9(value) || typeof value.bound !== "boolean" || typeof value.today !== "string") return false;
+  if (!Array.isArray(value.plannedToday) || !value.plannedToday.every(isBriefingTask)) return false;
+  if (!Array.isArray(value.overdue) || !value.overdue.every(isBriefingTask)) return false;
+  if (!Array.isArray(value.open) || !value.open.every(isBriefingTask)) return false;
+  if (value.more !== void 0 && !isBriefingMore(value.more)) return false;
+  if (value.project === void 0) return true;
+  return isRecord9(value.project) && typeof value.project.id === "string" && typeof value.project.name === "string" && typeof value.project.stage === "string" && ["idea", "building", "running", "paused", "ended"].includes(value.project.stage);
+}
+function isBriefingMore(value) {
+  return isRecord9(value) && Number.isSafeInteger(value.plannedToday) && value.plannedToday >= 0 && Number.isSafeInteger(value.overdue) && value.overdue >= 0 && Number.isSafeInteger(value.open) && value.open >= 0;
+}
+function isBriefingTask(value) {
+  return isRecord9(value) && typeof value.code === "string" && typeof value.title === "string" && typeof value.status === "string" && ["backlog", "todo", "doing", "done", "dropped"].includes(value.status) && typeof value.priority === "number" && Number.isInteger(value.priority) && value.priority >= 0 && value.priority <= 4 && typeof value.estimateMin === "number" && Number.isFinite(value.estimateMin) && value.estimateMin >= 0 && (value.plannedFor === null || typeof value.plannedFor === "string") && (value.dueOn === null || typeof value.dueOn === "string");
+}
+function stageLabel(stage) {
+  const labels = { idea: "\u6784\u601D\u4E2D", building: "\u642D\u5EFA\u4E2D", running: "\u8FD0\u8425\u4E2D", paused: "\u6682\u505C", ended: "\u5DF2\u7ED3\u675F" };
+  return labels[stage] ?? String(stage);
+}
+function priorityLabel(priority) {
+  return ["\u65E0", "\u4F4E", "\u4E2D", "\u9AD8", "\u7D27\u6025"][priority] ?? "\u65E0";
+}
+function isRecord9(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// integrations/recorder/src/sync/spawn.ts
+var import_node_fs13 = require("node:fs");
+var import_node_child_process2 = require("node:child_process");
+var import_node_path14 = require("node:path");
+var MAX_DELAY_MS = 20 * 6e4;
+var DEDUPE_WINDOW_MS = 3e4;
+var RETAIN_AFTER_DUE_MS = 5 * 6e4;
+function spawnBackgroundSync(execPath, scriptPath, env, options = {}) {
+  const delayMs = options.delayMs === void 0 ? void 0 : Math.max(0, Math.min(MAX_DELAY_MS, options.delayMs));
+  const home = recorderHome(env);
+  const dueAt = delayMs ? Date.now() + delayMs : void 0;
+  let reservation;
+  if (delayMs && dueAt !== void 0) {
+    if (!reserveSettleSlot(home, dueAt)) return;
+    reservation = (0, import_node_path14.join)(home, `settle-${dueAt}.lock`);
+  }
+  try {
+    const args = [scriptPath, "sync", ...delayMs ? ["--delay", String(delayMs)] : []];
+    const childEnv = {
+      ...env,
+      ...reservation ? { DEVERDESK_RECORDER_SETTLE_LOCK: reservation } : {}
+    };
+    (0, import_node_fs13.mkdirSync)(home, { recursive: true });
+    const child = (0, import_node_child_process2.spawn)(execPath, args, { detached: true, stdio: "ignore", windowsHide: true, env: childEnv, cwd: home });
+    child.once("error", (error) => {
+      releaseReservation();
+      try {
+        options.onError?.(error);
+      } catch {
+      }
+    });
+    child.unref();
+  } catch (error) {
+    releaseReservation();
+    throw error;
+  }
+  function releaseReservation() {
+    if (!reservation) return;
+    try {
+      (0, import_node_fs13.unlinkSync)(reservation);
+    } catch {
+    }
+  }
+}
+function reserveSettleSlot(home, dueAt) {
+  (0, import_node_fs13.mkdirSync)(home, { recursive: true });
+  const gate = (0, import_node_path14.join)(home, "settle-index.lock");
+  let descriptor = openGate(gate);
+  if (descriptor === null) {
+    try {
+      if (Date.now() - (0, import_node_fs13.statSync)(gate).mtimeMs > 1e4) (0, import_node_fs13.unlinkSync)(gate);
+    } catch {
+      return false;
+    }
+    descriptor = openGate(gate);
+    if (descriptor === null) return false;
+  }
+  try {
+    for (const name of (0, import_node_fs13.readdirSync)(home)) {
+      const match = /^settle-(\d+)\.lock$/.exec(name);
+      if (!match?.[1]) continue;
+      const existingDue = Number(match[1]);
+      const path = (0, import_node_path14.join)(home, name);
+      if (existingDue + RETAIN_AFTER_DUE_MS < Date.now()) {
+        try {
+          (0, import_node_fs13.unlinkSync)(path);
+        } catch {
+        }
+      } else if (Math.abs(existingDue - dueAt) <= DEDUPE_WINDOW_MS) {
+        return false;
+      }
+    }
+    const reservation = (0, import_node_path14.join)(home, `settle-${dueAt}.lock`);
+    let lock;
+    try {
+      lock = (0, import_node_fs13.openSync)(reservation, "wx");
+    } catch {
+      return false;
+    }
+    (0, import_node_fs13.writeSync)(lock, `${process.pid} ${dueAt}
+`);
+    (0, import_node_fs13.closeSync)(lock);
+    return true;
+  } finally {
+    (0, import_node_fs13.closeSync)(descriptor);
+    try {
+      (0, import_node_fs13.unlinkSync)(gate);
+    } catch {
+    }
+  }
+}
+function openGate(path) {
+  let descriptor;
+  try {
+    descriptor = (0, import_node_fs13.openSync)(path, "wx");
+  } catch {
+    return null;
+  }
+  try {
+    (0, import_node_fs13.writeSync)(descriptor, `${process.pid} ${Date.now()}
+`);
+    return descriptor;
+  } catch {
+    (0, import_node_fs13.closeSync)(descriptor);
+    try {
+      (0, import_node_fs13.unlinkSync)(path);
+    } catch {
+    }
+    return null;
+  }
+}
+
+// integrations/recorder/src/commands/hook.ts
+var DAY_MS3 = 24 * 60 * 6e4;
+var SYNC_THROTTLE_MS = 6e4;
+var LOG_MAX_BYTES = 256 * 1024;
+var HOOK_EVENTS = /* @__PURE__ */ new Set(["SessionStart", "UserPromptSubmit", "Stop", "SessionEnd", "PostToolUse"]);
+async function runHook({ agent, eventName, input, env, now = Date.now(), deps = {} }) {
+  const home = deps.home ?? recorderHome(env);
+  const log = deps.log ?? appendRecorderLog;
+  const report = (message) => {
+    try {
+      log(home, message);
+    } catch {
+    }
+  };
+  try {
+    if (env.DEVERDESK_RECORDER_INTERNAL === "1") return {};
+    const payload = parseInput(input);
+    const parsed = agent === "claude-code" ? parseClaudeCodeHook(eventName, payload, env) : parseCodexHook(eventName, payload);
+    if (!parsed) {
+      report(`Skipped ${agent} ${eventName}: missing required hook fields`);
+      return {};
+    }
+    if (!HOOK_EVENTS.has(eventName)) {
+      report(`Skipped ${agent} ${eventName}: unsupported hook event`);
+      return {};
+    }
+    const referenceCwd = agent === "claude-code" ? env.CLAUDE_PROJECT_DIR?.trim() || parsed.cwd : parsed.cwd;
+    const initialState = readState(home);
+    const cached = initialState.dirCache[referenceCwd];
+    const resolved = cached && now - cached.at >= 0 && now - cached.at < DAY_MS3 ? { dir: cached.dir, repo: cached.repo } : await (deps.resolveDir ?? ((cwd) => resolveDirName(cwd, deps.git ?? createGitRunner())))(referenceCwd);
+    const dir = resolved.dir;
+    const git = deps.git ?? createGitRunner();
+    const events = [];
+    const addEvent = (event) => {
+      appendEvent(home, event);
+      events.push(event);
+    };
+    const base = { v: 1, t: now, agent, session: parsed.session, dir, cwd: parsed.cwd };
+    const promptTextAllowed = isPromptTextAllowed(home, env);
+    if (eventName === "SessionStart") {
+      addEvent({ ...base, kind: "start", ...parsed.source ? { source: parsed.source } : {}, ...resolved.repo ? { repo: resolved.repo } : {} });
+    } else if (eventName === "UserPromptSubmit") {
+      addEvent({ ...base, kind: "prompt", ...promptTextAllowed && parsed.text ? { text: parsed.text } : {} });
+    } else if (eventName === "Stop") {
+      addEvent({ ...base, kind: "stop", ...promptTextAllowed && parsed.summary ? { summary: parsed.summary } : {} });
+    } else if (eventName === "SessionEnd") {
+      addEvent({ ...base, kind: "end", ...parsed.reason ? { reason: parsed.reason } : {} });
+    }
+    let newCommits = [];
+    if (shouldDiscoverCommits(eventName, parsed)) {
+      const worktreeRoot = await findWorktreeRoot(git, referenceCwd);
+      if (worktreeRoot) {
+        const hasBaseline = initialState.repos[worktreeRoot] !== void 0;
+        const sessionStartMs = eventName === "SessionStart" || hasBaseline ? void 0 : findSessionStart(initialState, agent, parsed.session) ?? now;
+        newCommits = await detectNewCommitsLocked(home, git, worktreeRoot, sessionStartMs, (commits) => {
+          for (const commit of commits) addEvent(toCommitEvent(commit, base, resolved.repo ?? worktreeRoot, now));
+        });
+      }
+    }
+    await updateState(home, (state) => {
+      const key = sessionStartKey(agent, parsed.session);
+      if (!state.sessionStarts[key]) {
+        state.sessionStarts[key] = { agent, session: parsed.session, at: now };
+        trimSessionStarts(state.sessionStarts);
+      }
+      if (events.length > 0 && state.firstLiveEvent[agent] === void 0) {
+        state.firstLiveEvent[agent] = events[0]?.t ?? now;
+      }
+      state.lastHook = { at: now, agent, event: eventName, session: parsed.session };
+      if (!cached || now - cached.at < 0 || now - cached.at >= DAY_MS3) {
+        state.dirCache[referenceCwd] = { dir, ...resolved.repo ? { repo: resolved.repo } : {}, at: now };
+      }
+    });
+    const currentState = readState(home);
+    const spawnSync = deps.spawnSync ?? ((options = {}) => {
+      spawnBackgroundSync(process.execPath, process.argv[1] ?? "", env, {
+        ...options,
+        onError: (error) => report(`Background sync spawn failed: ${error.message}`)
+      });
+    });
+    const spawnDelayed = (delayMs) => {
+      if (env.DEVERDESK_NO_DELAYED_SYNC === "1") return;
+      spawnSync({ delayMs });
+    };
+    if (eventName === "UserPromptSubmit") {
+      if (!wasRecentlySynced(currentState.lastSync?.startedAt, now)) spawnSync();
+    } else if (eventName === "Stop") {
+      if (newCommits.length > 0 || !wasRecentlySynced(currentState.lastSync?.startedAt, now)) spawnSync();
+      if (newCommits.length > 0) spawnDelayed(delayUntilCommitSettles(newCommits, now));
+    } else if (eventName === "SessionEnd") {
+      spawnSync();
+      spawnDelayed(SETTLE_DELAY);
+    } else if (eventName === "PostToolUse" && newCommits.length > 0) {
+      spawnDelayed(delayUntilCommitSettles(newCommits, now));
+    }
+    if (eventName === "SessionStart") {
+      const credentials = loadCredentials(home, env);
+      if (credentials && isDirectoryBound(home, dir)) {
+        const briefing = await (deps.fetchBriefing ?? ((creds, name, options) => fetchBriefing(creds, name, options)))(
+          credentials,
+          dir,
+          { timeoutMs: 800, home, now }
+        );
+        if (briefing) {
+          const text = formatBriefing(briefing);
+          if (text) return { stdout: JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: text } }) };
+        }
+      }
+    }
+    return {};
+  } catch (error) {
+    report(errorMessage2(error));
+    return {};
+  }
+}
+function parseInput(input) {
+  if (Buffer.isBuffer(input)) return JSON.parse(input.toString("utf8"));
+  if (typeof input === "string") return JSON.parse(input);
+  return input;
+}
+function shouldDiscoverCommits(eventName, parsed) {
+  return eventName === "SessionStart" || eventName === "Stop" || eventName === "SessionEnd" || eventName === "PostToolUse" && parsed.commitCommand === true;
+}
+async function findWorktreeRoot(git, cwd) {
+  const result = await git.run(["-C", cwd, "rev-parse", "--show-toplevel"], cwd);
+  if (!result.ok || !result.stdout.trim()) return void 0;
+  return result.stdout.trim().replace(/\\/g, "/").replace(/\/+$/, "");
+}
+function findSessionStart(state, agent, session) {
+  const cached = state.sessionStarts[sessionStartKey(agent, session)];
+  return cached?.agent === agent && cached.session === session ? cached.at : void 0;
+}
+function sessionStartKey(agent, session) {
+  return JSON.stringify([agent, session]);
+}
+function trimSessionStarts(starts) {
+  const entries = Object.entries(starts);
+  if (entries.length <= 1e3) return;
+  entries.sort((left, right) => left[1].at - right[1].at);
+  for (const [key] of entries.slice(0, entries.length - 1e3)) delete starts[key];
+}
+function toCommitEvent(commit, base, repo, seenAt) {
+  return {
+    ...base,
+    t: commit.committedAt,
+    seenAt,
+    kind: "commit",
+    repo,
+    sha: commit.sha,
+    subject: commit.subject,
+    ...commit.body ? { body: commit.body.slice(0, 500) } : {},
+    additions: commit.additions,
+    deletions: commit.deletions,
+    files: commit.files,
+    authoredAt: commit.authoredAt
+  };
+}
+function delayUntilCommitSettles(commits, now) {
+  const nextArrival = Math.min(...commits.map((commit) => commit.committedAt + SETTLE_DELAY));
+  return Math.max(0, nextArrival - now);
+}
+function wasRecentlySynced(startedAt, now) {
+  return startedAt !== void 0 && now - startedAt <= SYNC_THROTTLE_MS;
+}
+function isDirectoryBound(home, dir) {
+  try {
+    const value = JSON.parse((0, import_node_fs14.readFileSync)((0, import_node_path15.join)(home, "bindings.json"), "utf8"));
+    const bindings = Array.isArray(value) ? value : isRecord10(value) && Array.isArray(value.bindings) ? value.bindings : [];
+    return bindings.some((item) => isRecord10(item) && typeof item.dir === "string" && item.dir.toLowerCase() === dir.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+function appendRecorderLog(home, message) {
+  try {
+    const directory = (0, import_node_path15.join)(home, "logs");
+    (0, import_node_fs14.mkdirSync)(directory, { recursive: true });
+    const path = (0, import_node_path15.join)(directory, "recorder.log");
+    (0, import_node_fs14.appendFileSync)(path, `${(/* @__PURE__ */ new Date()).toISOString()} ${message}
+`, "utf8");
+    if ((0, import_node_fs14.statSync)(path).size <= LOG_MAX_BYTES) return;
+    const contents = (0, import_node_fs14.readFileSync)(path);
+    (0, import_node_fs14.writeFileSync)(path, contents.subarray(contents.length - Math.floor(LOG_MAX_BYTES / 2)));
+  } catch {
+  }
+}
+function errorMessage2(error) {
+  if (error instanceof SyntaxError) return "Invalid hook payload JSON";
+  return error instanceof Error ? error.stack ?? error.message : String(error);
+}
+function isRecord10(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// integrations/recorder/src/commands/status.ts
+var import_node_fs15 = require("node:fs");
+var import_node_path16 = require("node:path");
+function readBindingsFile(home) {
+  try {
+    const value = JSON.parse((0, import_node_fs15.readFileSync)((0, import_node_path16.join)(home, "bindings.json"), "utf8"));
+    if (typeof value !== "object" || value === null || !("bindings" in value) || !Array.isArray(value.bindings)) return [];
+    return value.bindings.filter((item) => typeof item === "object" && item !== null && typeof item.dir === "string" && typeof item.projectId === "string" && typeof item.projectName === "string");
+  } catch {
+    return [];
+  }
+}
+function credentialsSource(credentials) {
+  return credentials?.source ?? "none";
+}
+async function runStatus(options, dependencies) {
+  const now = dependencies.now ?? Date.now();
+  const resolved = await dependencies.resolveDirName(dependencies.cwd);
+  const bindings = (dependencies.readBindings ?? readBindingsFile)(dependencies.home);
+  const binding = bindings.find((item) => dirNameKey(item.dir) === dirNameKey(resolved.dir));
+  const credentials = (dependencies.loadCredentials ?? loadCredentials)(dependencies.home, dependencies.env);
+  const state = (dependencies.readState ?? readState)(dependencies.home);
+  const uploaded = (dependencies.readUploadedKeys ?? readUploadedKeys)(dependencies.home);
+  const events = (dependencies.readEvents ?? readEvents)(dependencies.home, { now });
+  const computed = (dependencies.compute ?? computeTasks)(events, now);
+  const boundDirs = new Set(bindings.map((item) => dirNameKey(item.dir)));
+  const pendingTasks = computed.tasks.filter((task) => boundDirs.has(dirNameKey(task.dir)) && !uploaded.done.has(task.key) && !uploaded.rejected.has(task.key)).length;
+  const data = {
+    dir: resolved.dir,
+    ...resolved.repo === void 0 ? {} : { repo: resolved.repo },
+    bound: binding !== void 0,
+    ...binding === void 0 ? {} : { project: { id: binding.projectId, name: binding.projectName } },
+    credentials: credentialsSource(credentials),
+    ...state.lastHook === void 0 ? {} : { lastHook: state.lastHook },
+    ...state.lastSync === void 0 ? {} : { lastSync: state.lastSync },
+    pendingTasks
+  };
+  if (options.json) return { data, output: JSON.stringify(data, null, 2) };
+  const lines = [
+    `\u76EE\u5F55\uFF1A${data.dir}${data.repo ? `\uFF08\u4ED3\u5E93 ${data.repo}\uFF09` : ""}`,
+    data.bound ? `\u7ED1\u5B9A\uFF1A${data.project?.name ?? "\u5DF2\u7ED1\u5B9A"}` : "\u7ED1\u5B9A\uFF1A\u672A\u7ED1\u5B9A",
+    `\u51ED\u636E\uFF1A${data.credentials === "none" ? "\u6CA1\u6709" : data.credentials}`,
+    `\u5F85\u4E0A\u4F20\u4EFB\u52A1\uFF1A${data.pendingTasks}`,
+    `\u6700\u8FD1\u94A9\u5B50\uFF1A${data.lastHook ? `${new Date(data.lastHook.at).toLocaleString()} ${data.lastHook.agent} ${data.lastHook.event}` : "\u5C1A\u65E0"}`,
+    `\u6700\u8FD1\u540C\u6B65\uFF1A${data.lastSync ? `${data.lastSync.ok ? "\u6210\u529F" : "\u5931\u8D25"}${data.lastSync.message ? `\uFF08${data.lastSync.message}\uFF09` : ""}` : "\u5C1A\u65E0"}`
+  ];
+  return { data, output: lines.join("\n") };
+}
+
+// integrations/recorder/src/sync/sync.ts
+var import_node_crypto5 = require("node:crypto");
+var import_node_fs16 = require("node:fs");
+var import_node_path17 = require("node:path");
+
+// integrations/recorder/src/upload/build-payload.ts
+var import_node_crypto4 = require("node:crypto");
+function digest(value) {
+  return (0, import_node_crypto4.createHash)("sha256").update(value).digest("hex").slice(0, 16);
+}
+function compactUploadKey(value, maxLength = 200) {
+  if (value.length <= maxLength) return value;
+  const suffix = `~${digest(value)}`;
+  return `${truncateText(value, maxLength - suffix.length)}${suffix}`;
+}
+function truncateText(value, maxLength) {
+  let result = "";
+  for (const character of value) {
+    if (result.length + character.length > maxLength) break;
+    result += character;
+  }
+  return result;
+}
+function compressEntries(entries, uploaded) {
+  const compressed = entries.filter((entry) => !uploaded.has(entry.key)).map((entry) => ({ entry: { ...entry }, originalKeys: [entry.key] })).sort((left, right) => left.entry.start - right.entry.start || left.entry.end - right.entry.end || left.entry.key.localeCompare(right.entry.key));
+  while (compressed.length > UPLOAD_MAX_ENTRIES_PER_TASK) {
+    let nearest = 0;
+    let nearestGap = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < compressed.length - 1; index += 1) {
+      const current = compressed[index]?.entry;
+      const next = compressed[index + 1]?.entry;
+      if (!current || !next) continue;
+      const gap = next.start - current.end;
+      if (gap < nearestGap) {
+        nearestGap = gap;
+        nearest = index;
+      }
+    }
+    const left = compressed[nearest];
+    const right = compressed[nearest + 1];
+    if (!left || !right) break;
+    const originalKeys = [...left.originalKeys, ...right.originalKeys];
+    compressed.splice(nearest, 2, {
+      originalKeys,
+      entry: {
+        key: `${truncateText(originalKeys[0] ?? "", 150)}+${originalKeys.length}~${(0, import_node_crypto4.createHash)("sha256").update(originalKeys.join("")).digest("hex").slice(0, 8)}`,
+        start: Math.min(left.entry.start, right.entry.start),
+        end: Math.max(left.entry.end, right.entry.end),
+        minutes: left.entry.minutes + right.entry.minutes
+      }
+    });
+  }
+  return compressed.map(({ entry }) => ({ ...entry, key: compactUploadKey(entry.key) }));
+}
+function toUploadTask(task, uploaded) {
+  const trimmedTitle = task.title.trim();
+  const title = truncateText(trimmedTitle || "Coding", UPLOAD_TITLE_MAX);
+  const taskSeq = task.taskSeq !== void 0 && Number.isInteger(task.taskSeq) && task.taskSeq >= 1 && task.taskSeq <= 999999 ? task.taskSeq : void 0;
+  return {
+    key: compactUploadKey(task.key),
+    dir: truncateText(task.dir.trim(), 60),
+    title: title || "Coding",
+    source: task.source,
+    finishedAt: task.finishedAt,
+    commits: task.commits.slice(0, UPLOAD_MAX_COMMITS_PER_TASK).filter((commit) => /^[\da-f]{7,64}$/iu.test(commit.sha)).map((commit) => ({ sha: commit.sha, subject: truncateText(commit.subject, 200) })),
+    ...taskSeq === void 0 ? {} : { taskSeq },
+    entries: compressEntries(task.entries, uploaded)
+  };
+}
+function changeCount(tasks) {
+  return tasks.length + tasks.reduce((sum, task) => sum + task.entries.length, 0);
+}
+function buildUploadRequests(tasks, client, uploaded = /* @__PURE__ */ new Set()) {
+  const byAgent = /* @__PURE__ */ new Map();
+  for (const task of tasks) {
+    const group = byAgent.get(task.agent) ?? [];
+    group.push(task);
+    byAgent.set(task.agent, group);
+  }
+  const requests = [];
+  for (const [agent, group] of byAgent) {
+    let batch = [];
+    const flush = () => {
+      if (batch.length === 0) return;
+      requests.push({
+        client: { name: client.name, version: client.version, agent },
+        tasks: batch
+      });
+      batch = [];
+    };
+    for (const task of group) {
+      const payload = toUploadTask(task, uploaded);
+      const proposed = [...batch, payload];
+      if (batch.length > 0 && (proposed.length > UPLOAD_MAX_TASKS || changeCount(proposed) > UPLOAD_MAX_CHANGES)) flush();
+      batch.push(payload);
+    }
+    flush();
+  }
+  return requests;
+}
+
+// integrations/recorder/src/sync/live.ts
+function fingerprint(windows) {
+  return windows.map((window) => `${window.session}:${window.since}:${window.minutes}`).sort((left, right) => left.localeCompare(right)).join("|");
+}
+async function syncLive(input) {
+  const boundDirs = new Set(input.bindings.map((binding) => dirNameKey(binding.dir)));
+  const windows = input.windows.filter((window) => boundDirs.has(dirNameKey(window.dir))).slice(0, 20).map((window) => ({ ...window }));
+  const nextFingerprint = fingerprint(windows);
+  const lastLive = input.state.readState(input.home).lastLive;
+  if (windows.length === 0 && (!lastLive || lastLive.fingerprint === nextFingerprint)) return false;
+  if (lastLive?.fingerprint === nextFingerprint && input.now - lastLive.at < 6e4) return false;
+  await input.client.putLive({ windows });
+  await input.state.updateState(input.home, (state) => ({
+    ...state,
+    lastLive: { at: input.now, fingerprint: nextFingerprint }
+  }));
+  return true;
+}
+
+// integrations/recorder/src/sync/sync.ts
+var SYNC_LOCK_STALE_MS = 5 * 6e4;
+var BINDINGS_CACHE_MS = 5 * 6e4;
+var MAX_DELAY_MS2 = 20 * 6e4;
+var RECORDER_NAME = "deverdesk-recorder";
+var RECORDER_VERSION = "0.1.0";
+function createDefaultSyncState() {
+  return {
+    withLock,
+    readState,
+    updateState,
+    readUploadedKeys,
+    appendUploaded
+  };
+}
+var diskBindingsCache = {
+  read(home) {
+    const path = (0, import_node_path17.join)(home, "bindings.json");
+    if (!(0, import_node_fs16.existsSync)(path)) return null;
+    try {
+      const parsed = JSON.parse((0, import_node_fs16.readFileSync)(path, "utf8"));
+      if (typeof parsed !== "object" || parsed === null || !("fetchedAt" in parsed) || !("bindings" in parsed)) return null;
+      if (typeof parsed.fetchedAt !== "number" || !Array.isArray(parsed.bindings)) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  },
+  write(home, cache) {
+    (0, import_node_fs16.mkdirSync)(home, { recursive: true });
+    (0, import_node_fs16.writeFileSync)((0, import_node_path17.join)(home, "bindings.json"), `${JSON.stringify(cache)}
+`, "utf8");
+  }
+};
+var diskSettleSchedule = {
+  read(home) {
+    try {
+      return (0, import_node_fs16.readFileSync)((0, import_node_path17.join)(home, "settle-schedule"), "utf8");
+    } catch {
+      return null;
+    }
+  },
+  write(home, fingerprint2) {
+    (0, import_node_fs16.mkdirSync)(home, { recursive: true });
+    (0, import_node_fs16.writeFileSync)((0, import_node_path17.join)(home, "settle-schedule"), fingerprint2, "utf8");
+  }
+};
+function nextTaskArrival(events, now, currentTasks, compute) {
+  const currentKeys = new Set(currentTasks.map((task) => task.key));
+  const hasNewTask = (at) => (compute ?? computeTasks)(events, at).tasks.some((task) => !currentKeys.has(task.key));
+  let low = now;
+  let high = now + SETTLE_DELAY;
+  if (!hasNewTask(high)) return void 0;
+  while (high - low > 5e3) {
+    const middle = Math.floor((low + high) / 2);
+    if (hasNewTask(middle)) high = middle;
+    else low = middle;
+  }
+  const roundedAt = Math.ceil(high / 5e3) * 5e3;
+  return {
+    delay: Math.max(5e3, roundedAt + 1e3 - now),
+    beforeFiveSeconds: high - now <= 5e3
+  };
+}
+function scheduleNextSync(input, events, currentTasks, compute) {
+  if (!input.spawnSync) return;
+  const next = nextTaskArrival(events, input.now, currentTasks, compute);
+  if (!next) return;
+  if (next.beforeFiveSeconds) {
+    const fingerprint2 = (0, import_node_crypto5.createHash)("sha256").update(JSON.stringify(events)).digest("hex");
+    const store = input.settleSchedule ?? diskSettleSchedule;
+    try {
+      if (store.read(input.home) === fingerprint2) return;
+      store.write(input.home, fingerprint2);
+    } catch {
+    }
+  }
+  input.spawnSync(next.delay);
+}
+function sameBindings(left, right) {
+  const normalize = (bindings) => bindings.map((binding) => dirNameKey(binding.dir)).sort();
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+}
+function isTransient(error) {
+  return error instanceof RecorderHttpError && (error.kind === "network" || error.kind === "server");
+}
+function rejectionValue(version, reason) {
+  return `${version}	${reason}`;
+}
+function rejectedForVersion(value, version) {
+  return value?.startsWith(`${version}	`) ?? false;
+}
+function appendKeys(state, home, task, at, payloadEntries = task.entries, payloadTaskKey = task.key) {
+  const keys = /* @__PURE__ */ new Set([task.key, payloadTaskKey, ...task.entries.map((entry) => entry.key), ...payloadEntries.map((entry) => entry.key)]);
+  state.appendUploaded(home, [...keys].map((key) => ({ k: key, at })));
+}
+function responseSkips(request, response) {
+  const known = new Set(request.tasks.map((task) => task.key));
+  return new Map(response.skipped.filter((item) => known.has(item.key)).map((item) => [item.key, item.reason]));
+}
+async function runSync(input) {
+  const requestedDelay = Math.max(0, input.options.delayMs ?? 0);
+  const delayMs = Math.min(requestedDelay, MAX_DELAY_MS2);
+  const requestedNow = input.now ?? Date.now();
+  if (delayMs > 0) {
+    await (input.sleep ?? ((ms) => new Promise((resolve2) => setTimeout(resolve2, ms))))(delayMs);
+    const lockPath = input.options.settleLockPath ?? (0, import_node_path17.join)(input.home, `settle-${requestedNow + delayMs}.lock`);
+    try {
+      ;
+      (input.removeSettleLock ?? ((path) => (0, import_node_fs16.rmSync)(path, { force: true })))(lockPath);
+    } catch {
+    }
+  }
+  const now = input.now === void 0 ? delayMs > 0 ? Date.now() : requestedNow : requestedNow + delayMs;
+  const locked = await input.state.withLock((0, import_node_path17.join)(input.home, "sync.lock"), SYNC_LOCK_STALE_MS, async () => {
+    return runLocked({ ...input, now });
+  });
+  return locked?.value ?? { skipped: "locked" };
+}
+async function runLocked(input) {
+  const emptyResult = () => ({ uploadedTasks: 0, uploadedEntries: 0, skipped: 0, rejected: 0, liveSent: false });
+  if (!input.creds) {
+    return { ...emptyResult(), error: "\u672A\u914D\u7F6E\u51ED\u636E" };
+  }
+  const cacheStore = input.bindingsCache ?? diskBindingsCache;
+  const oldCache = cacheStore.read(input.home);
+  let pendingCache;
+  let bindings = oldCache?.bindings;
+  let changed = oldCache === null;
+  if (!oldCache || input.now - oldCache.fetchedAt >= BINDINGS_CACHE_MS) {
+    try {
+      const fresh = await input.client.getBindings();
+      bindings = fresh.bindings;
+      changed = oldCache === null || !sameBindings(oldCache.bindings, fresh.bindings);
+      if (!input.options.dryRun) pendingCache = { fetchedAt: input.now, bindings: fresh.bindings };
+    } catch (error) {
+      if (oldCache && isTransient(error)) {
+        bindings = oldCache.bindings;
+        changed = false;
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        await saveLastSync(input, false, message, 0);
+        return { ...emptyResult(), error: message };
+      }
+    }
+  }
+  if (!bindings) {
+    const message = "\u6CA1\u6709\u53EF\u7528\u7684\u76EE\u5F55\u7ED1\u5B9A\u6E05\u5355";
+    await saveLastSync(input, false, message, 0);
+    return { ...emptyResult(), error: message };
+  }
+  const eventOptions = { now: input.now };
+  if (!input.options.all && !changed) eventOptions.days = input.options.days ?? 60;
+  const events = (input.readEvents ?? readEvents)(input.home, eventOptions);
+  const compute = input.compute ?? computeTasks;
+  const result = compute(events, input.now);
+  const boundKeys = new Set(bindings.map((binding) => dirNameKey(binding.dir)));
+  const uploaded = input.state.readUploadedKeys(input.home);
+  const clientInfo = { name: RECORDER_NAME, version: RECORDER_VERSION, agent: "codex" };
+  const candidates = result.tasks.flatMap((task) => {
+    if (!boundKeys.has(dirNameKey(task.dir))) return [];
+    if (rejectedForVersion(uploaded.rejected.get(task.key), RECORDER_VERSION)) return [];
+    const entries = task.entries.filter((entry) => !uploaded.done.has(entry.key));
+    if (uploaded.done.has(task.key) && entries.length === 0) return [];
+    return [{ ...task, entries }];
+  });
+  const requests = buildUploadRequests(candidates, clientInfo, uploaded.done);
+  if (input.options.dryRun) {
+    return {
+      ...emptyResult(),
+      taskKeys: requests.flatMap((request) => request.tasks.map((task) => task.key)),
+      entryKeys: requests.flatMap((request) => request.tasks.flatMap((task) => task.entries.map((entry) => entry.key)))
+    };
+  }
+  const totals = emptyResult();
+  for (const request of requests) {
+    try {
+      const response = await input.client.upload(request);
+      applyUploadResponse(input, request, response, candidates, totals);
+    } catch (error) {
+      if (error instanceof RecorderHttpError && error.status === 400) {
+        const stopped = await retrySingleTasks(input, request, candidates, totals);
+        if (stopped) {
+          await saveLastSync(input, false, stopped, totals.uploadedTasks);
+          return { ...totals, error: stopped };
+        }
+        continue;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      await saveLastSync(input, false, message, totals.uploadedTasks);
+      return { ...totals, error: message };
+    }
+  }
+  try {
+    totals.liveSent = await syncLive({ home: input.home, now: input.now, windows: result.open, bindings, client: input.client, state: input.state });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await saveLastSync(input, false, message, totals.uploadedTasks);
+    return { ...totals, error: message };
+  }
+  try {
+    if (pendingCache) cacheStore.write(input.home, pendingCache);
+  } catch {
+  }
+  scheduleNextSync(input, events, result.tasks, compute);
+  await saveLastSync(input, true, void 0, totals.uploadedTasks);
+  return totals;
+}
+function applyUploadResponse(input, request, response, candidates, totals) {
+  const skipped = responseSkips(request, response);
+  const tasksByKey = new Map(candidates.map((task) => [compactUploadKey(task.key), task]));
+  for (const payloadTask of request.tasks) {
+    const task = tasksByKey.get(payloadTask.key);
+    if (!task) continue;
+    const reason = skipped.get(task.key);
+    if (reason === "unbound") {
+      totals.skipped += 1;
+    } else if (reason === "invalid") {
+      input.state.appendUploaded(input.home, [{ k: task.key, at: input.now, rejected: rejectionValue(RECORDER_VERSION, "\u670D\u52A1\u5668\u62D2\u7EDD\u8BE5\u4EFB\u52A1") }]);
+      totals.rejected += 1;
+    } else {
+      appendKeys(input.state, input.home, task, input.now, payloadTask.entries, payloadTask.key);
+      totals.uploadedTasks += 1;
+      totals.uploadedEntries += payloadTask.entries.length;
+    }
+  }
+}
+async function retrySingleTasks(input, request, candidates, totals) {
+  const tasksByKey = new Map(candidates.map((task) => [compactUploadKey(task.key), task]));
+  for (const payloadTask of request.tasks) {
+    const oneTaskRequest = { ...request, tasks: [payloadTask] };
+    try {
+      const response = await input.client.upload(oneTaskRequest);
+      applyUploadResponse(input, oneTaskRequest, response, candidates, totals);
+    } catch (error) {
+      if (error instanceof RecorderHttpError && error.status === 400) {
+        const task = tasksByKey.get(payloadTask.key);
+        if (task) {
+          input.state.appendUploaded(input.home, [{ k: task.key, at: input.now, rejected: rejectionValue(RECORDER_VERSION, error.message) }]);
+          totals.rejected += 1;
+        }
+        continue;
+      }
+      return error instanceof Error ? error.message : String(error);
+    }
+  }
+  return void 0;
+}
+async function saveLastSync(input, ok, message, uploadedTasks) {
+  await input.state.updateState(input.home, (state) => ({
+    ...state,
+    lastSync: {
+      startedAt: input.now,
+      finishedAt: input.now,
+      ok,
+      ...message === void 0 ? {} : { message },
+      uploadedTasks
+    }
+  }));
+}
+
+// integrations/recorder/src/commands/sync.ts
+function backgroundSync(scriptPath, env, delayMs) {
+  spawnBackgroundSync(process.execPath, scriptPath, { ...env, DEVERDESK_RECORDER_INTERNAL: "1" }, { delayMs });
+}
+async function runSyncCommand(options, dependencies) {
+  const home = dependencies.home ?? recorderHome(dependencies.env);
+  const creds = (dependencies.loadCredentials ?? loadCredentials)(home, dependencies.env);
+  const client = (dependencies.createClient ?? ((value) => createClient({
+    url: value?.url ?? "http://127.0.0.1",
+    token: value?.token ?? ""
+  })))(creds);
+  const syncRunner = dependencies.run ?? runSync;
+  const input = {
+    home,
+    now: dependencies.now,
+    creds,
+    client,
+    compute: dependencies.compute,
+    readEvents: dependencies.readEvents,
+    state: dependencies.state ?? createDefaultSyncState(),
+    options: dependencies.env.DEVERDESK_RECORDER_SETTLE_LOCK && !options.settleLockPath ? { ...options, settleLockPath: dependencies.env.DEVERDESK_RECORDER_SETTLE_LOCK } : options,
+    spawnSync: dependencies.spawnSync ?? ((delayMs) => {
+      if (dependencies.scriptPath) backgroundSync(dependencies.scriptPath, dependencies.env, delayMs);
+    })
+  };
+  const result = await syncRunner(input);
+  if (typeof result.skipped === "string") return "\u540C\u6B65\u5DF2\u5728\u8FD0\u884C\uFF0C\u8DF3\u8FC7\u672C\u6B21\u3002";
+  if (options.dryRun && result.error) {
+    if (result.error === "\u672A\u914D\u7F6E\u51ED\u636E") return result.error;
+    throw new Error(`\u540C\u6B65\u5931\u8D25\uFF1A${result.error}`);
+  }
+  if (options.dryRun) {
+    const keys = result.taskKeys ?? [];
+    const entries = result.entryKeys ?? [];
+    return `\u5C06\u4E0A\u4F20 ${keys.length} \u4E2A\u4EFB\u52A1\u3001${entries.length} \u6BB5\u6295\u5165
+\u4EFB\u52A1\u952E\uFF1A${keys.length ? keys.join("\u3001") : "\u65E0"}
+\u65F6\u95F4\u6BB5\u952E\uFF1A${entries.length ? entries.join("\u3001") : "\u65E0"}`;
+  }
+  if (result.error) throw new Error(`\u540C\u6B65\u5931\u8D25\uFF1A${result.error}`);
+  return `\u540C\u6B65\u5B8C\u6210\uFF1A\u4E0A\u4F20 ${result.uploadedTasks} \u4E2A\u4EFB\u52A1\u3001${result.uploadedEntries} \u6BB5\u6295\u5165\uFF1B\u8DF3\u8FC7 ${result.skipped} \u4E2A\uFF0C\u62D2\u7EDD ${result.rejected} \u4E2A\u3002`;
+}
+
+// integrations/recorder/src/commands/tasks.ts
+function parseSince(value) {
+  const match = /^(\d+)(d|h)$/u.exec(value);
+  const amount = Number(match?.[1]);
+  if (!match || !Number.isSafeInteger(amount) || amount < 1) {
+    throw Object.assign(new Error("--since \u683C\u5F0F\u5E94\u4E3A Nd \u6216 Nh\uFF0C\u4F8B\u5982 7d\u300112h"), { exitCode: 2 });
+  }
+  const duration = amount * (match[2] === "d" ? 24 * 60 : 60) * 6e4;
+  if (!Number.isSafeInteger(duration)) throw Object.assign(new Error("--since \u8D85\u51FA\u53EF\u5904\u7406\u8303\u56F4"), { exitCode: 2 });
+  return duration;
+}
+function itemOf(task) {
+  return {
+    date: new Date(task.finishedAt).toISOString().slice(0, 10),
+    dir: task.dir,
+    title: task.title,
+    minutes: task.entries.reduce((sum, entry) => sum + entry.minutes, 0),
+    finishedAt: task.finishedAt,
+    key: task.key
+  };
+}
+async function runTasks(options, dependencies) {
+  const now = dependencies.now ?? Date.now();
+  const since = options.since ?? "7d";
+  const cutoff = now - parseSince(since);
+  const events = (dependencies.readEvents ?? readEvents)(dependencies.home, { now }).filter((event) => event.t >= cutoff);
+  const computed = (dependencies.compute ?? computeTasks)(events, now + SETTLE_DELAY);
+  const groupsByDir = /* @__PURE__ */ new Map();
+  for (const task of computed.tasks) {
+    const group = groupsByDir.get(task.dir) ?? [];
+    group.push(itemOf(task));
+    groupsByDir.set(task.dir, group);
+  }
+  const groups = [...groupsByDir].map(([dir, tasks]) => ({ dir, tasks }));
+  const allTasks = groups.flatMap((group) => group.tasks);
+  const data = {
+    since,
+    groups,
+    totalTasks: allTasks.length,
+    totalMinutes: allTasks.reduce((sum, task) => sum + task.minutes, 0),
+    notice: "\u6700\u8FD1 15 \u5206\u949F\u5185\u7684\u53EF\u80FD\u8FD8\u4F1A\u53D8"
+  };
+  if (options.json) return { data, output: JSON.stringify(data, null, 2) };
+  const lines = groups.flatMap((group) => group.tasks.map((task) => `${task.date}  ${group.dir}  ${task.title}  ${task.minutes} \u5206\u949F`));
+  lines.push(`\u5408\u8BA1\uFF1A${data.totalTasks} \u4E2A\u4EFB\u52A1\uFF0C${data.totalMinutes} \u5206\u949F`);
+  lines.push(data.notice);
+  return { data, output: lines.join("\n") };
+}
+
+// integrations/recorder/src/cli.ts
+var VERSION = "0.1.0";
+var USAGE = [
+  "\u7528\u6CD5\uFF1Adeverdesk-recorder <\u547D\u4EE4> [\u53C2\u6570]",
+  "  hook <claude-code|codex> <\u4E8B\u4EF6>       \u5904\u7406\u5BBF\u4E3B\u94A9\u5B50",
+  "  sync [--all] [--dry-run] [--days 60] [--delay \u6BEB\u79D2]",
+  "  status [--json]",
+  '  done "\u6807\u9898" [--session <id>] [--agent claude-code|codex]',
+  "  tasks [--since 7d] [--json]",
+  "  setup --url <\u5730\u5740> --token <\u4EE4\u724C> [--install-codex-hooks]",
+  "  backfill [--agent claude-code|codex|all] [--days 30] [--dry-run]",
+  "  doctor | --version | --help"
+].join("\n");
+function cliError(message, exitCode = 2) {
+  return Object.assign(new Error(message), { exitCode });
+}
+function positiveInteger(value, name) {
+  const parsed = Number(value);
+  if (!value || !/^\d+$/u.test(value) || !Number.isSafeInteger(parsed) || parsed < 1) throw cliError(`${name} \u5FC5\u987B\u662F\u6B63\u6574\u6570`);
+  return parsed;
+}
+function nonnegativeInteger(value, name) {
+  const parsed = Number(value);
+  if (!value || !/^\d+$/u.test(value) || !Number.isSafeInteger(parsed) || parsed < 0) throw cliError(`${name} \u5FC5\u987B\u662F\u975E\u8D1F\u6574\u6570`);
+  return parsed;
+}
+function readValue(args, index, flag) {
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) throw cliError(`${flag} \u540E\u9700\u8981\u4E00\u4E2A\u503C`);
+  return value;
+}
+async function readStdin(source) {
+  if (typeof source === "string") return source;
+  if (!source) return "";
+  let text = "";
+  let timer;
+  const consume = (async () => {
+    for await (const chunk of source) text += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
+    return text;
+  })();
+  const timedOut = new Promise((resolve2) => {
+    timer = setTimeout(() => {
+      const destroy = source.destroy;
+      destroy?.call(source);
+      resolve2(text);
+    }, 3e3);
+  });
+  try {
+    return await Promise.race([consume, timedOut]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+function writeLine(stream, value) {
+  stream.write(`${value}${value.endsWith("\n") ? "" : "\n"}`);
+}
+function parseHiddenNow(args) {
+  const visible = [...args];
+  let now;
+  for (let index = 0; index < visible.length; index += 1) {
+    if (visible[index] !== "--now") continue;
+    const raw = visible[index + 1];
+    const parsed = Number(raw);
+    if (!raw || !Number.isSafeInteger(parsed)) throw cliError("--now \u5FC5\u987B\u662F\u6BEB\u79D2\u65F6\u95F4\u6233");
+    now = parsed;
+    visible.splice(index, 2);
+    index -= 1;
+  }
+  return { args: visible, ...now === void 0 ? {} : { now } };
+}
+async function defaultStatus(options, env, now) {
+  const git = createGitRunner();
+  const result = await runStatus(options, {
+    cwd: process.cwd(),
+    home: recorderHome(env),
+    env,
+    now,
+    resolveDirName: (cwd) => resolveDirName(cwd, git)
+  });
+  return result.output;
+}
+async function defaultDone(options, env, now) {
+  const git = createGitRunner();
+  const script = process.argv[1] ?? "";
+  return runDone(options, {
+    home: recorderHome(env),
+    cwd: process.cwd(),
+    env,
+    now,
+    resolveDirName: (cwd) => resolveDirName(cwd, git),
+    readEvents,
+    appendEvent,
+    spawnBackgroundSync: () => {
+      const child = (0, import_node_child_process3.spawn)(process.execPath, [script, "sync"], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: true,
+        env: { ...env, DEVERDESK_RECORDER_INTERNAL: "1" }
+      });
+      child.unref();
+    }
+  });
+}
+async function defaultSetup(options, env) {
+  return runSetup(options, { env, home: recorderHome(env), cliPath: process.argv[1] ?? "" });
+}
+async function defaultBackfill(options, env, now) {
+  return runBackfill(options, { env, home: recorderHome(env), now });
+}
+async function defaultDoctor(env, now) {
+  return (await runDoctor({ env, home: recorderHome(env), now })).output;
+}
+async function main(argv, env = process.env, io = { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr }, handlers = {}) {
+  if (argv.includes("--help") || argv.length === 0) {
+    writeLine(io.stdout, USAGE);
+    return 0;
+  }
+  if (argv[0] === "--version") {
+    writeLine(io.stdout, VERSION);
+    return 0;
+  }
+  let command;
+  let rawArgs;
+  let now;
+  try {
+    command = argv[0] ?? "";
+    const hidden = parseHiddenNow(argv.slice(1));
+    rawArgs = hidden.args;
+    now = hidden.now;
+  } catch (error) {
+    writeLine(io.stderr, error instanceof Error ? error.message : String(error));
+    return 2;
+  }
+  if (command === "hook") {
+    try {
+      const [agent, eventName, ...tail] = rawArgs;
+      if (agent !== "claude-code" && agent !== "codex" || !eventName) return 0;
+      const stdin = await readStdin(io.stdin);
+      const payload = stdin.trim() ? stdin : tail.at(-1) ?? "";
+      const agentName = agent === "claude-code" ? "claude-code" : "codex";
+      const result = await (handlers.hook ?? runHook)({
+        agent: agentName,
+        eventName,
+        input: payload,
+        env,
+        ...now === void 0 ? {} : { now }
+      });
+      if (eventName === "SessionStart" && result.stdout) writeLine(io.stdout, result.stdout);
+    } catch {
+    }
+    return 0;
+  }
+  if (!["sync", "status", "done", "tasks", "setup", "backfill", "doctor"].includes(command)) {
+    writeLine(io.stderr, `${USAGE}
+\u672A\u77E5\u547D\u4EE4\uFF1A${command}`);
+    return 2;
+  }
+  try {
+    let output = "";
+    if (command === "sync") {
+      let all = false;
+      let dryRun = false;
+      let days;
+      let delayMs;
+      for (let index = 0; index < rawArgs.length; index += 1) {
+        const arg = rawArgs[index];
+        if (arg === "--all") all = true;
+        else if (arg === "--dry-run") dryRun = true;
+        else if (arg === "--days") days = positiveInteger(readValue(rawArgs, index++, arg), "--days");
+        else if (arg === "--delay") delayMs = nonnegativeInteger(readValue(rawArgs, index++, arg), "--delay");
+        else throw cliError(`sync \u4E0D\u8BA4\u8BC6\u53C2\u6570\uFF1A${arg}`);
+      }
+      output = await (handlers.sync ?? ((options, values, timestamp) => runSyncCommand(options, { env: values, now: timestamp, scriptPath: process.argv[1] })))(
+        { all, dryRun, ...days === void 0 ? {} : { days }, ...delayMs === void 0 ? {} : { delayMs } },
+        env,
+        now
+      );
+    } else if (command === "status") {
+      const json = rawArgs.includes("--json");
+      if (rawArgs.some((arg) => arg !== "--json")) throw cliError("status \u4E0D\u8BA4\u8BC6\u8BE5\u53C2\u6570");
+      output = await (handlers.status ?? defaultStatus)({ json }, env, now);
+    } else if (command === "done") {
+      let title;
+      let session;
+      let agent;
+      for (let index = 0; index < rawArgs.length; index += 1) {
+        const arg = rawArgs[index];
+        if (arg === "--session") session = readValue(rawArgs, index++, arg);
+        else if (arg === "--agent") {
+          const value = readValue(rawArgs, index++, arg);
+          if (value !== "claude-code" && value !== "codex") throw cliError("--agent \u53EA\u80FD\u662F claude-code \u6216 codex");
+          agent = value;
+        } else if (arg?.startsWith("--") || title !== void 0) throw cliError(`done \u53C2\u6570\u65E0\u6548\uFF1A${arg}`);
+        else title = arg;
+      }
+      if (title === void 0 || !title.trim()) throw cliError("done \u9700\u8981\u4E00\u4E2A\u975E\u7A7A\u6807\u9898");
+      output = await (handlers.done ?? defaultDone)({ title, ...session ? { session } : {}, ...agent ? { agent } : {} }, env, now);
+    } else if (command === "tasks") {
+      let since = "7d";
+      let json = false;
+      for (let index = 0; index < rawArgs.length; index += 1) {
+        const arg = rawArgs[index];
+        if (arg === "--since") since = readValue(rawArgs, index++, arg);
+        else if (arg === "--json") json = true;
+        else throw cliError(`tasks \u4E0D\u8BA4\u8BC6\u53C2\u6570\uFF1A${arg}`);
+      }
+      output = await (handlers.tasks ?? (async (options, values, timestamp) => (await runTasks(options, { home: recorderHome(values), now: timestamp })).output))({ since, json }, env, now);
+    } else if (command === "setup") {
+      let url;
+      let token;
+      let installCodexHooks = false;
+      for (let index = 0; index < rawArgs.length; index += 1) {
+        const arg = rawArgs[index];
+        if (arg === "--url") url = readValue(rawArgs, index++, arg);
+        else if (arg === "--token") token = readValue(rawArgs, index++, arg);
+        else if (arg === "--install-codex-hooks") installCodexHooks = true;
+        else throw cliError(`setup \u4E0D\u8BA4\u8BC6\u53C2\u6570\uFF1A${arg}`);
+      }
+      if (url === void 0 || token === void 0) throw cliError("setup \u9700\u8981 --url \u548C --token");
+      output = await (handlers.setup ?? defaultSetup)({ url, token, installCodexHooks }, env);
+    } else if (command === "backfill") {
+      let agent = "all";
+      let days = 30;
+      let dryRun = false;
+      for (let index = 0; index < rawArgs.length; index += 1) {
+        const arg = rawArgs[index];
+        if (arg === "--agent") {
+          const value = readValue(rawArgs, index++, arg);
+          if (value !== "claude-code" && value !== "codex" && value !== "all") throw cliError("--agent \u53EA\u80FD\u662F claude-code\u3001codex \u6216 all");
+          agent = value;
+        } else if (arg === "--days") days = positiveInteger(readValue(rawArgs, index++, arg), "--days");
+        else if (arg === "--dry-run") dryRun = true;
+        else throw cliError(`backfill \u4E0D\u8BA4\u8BC6\u53C2\u6570\uFF1A${arg}`);
+      }
+      output = await (handlers.backfill ?? defaultBackfill)({ agent, days, dryRun }, env, now);
+    } else {
+      if (rawArgs.length) throw cliError("doctor \u4E0D\u63A5\u53D7\u53C2\u6570");
+      output = await (handlers.doctor ?? defaultDoctor)(env, now);
+    }
+    writeLine(io.stdout, output);
+    return 0;
+  } catch (error) {
+    writeLine(io.stderr, error instanceof Error ? error.message : String(error));
+    return typeof error === "object" && error !== null && "exitCode" in error && error.exitCode === 2 ? 2 : 1;
+  }
+}
+if (require.main === module) {
+  const hookCommand = process.argv[2] === "hook";
+  const hookEventName = hookCommand ? process.argv[4] : void 0;
+  const fatalHook = (error) => {
+    const detail = error instanceof Error ? error.stack ?? error.message : String(error);
+    appendRecorderLog(recorderHome(), `Uncaught hook failure: ${detail}`);
+    process.exitCode = 0;
+  };
+  if (hookCommand) {
+    const watchdog = setTimeout(() => process.exit(0), hookEventName === "SessionEnd" ? 2500 : 4e3);
+    watchdog.unref();
+    process.on("uncaughtException", fatalHook);
+    process.on("unhandledRejection", fatalHook);
+  }
+  void main(process.argv.slice(2)).then(
+    (code) => {
+      process.exitCode = hookCommand ? 0 : code;
+    },
+    (error) => {
+      if (hookCommand) {
+        fatalHook(error);
+        return;
+      }
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}
+`, () => {
+        process.exitCode = 1;
+      });
+    }
+  );
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  VERSION,
+  main
+});

@@ -1,0 +1,14 @@
+{
+  "name": "deverdesk",
+  "owner": {
+    "name": "DeverDesk"
+  },
+  "description": "Plugins for connecting developer workflows to DeverDesk.",
+  "plugins": [
+    {
+      "name": "deverdesk",
+      "source": "./integrations/claude-code",
+      "description": "Connect Claude Code to DeverDesk and record coding time and tasks automatically."
+    }
+  ]
+}

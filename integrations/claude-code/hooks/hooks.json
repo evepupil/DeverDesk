@@ -1,0 +1,74 @@
+{
+  "description": "Record coding time and tasks to ~/.deverdesk",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/deverdesk-recorder", "hook", "claude-code", "SessionStart"],
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/deverdesk-recorder", "hook", "claude-code", "UserPromptSubmit"],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/deverdesk-recorder", "hook", "claude-code", "Stop"],
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/deverdesk-recorder", "hook", "claude-code", "SessionEnd"],
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit *)",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/deverdesk-recorder", "hook", "claude-code", "PostToolUse"],
+            "async": true
+          },
+          {
+            "type": "command",
+            "if": "Bash(git -C * commit *)",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/bin/deverdesk-recorder", "hook", "claude-code", "PostToolUse"],
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

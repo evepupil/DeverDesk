@@ -1,0 +1,1 @@
+{"type":"user","timestamp":"2025-02-01T10:00:00.000Z","sessionId":"nested-must-not-appear","cwd":"/workspace/nested-repo","origin":{"kind":"human"},"message":{"content":"Synthetic ignored nested prompt."}}

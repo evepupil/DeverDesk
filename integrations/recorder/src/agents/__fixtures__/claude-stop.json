@@ -1,0 +1,12 @@
+{
+  "session_id": "fixture-session",
+  "transcript_path": "C:/code/demo/session.jsonl",
+  "cwd": "C:/code/demo",
+  "prompt_id": "fixture-prompt-id",
+  "permission_mode": "default",
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "已完成示例操作。后续内容不入日志。",
+  "background_tasks": [],
+  "session_crons": []
+}
