@@ -6,6 +6,7 @@ import {
 } from "@modelcontextprotocol/server"
 import { MAX_CHANGES_PER_CALL, PREVIEW_THRESHOLD, ChangesetError, ToolInputError } from "./types"
 import { createToolContext } from "./context"
+import { version as productVersion } from "../../package.json"
 import type { McpDependencies } from "./deps"
 import { MCP_INSTRUCTIONS } from "./instructions"
 import { inputSchemaFor, isDestructiveTool, toolsForTier } from "./registry"
@@ -32,7 +33,7 @@ export function createMcpServer(
 ): McpServer {
   const token = principalFrom(sdkContext.authInfo)
   const server = new McpServer(
-    { name: "DeverDesk", version: "0.1.0" },
+    { name: "DeverDesk", version: productVersion },
     { instructions: MCP_INSTRUCTIONS },
   )
 

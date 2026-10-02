@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { version as productVersion } from "../../package.json"
 import { handleMcpRequest } from "./index"
 import {
   installMcpTestHooks,
@@ -71,6 +72,20 @@ describe("MCP HTTP entry and protocol compatibility", () => {
     expect((resultOf(listed.body).tools as Array<{ name: string }>).map((tool) => tool.name)).toEqual([
       "get_day", "add_tasks", "delete_records", "manage_changes",
     ])
+  })
+
+  it("reports the product version from package.json as its server version", async () => {
+    const initialize = await send(legacyRequest(testTokens().read, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-11-25",
+        capabilities: {},
+        clientInfo: { name: "mcp-test", version: "1.0.0" },
+      },
+    }))
+    expect(resultOf(initialize.body).serverInfo).toMatchObject({ name: "DeverDesk", version: productVersion })
   })
 
   it("supports modern envelope tools/list and tools/call requests", async () => {

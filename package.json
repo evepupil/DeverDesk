@@ -1,6 +1,6 @@
 {
   "name": "deverdesk",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "private": true,
   "description": "独立开发者的一人公司控制台：任务、时间和副业收支放在一起",
   "license": "AGPL-3.0-only",
