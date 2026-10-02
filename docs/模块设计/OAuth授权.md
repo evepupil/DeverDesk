@@ -4,7 +4,7 @@
 - 对应代码：`worker/oauth/`（服务器一侧，见下文「代码结构」）、`worker/migrations/0004_oauth.sql`、`worker/mcp/index.ts`（认授权令牌）、`worker/routes/tokens.ts`（连接列表）、`src/app/authorize/page.tsx` 与 `src/features/oauth/`（授权页）、`src/features/auth/`（连接 AI 弹窗里的连接器地址和授权连接）、`scripts/acceptance/e2e-oauth.mjs`（端到端核对）
 - 所属里程碑：[M7 OAuth 授权](../roadmap.md#m7)
 - 界面规格：[前端设计 · 在线版的差异](../前端设计.md#在线版的差异)
-- 当前状态：开发和核对完成，等用户用 ChatGPT、Claude 实连验收
+- 当前状态：已完成（2026-10-02 用户验收通过）
 - 最近更新：2026-10-02
 - 依据：[调研：MCP 的 OAuth 授权](../调研/MCP授权.md)
 
