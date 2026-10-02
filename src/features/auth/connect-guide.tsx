@@ -82,7 +82,6 @@ export function ConnectGuide({ token, accessSession }: { token: string; accessSe
             copied={copied === "recorder-plugin"}
             onCopy={() => void copy(pluginCommands ?? snippets.recorder, "recorder-plugin")}
           />
-          <p className="text-xs text-fg-2">{t.auth.tokens.connect.recorderPluginHint(window.location.origin)}</p>
           <SnippetBlock
             value={setupCommand ?? ""}
             label={t.auth.tokens.connect.recorderSetupCommand}

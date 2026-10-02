@@ -149,11 +149,11 @@ A small recorder listens to Claude Code (and Codex) while you work and turns wha
 
 1. **Bind a folder to a project.** Open the project and add the folder name (for example `my-app`) under **Directory names**, or tell your assistant "add this project to DeverDesk".
 2. **Create a token.** Avatar menu → **Connect AI**, create a token with the **Write** permission, and open the **Recorder** tab.
-3. **Install the Claude Code plugin** and enter your workspace address (no trailing slash) and the token when asked:
+3. **Install the Claude Code plugin** with your workspace address (no trailing slash) and the token:
 
 ```bash
 claude plugin marketplace add evepupil/DeverDesk
-claude plugin install deverdesk@deverdesk
+claude plugin install deverdesk@deverdesk --config server_url=https://your-workspace.example.com --config token=dd_your_token
 ```
 
 For Codex, or without the plugin, download `integrations/claude-code/bin/deverdesk-recorder` from this repository and run `node deverdesk-recorder setup --url https://your-workspace.example.com --token dd_your_token --install-codex-hooks`. Run `deverdesk-recorder doctor` any time to check that everything is wired up.

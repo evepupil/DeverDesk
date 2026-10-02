@@ -56,8 +56,7 @@ export const auth = {
       recorderAccessHint: "部署在 Cloudflare Access 后面时，需要给 /mcp 和 /api/recorder 各加一条绕过规则",
       recorderPluginCommands: "记录器插件命令",
       recorderSetupCommand: "记录器安装命令",
-      recorderPluginHint: (origin: string) => `启用时按提示填：地址 ${origin}，令牌就是上面刚建的`,
-      recorderCodexHint: "用于 Codex 或手动安装；用插件时不需要",
+      recorderCodexHint: "用于 Codex 或手动安装：先从仓库下载 deverdesk-recorder（在 integrations/claude-code/bin 里）；用插件时不需要",
       recorderPermissionHint: "记录器需要「直接改」权限才能上传",
     },
     /** 新建后的令牌：只显示这一次 */

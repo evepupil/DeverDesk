@@ -33,9 +33,9 @@ describe("buildSnippets", () => {
     expect(snippets.other.split("\n")).toEqual([url, `Authorization: Bearer ${token}`])
     expect(snippets.recorder).toBe([
       "claude plugin marketplace add evepupil/DeverDesk",
-      "claude plugin install deverdesk@deverdesk",
+      "claude plugin install deverdesk@deverdesk --config server_url=https://desk.example --config token=dd_test-token",
       "",
-      "deverdesk-recorder setup --url https://desk.example --token dd_test-token --install-codex-hooks",
+      "node deverdesk-recorder setup --url https://desk.example --token dd_test-token --install-codex-hooks",
     ].join("\n"))
   })
 

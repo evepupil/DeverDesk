@@ -41,9 +41,9 @@ export function buildSnippets(url: string, token: string): ConnectSnippets {
     other: `${mcpUrl}\nAuthorization: ${authorization}`,
     recorder: [
       "claude plugin marketplace add evepupil/DeverDesk",
-      "claude plugin install deverdesk@deverdesk",
+      `claude plugin install deverdesk@deverdesk --config server_url=${origin} --config token=${token}`,
       "",
-      `deverdesk-recorder setup --url ${origin} --token ${token} --install-codex-hooks`,
+      `node deverdesk-recorder setup --url ${origin} --token ${token} --install-codex-hooks`,
     ].join("\n"),
   }
 }

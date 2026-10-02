@@ -54,8 +54,7 @@ export const auth: Messages["auth"] = {
       recorderAccessHint: "When deployed behind Cloudflare Access, add a bypass rule for /mcp and another for /api/recorder.",
       recorderPluginCommands: "Recorder plugin commands",
       recorderSetupCommand: "Recorder setup command",
-      recorderPluginHint: (origin) => `When prompted, enter URL ${origin} and the token you just created.`,
-      recorderCodexHint: "For Codex or manual setup; not needed with the plugin.",
+      recorderCodexHint: "For Codex or manual setup: first download deverdesk-recorder from the repository (integrations/claude-code/bin). Not needed with the plugin.",
       recorderPermissionHint: "The recorder needs the Write permission to upload",
     },
     created: {
