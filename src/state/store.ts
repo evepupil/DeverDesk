@@ -5,6 +5,8 @@ import { create } from "zustand"
 import { blankWorkbench, emptyWorkbench, generateWorkbench } from "@/data/seed"
 import { subscribeLocale } from "@/i18n/runtime"
 import { todayKey } from "@/domain/calendar"
+import { dirNameKey, validateDirNames } from "@/domain/dir-names"
+import type { DirNamesError } from "@/domain/dir-names"
 import { toggleDone } from "@/domain/routines"
 import {
   addMilestone,
@@ -111,7 +113,7 @@ interface WorkbenchState extends WorkbenchData {
   restoreEntry(entry: LedgerEntry): void
   setEntryStatus(id: string, status: LedgerEntry["status"]): void
 
-  saveProject(input: ProjectInput, id?: string): Project
+  saveProject(input: ProjectInput, id?: string): ProjectSaveResult
   toggleMilestone(projectId: string, milestoneId: string): void
   addMilestone(projectId: string, title: string, due: DayKey): void
 
@@ -128,6 +130,8 @@ interface WorkbenchState extends WorkbenchData {
   importData(data: WorkbenchData): void
   retrySave(): boolean
 }
+
+export type ProjectSaveResult = { ok: true; project: Project } | { ok: false; error: DirNamesError }
 
 function dataOf(state: WorkbenchState): WorkbenchData {
   const { profile, projects, tasks, entries, ledger, routines, notes, timer } = state
@@ -297,14 +301,29 @@ export const useWorkbench = create<WorkbenchState>()((set, get) => {
 
     saveProject(input, id) {
       const projects = get().projects
-      if (id) {
-        const updated = projects.map((project) => (project.id === id ? patchProject(project, input) : project))
-        commit({ projects: updated })
-        return updated.find((project) => project.id === id) as Project
+      const current = id ? projects.find((project) => project.id === id) : undefined
+      const existingDirNames = current?.dirNames ?? []
+      const existingKeys = existingDirNames.map(dirNameKey).sort()
+      const requestedKeys = input.dirNames?.map(dirNameKey).sort()
+      const dirNamesChanged = requestedKeys !== undefined &&
+        (requestedKeys.length !== existingKeys.length || requestedKeys.some((name, index) => name !== existingKeys[index]))
+      let dirNames = existingDirNames
+      if (dirNamesChanged) {
+        const validation = validateDirNames(input.dirNames ?? [], projects, id ?? null)
+        if (!validation.ok) return validation
+        dirNames = validation.value
       }
-      const project = newProject(input, opContext())
+
+      const normalizedInput = { ...input, dirNames }
+      if (id) {
+        const updated = projects.map((project) => (project.id === id ? patchProject(project, normalizedInput) : project))
+        const project = updated.find((project) => project.id === id) as Project
+        commit({ projects: updated })
+        return { ok: true, project }
+      }
+      const project = newProject(normalizedInput, opContext())
       commit({ projects: [...projects, project] })
-      return project
+      return { ok: true, project }
     },
 
     toggleMilestone(projectId, milestoneId) {

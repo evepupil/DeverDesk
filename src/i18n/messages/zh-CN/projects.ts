@@ -23,6 +23,19 @@ export const projects = {
     overdue: (days: number) => `已过 ${days} 天`,
     inDays: (days: number) => `${days} 天后`,
   },
+  directoryNames: {
+    label: "目录名",
+    hint: "用来认出你在哪个文件夹写代码",
+    remove: (name: string) => `移除目录名 ${name}`,
+    errors: {
+      empty: "目录名不能为空",
+      tooLong: (max: number) => `目录名不能超过 ${max} 个字符`,
+      badChar: "目录名不能包含 / 或 \\",
+      tooMany: (max: number) => `最多设置 ${max} 个目录名`,
+      repeated: "目录名不能重复",
+      taken: (projectName: string) => `这个目录名已经绑给了「${projectName}」`,
+    },
+  },
   /** 副业详情侧栏 */
   sheet: {
     title: "副业详情",

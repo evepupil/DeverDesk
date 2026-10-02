@@ -75,7 +75,7 @@ export const common: Messages["common"] = {
     segments: (count) => `${count} ${count === 1 ? "entry" : "entries"}`,
     emptyEntries: "No entries yet — start the timer or log time",
     timing: "Tracking",
-    startedAt: (time) => `Started ${time}`,
+    startedAt: (time) => `Since ${time}`,
   },
   weekNav: {
     current: "This week",

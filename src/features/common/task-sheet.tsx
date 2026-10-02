@@ -282,6 +282,7 @@ export function TaskSheet() {
                     )}
                     {taskEntries.slice(0, 12).map((entry) => (
                       <li key={entry.id} className="flex h-7 items-center gap-2 text-sm">
+                        <AiMark origin={entry.origin} />
                         <span className="w-24 shrink-0 text-fg-2">{formatDayLong(dayKeyOf(new Date(entry.start)))}</span>
                         <span className="text-xs text-fg-2 tabular">
                           {minutesToTime(minuteOfDay(entry.start))}–{minutesToTime(minuteOfDay(entry.end))}

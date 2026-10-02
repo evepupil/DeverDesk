@@ -83,11 +83,17 @@ export function ProjectOptions({ projects }: { projects: Project[] }) {
 }
 
 export function EstimateOptions({ current }: { current?: number }) {
+  const t = useT()
   const values = current && !ESTIMATE_PRESETS.includes(current) ? [...ESTIMATE_PRESETS, current].sort((a, b) => a - b) : ESTIMATE_PRESETS
-  return values.map((minutes) => (
-    <SelectItem key={minutes} value={String(minutes)}>
-      {formatMinutesLong(minutes)}
-      <span className="ml-auto text-xs text-fg-3">{formatMinutes(minutes)}</span>
-    </SelectItem>
-  ))
+  return (
+    <>
+      {current === 0 && <SelectItem value="0" disabled className="hidden">{t.ai.values.none}</SelectItem>}
+      {values.map((minutes) => (
+        <SelectItem key={minutes} value={String(minutes)}>
+          {formatMinutesLong(minutes)}
+          <span className="ml-auto text-xs text-fg-3">{formatMinutes(minutes)}</span>
+        </SelectItem>
+      ))}
+    </>
+  )
 }

@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useMemo, useState, type FormEvent } from "react"
 
 import { EmptyState } from "@/components/base/empty-state"
+import { LabelChip } from "@/components/base/label-chip"
 import { ProjectMark } from "@/components/base/marks"
 import { StatusIcon } from "@/components/base/status-icon"
 import { Button } from "@/components/ui/button"
@@ -24,6 +25,8 @@ import { useT } from "@/i18n/react"
 import { useToday, useWorkbenchData } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
+import { toast } from "sonner"
+import { dirNamesErrorText } from "../common/dir-names-error-text"
 import { LabeledBars } from "../common/bars"
 import { PropertySelect } from "../common/property-controls"
 import { QuickAdd } from "../common/quick-add"
@@ -140,6 +143,13 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
               <SheetDescription className={cn("text-sm", project.goal ? "text-fg-2" : "sr-only")}>
                 {project.goal || t.projects.sheet.title}
               </SheetDescription>
+              {(project.dirNames?.length ?? 0) > 0 && (
+                <div className="flex min-w-0 flex-wrap gap-1.5">
+                  {project.dirNames?.map((dirName) => (
+                    <LabelChip key={dirName} title={dirName}>{dirName}</LabelChip>
+                  ))}
+                </div>
+              )}
             </SheetHeader>
 
             <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
@@ -148,12 +158,13 @@ export function ProjectSheet({ projectId, onClose }: { projectId: string | null;
                   <PropertySelect
                     id="project-sheet-stage"
                     value={project.stage}
-                    onChange={(stage) =>
-                      saveProject(
+                    onChange={(stage) => {
+                      const result = saveProject(
                         { name: project.name, color: project.color, goal: project.goal, monthlyTarget: project.monthlyTarget, stage: stage as ProjectStage },
                         project.id
                       )
-                    }
+                      if (!result.ok) toast.error(dirNamesErrorText(result.error))
+                    }}
                   >
                     {PROJECT_STAGE_ORDER.map((stage) => (
                       <SelectItem key={stage} value={stage}>

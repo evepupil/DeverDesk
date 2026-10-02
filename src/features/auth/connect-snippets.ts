@@ -1,4 +1,6 @@
-export type ConnectClient = "claudeCode" | "codex" | "cursor" | "vscode" | "other"
+import { MCP_PATH } from "@/sync/protocol"
+
+export type ConnectClient = "claudeCode" | "codex" | "cursor" | "vscode" | "other" | "recorder"
 
 export type ConnectSnippets = Record<ConnectClient, string>
 
@@ -12,13 +14,15 @@ function json(value: object): string {
 
 /** Build ready-to-paste MCP settings for supported clients. */
 export function buildSnippets(url: string, token: string): ConnectSnippets {
+  const origin = new URL(url).origin
+  const mcpUrl = `${origin}${MCP_PATH}`
   const authorization = `Bearer ${token}`
   const claudeHeader = quoteCommandValue(`Authorization: ${authorization}`)
-  const tomlUrl = JSON.stringify(url)
+  const tomlUrl = JSON.stringify(mcpUrl)
   const tomlHeader = JSON.stringify(authorization)
 
   return {
-    claudeCode: `claude mcp add --transport http deverdesk ${url} --header ${claudeHeader}`,
+    claudeCode: `claude mcp add --transport http deverdesk ${mcpUrl} --header ${claudeHeader}`,
     codex: [
       "[mcp_servers.deverdesk]",
       `url = ${tomlUrl}`,
@@ -26,14 +30,20 @@ export function buildSnippets(url: string, token: string): ConnectSnippets {
     ].join("\n"),
     cursor: json({
       mcpServers: {
-        deverdesk: { url, headers: { Authorization: authorization } },
+        deverdesk: { url: mcpUrl, headers: { Authorization: authorization } },
       },
     }),
     vscode: json({
       servers: {
-        deverdesk: { type: "http", url, headers: { Authorization: authorization } },
+        deverdesk: { type: "http", url: mcpUrl, headers: { Authorization: authorization } },
       },
     }),
-    other: `${url}\nAuthorization: ${authorization}`,
+    other: `${mcpUrl}\nAuthorization: ${authorization}`,
+    recorder: [
+      "claude plugin marketplace add evepupil/DeverDesk",
+      "claude plugin install deverdesk@deverdesk",
+      "",
+      `deverdesk-recorder setup --url ${origin} --token ${token} --install-codex-hooks`,
+    ].join("\n"),
   }
 }

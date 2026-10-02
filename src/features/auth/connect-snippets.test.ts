@@ -6,7 +6,7 @@ describe("buildSnippets", () => {
   const url = "https://desk.example/mcp"
   const token = "dd_test-token"
 
-  it("builds ready-to-paste config for all five clients", () => {
+  it("builds ready-to-paste config for all clients", () => {
     const snippets = buildSnippets(url, token)
 
     expect(snippets.claudeCode).toBe(
@@ -31,6 +31,12 @@ describe("buildSnippets", () => {
     expect(snippets.vscode).toBe(JSON.stringify(vscode, null, 2))
 
     expect(snippets.other.split("\n")).toEqual([url, `Authorization: Bearer ${token}`])
+    expect(snippets.recorder).toBe([
+      "claude plugin marketplace add evepupil/DeverDesk",
+      "claude plugin install deverdesk@deverdesk",
+      "",
+      "deverdesk-recorder setup --url https://desk.example --token dd_test-token --install-codex-hooks",
+    ].join("\n"))
   })
 
   it("escapes header argument values", () => {

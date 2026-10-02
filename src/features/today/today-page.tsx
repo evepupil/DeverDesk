@@ -23,6 +23,7 @@ import { CapacityBar } from "../common/capacity-bar"
 import { PlanColumn, SuggestionsColumn } from "./plan-column"
 import { FocusCard, MoneyCard, RoutinesCard } from "./side-column"
 import { Timeline } from "./timeline"
+import { useLiveWindows } from "./use-live-windows"
 import { useTodayPlan } from "./use-today-plan"
 
 /**
@@ -40,6 +41,7 @@ export function TodayPage() {
   const setProfileOpen = useUi((state) => state.setProfileOpen)
   const t = useT()
   const isCloud = EDITION === "cloud"
+  const liveWindows = useLiveWindows(isCloud)
   const proposal = useAiActivityStore((state) => state.pendingChangesets[0])
   const pendingCount = useAiActivityStore((state) => state.pendingCount)
 
@@ -125,14 +127,14 @@ export function TodayPage() {
           bodyClassName="flex-1"
         >
           <Surface className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <Timeline today={today} tasks={todayTasks} unscheduled={plan.unscheduled} />
+            <Timeline today={today} tasks={todayTasks} unscheduled={plan.unscheduled} liveWindows={liveWindows} />
           </Surface>
         </BoardColumn>
 
         <div className="scroll-thin grid min-w-0 content-start gap-(--gap-card) md:grid-cols-2 lg:col-span-2 xl:col-span-1 xl:min-h-0 xl:grid-cols-1 xl:overflow-y-auto">
           <RoutinesCard today={today} />
           <MoneyCard today={today} />
-          <FocusCard today={today} />
+          <FocusCard today={today} liveWindows={liveWindows} />
         </div>
       </div>
     </PageFrame>

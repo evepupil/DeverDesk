@@ -124,6 +124,22 @@ describe("applyRecords", () => {
     timer: null,
   })
 
+  it("preserves directory and recorder fields when applying synchronized records", () => {
+    const data = base()
+    const project = { ...data.projects[0], dirNames: ["source-folder"] }
+    const task = { ...data.tasks[0], origin: "coding" as const }
+    const entry = { ...data.entries[0], minutes: 17, origin: "coding" as const }
+    const result = applyRecords(data, [
+      { kind: "project", id: project.id, data: project },
+      { kind: "task", id: task.id, data: task },
+      { kind: "entry", id: entry.id, data: entry },
+    ])
+
+    expect(result.projects[0].dirNames).toEqual(["source-folder"])
+    expect(result.tasks[0].origin).toBe("coding")
+    expect(result.entries[0]).toMatchObject({ minutes: 17, origin: "coding" })
+  })
+
   it("已有的记录原位替换、新的追加，顺序保持", () => {
     const data = base()
     const replacedTask: Task = { ...data.tasks[0], title: "改过的任务" }

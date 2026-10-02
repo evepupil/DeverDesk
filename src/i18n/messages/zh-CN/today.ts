@@ -25,6 +25,9 @@ export const today = {
   /** 时间线一列 */
   timeline: {
     title: "时间线",
+    actual: "实际投入",
+    actualTooltip: (title: string, minutes: string) => `${title} · ${minutes}`,
+    actualTooltipMore: (n: number) => `…另外 ${n} 条`,
     unplaced: (n: number) => `${n} 件还没排时间`,
     blockAria: (title: string, range: string) => `${title}，${range}。上下方向键挪动，按住 Shift 调整时长`,
     empty: "拖任务到这里，或点空白处安排时间",

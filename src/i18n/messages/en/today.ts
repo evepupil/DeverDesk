@@ -22,6 +22,9 @@ export const today: Messages["today"] = {
   },
   timeline: {
     title: "Timeline",
+    actual: "Actual time",
+    actualTooltip: (title, minutes) => `${title} · ${minutes}`,
+    actualTooltipMore: (n) => `…${n} more`,
     unplaced: (n) => `${n} unscheduled`,
     blockAria: (title, range) => `${title}, ${range}. Use arrow keys to move, hold Shift to resize`,
     empty: "Drag tasks here, or click an empty slot to schedule",

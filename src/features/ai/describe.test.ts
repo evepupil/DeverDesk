@@ -87,6 +87,21 @@ describe("fieldChanges", () => {
     ).toEqual([{ field: "notes", before: "Earlier notes", after: "Updated notes" }])
   })
 
+  it("describes project directory-name-only changes and empty values", () => {
+    expect(fieldChanges("project", { dirNames: [] }, { dirNames: ["quill-app", "quill-docs"] })).toEqual([
+      { field: "dirNames", before: { type: "none" }, after: "quill-app, quill-docs" },
+    ])
+    expect(fieldChanges("project", { dirNames: ["quill-app"] }, { dirNames: [] })).toEqual([
+      { field: "dirNames", before: "quill-app", after: { type: "none" } },
+    ])
+  })
+
+  it("describes counted minutes on time entries", () => {
+    expect(fieldChanges("entry", { minutes: 30 }, { minutes: 50 })).toEqual([
+      { field: "minutes", before: "30 min", after: "50 min" },
+    ])
+  })
+
   it("resolves linked tasks and describes project and routine changes", () => {
     const task = {
       id: "t1", seq: 1, title: "Draft", projectId: null, status: "todo", priority: 2, estimateMin: 30,

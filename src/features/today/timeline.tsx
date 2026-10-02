@@ -15,7 +15,7 @@ import {
 
 import { ProjectMark } from "@/components/base/marks"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
-import { minuteOfDay, minutesToTime, todayKey } from "@/domain/calendar"
+import { dayKeyOf, minuteOfDay, minutesToTime, parseDay, todayKey } from "@/domain/calendar"
 import { formatMinutes } from "@/domain/format"
 import { MIN_BLOCK, SLOT_STEP, blocksFor, layoutBlocks, type PlacedBlock } from "@/domain/planning"
 import type { DayKey, Task } from "@/domain/types"
@@ -25,6 +25,8 @@ import { useNow, useProjectsById } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
 import { TASK_DRAG_TYPE } from "../common/task-card"
+import { ActualLane } from "./actual-lane-view"
+import type { LiveWindowRow } from "./live-windows"
 
 /** 每小时 56px，15 分钟一格；45 分钟的块刚好放下两行 */
 const HOUR_PX = 56
@@ -138,8 +140,9 @@ function Block({
  * 今天的时间线：任务按开始时间摆成块，重叠的并排。
  * 鼠标拖动块改时间、拖下边改时长，从左边拖任务进来直接排上；点空白处选一件任务放进去。
  */
-export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: Task[]; unscheduled: Task[] }) {
+export function Timeline({ today, tasks, unscheduled, liveWindows }: { today: DayKey; tasks: Task[]; unscheduled: Task[]; liveWindows: LiveWindowRow[] }) {
   const profile = useWorkbench((state) => state.profile)
+  const entries = useWorkbench((state) => state.entries)
   const timer = useWorkbench((state) => state.timer)
   const allTasks = useWorkbench((state) => state.tasks)
   const scheduleTask = useWorkbench((state) => state.scheduleTask)
@@ -153,12 +156,22 @@ export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: 
 
   const dayStart = profile.dayStartHour * 60
   const dayEnd = profile.dayEndHour * 60
+  const rangeStartDate = parseDay(today)
+  rangeStartDate.setHours(profile.dayStartHour, 0, 0, 0)
+  const rangeEndDate = parseDay(today)
+  rangeEndDate.setHours(profile.dayEndHour, 0, 0, 0)
+  const rangeStart = rangeStartDate.getTime()
+  const rangeEnd = rangeEndDate.getTime()
   const hours = Array.from({ length: profile.dayEndHour - profile.dayStartHour + 1 }, (_, i) => profile.dayStartHour + i)
   const isToday = todayKey(now) === today
   const nowMinute = minuteOfDay(now)
   const showNow = isToday && nowMinute >= dayStart && nowMinute <= dayEnd
 
   const byId = useMemo(() => new Map(tasks.map((task) => [task.id, task])), [tasks])
+  const todayEntries = useMemo(
+    () => entries.filter((entry) => dayKeyOf(new Date(entry.start)) === today),
+    [entries, today]
+  )
   const placed = useMemo(
     () =>
       layoutBlocks(
@@ -253,7 +266,8 @@ export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: 
   }
 
   const onGridClick = (event: MouseEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("[data-block]")) return
+    const target = event.target as HTMLElement
+    if (target.closest("[data-block]") || target.closest("[data-actual-lane]")) return
     const minute = Math.floor(minuteAt(event.clientY) / SLOT_STEP) * SLOT_STEP
     setSlot(Math.min(dayEnd - SLOT_STEP, Math.max(dayStart, minute)))
   }
@@ -299,14 +313,24 @@ export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: 
         {hours.map((hour) => (
           <div key={hour} aria-hidden className="pointer-events-none absolute right-0 left-0" style={{ top: (hour * 60 - dayStart) * PX }}>
             <span className="absolute left-2 w-8 -translate-y-1/2 text-right text-xs text-fg-2 tabular">{hour}:00</span>
-            <span className="absolute right-0 left-11 border-t border-line" />
+            <span className="absolute right-0 left-[3.125rem] border-t border-line" />
             {hour < profile.dayEndHour && (
-              <span className="absolute right-0 left-11 border-t border-dashed border-line/70" style={{ top: HOUR_PX / 2 }} />
+              <span className="absolute right-0 left-[3.125rem] border-t border-dashed border-line/70" style={{ top: HOUR_PX / 2 }} />
             )}
           </div>
         ))}
 
-        <div className="absolute inset-y-0 right-0 left-11">
+        <ActualLane
+          entries={todayEntries}
+          tasks={allTasks}
+          windows={liveWindows}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          now={now}
+          px={PX}
+        />
+
+        <div className="absolute inset-y-0 right-0 left-[3.125rem]">
           {placed.map((block) => {
             const task = byId.get(block.taskId)
             if (!task) return null
@@ -330,7 +354,7 @@ export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: 
         </div>
 
         {dropAt !== null && (
-          <div aria-hidden className="pointer-events-none absolute right-0 left-11 z-20" style={{ top: (dropAt - dayStart) * PX }}>
+          <div aria-hidden className="pointer-events-none absolute right-0 left-[3.125rem] z-20" style={{ top: (dropAt - dayStart) * PX }}>
             <span className="block border-t-2 border-fg" />
             <span className="absolute -top-2.5 right-1 rounded-sm bg-fg px-1 text-xs text-white tabular">{minutesToTime(dropAt)}</span>
           </div>
@@ -344,14 +368,14 @@ export function Timeline({ today, tasks, unscheduled }: { today: DayKey; tasks: 
         )}
 
         {placed.length === 0 && (
-          <p className="pointer-events-none absolute inset-x-11 top-1/2 -translate-y-1/2 text-center text-xs text-fg-2">
+          <p className="pointer-events-none absolute right-0 left-[3.125rem] top-1/2 -translate-y-1/2 text-center text-xs text-fg-2">
             {t.today.timeline.empty}
           </p>
         )}
 
         <Popover open={slot !== null} onOpenChange={(next) => !next && setSlot(null)}>
           <PopoverAnchor asChild>
-            <span aria-hidden className="pointer-events-none absolute left-12 h-0 w-0" style={{ top: ((slot ?? dayStart) - dayStart) * PX }} />
+            <span aria-hidden className="pointer-events-none absolute left-[3.25rem] h-0 w-0" style={{ top: ((slot ?? dayStart) - dayStart) * PX }} />
           </PopoverAnchor>
           <PopoverContent align="start" side="right" className="w-64 gap-0 p-1">
             <div className="px-2 pt-1 pb-1.5 text-xs text-fg-2 tabular">{slot !== null && t.today.timeline.slotStart(minutesToTime(slot))}</div>

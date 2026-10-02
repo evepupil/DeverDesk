@@ -21,6 +21,19 @@ export const projects: Messages["projects"] = {
     overdue: (days) => `${days} ${days === 1 ? "day" : "days"} overdue`,
     inDays: (days) => `in ${days} ${days === 1 ? "day" : "days"}`,
   },
+  directoryNames: {
+    label: "Directory names",
+    hint: "Used to recognize the folder you code in",
+    remove: (name) => `Remove directory name ${name}`,
+    errors: {
+      empty: "Directory name can't be empty",
+      tooLong: (max) => `Directory names must be ${max} characters or fewer`,
+      badChar: "Directory names can't contain / or \\",
+      tooMany: (max) => `Use no more than ${max} directory names`,
+      repeated: "Directory names can't be repeated",
+      taken: (projectName) => `This directory name is already assigned to "${projectName}"`,
+    },
+  },
   sheet: {
     title: "Project details",
     notFound: "Project not found",

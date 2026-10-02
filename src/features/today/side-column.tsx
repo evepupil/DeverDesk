@@ -19,6 +19,8 @@ import { minutesOf } from "@/domain/tasks"
 import type { DayKey, Routine } from "@/domain/types"
 import { useT } from "@/i18n/react"
 import { focusRingInset } from "@/lib/styles"
+import { LiveRows } from "./live-rows"
+import type { LiveWindowRow } from "./live-windows"
 import { useNow, useProjectsById } from "@/state/hooks"
 import { useWorkbench } from "@/state/store"
 import { useUi } from "@/state/ui"
@@ -178,7 +180,7 @@ export function MoneyCard({ today }: { today: DayKey }) {
 }
 
 /** 投入：今天每段计时的记录，正在计时的一段排最上面 */
-export function FocusCard({ today }: { today: DayKey }) {
+export function FocusCard({ today, liveWindows }: { today: DayKey; liveWindows: LiveWindowRow[] }) {
   const entries = useWorkbench((state) => state.entries)
   const tasks = useWorkbench((state) => state.tasks)
   const timer = useWorkbench((state) => state.timer)
@@ -192,15 +194,19 @@ export function FocusCard({ today }: { today: DayKey }) {
     () => entries.filter((entry) => dayKeyOf(new Date(entry.start)) === today).sort((a, b) => b.start - a.start),
     [entries, today]
   )
-  const total = todays.reduce((sum, entry) => sum + minutesOf(entry), 0) + (timer ? Math.floor((now - timer.startedAt) / 60_000) : 0)
+  const total =
+    todays.reduce((sum, entry) => sum + minutesOf(entry), 0) +
+    (timer ? Math.floor((now - timer.startedAt) / 60_000) : 0) +
+    liveWindows.reduce((sum, window) => sum + window.minutes, 0)
 
   return (
     <BoardColumn icon={<Timer className="size-4 text-fg-2" aria-hidden />} title={t.today.focus.title} meta={total > 0 ? formatMinutes(total) : undefined}>
       <Surface className="overflow-hidden">
-        {todays.length === 0 && !timer ? (
+        {todays.length === 0 && !timer && liveWindows.length === 0 ? (
           <p className="px-3 py-2.5 text-sm text-fg-2">{t.today.focus.empty}</p>
         ) : (
           <ul>
+            <LiveRows rows={liveWindows} />
             {timer && (
               <li className="flex h-8 min-w-0 items-center gap-2 border-b border-line bg-progress/[0.07] px-3 text-sm">
                 <span className="w-[4.75rem] shrink-0 text-xs text-warn tabular">{t.common.taskSheet.startedAt(minutesToTime(minuteOfDay(timer.startedAt)))}</span>

@@ -80,6 +80,11 @@ function milestoneLabel(value: unknown): FieldValue {
   }).join(", ")
 }
 
+function dirNamesLabel(value: unknown): FieldValue {
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string") || value.length === 0) return NO_VALUE
+  return value.join(", ")
+}
+
 function taskLabel(value: unknown, tasks: readonly Task[]): FieldValue {
   if (typeof value !== "string" || value.length === 0) return NO_VALUE
   return tasks.find((task) => task.id === value)?.title ?? { type: "deletedTask" }
@@ -181,6 +186,7 @@ export function fieldChanges(
     add("note", "note")
   } else if (kind === "project") {
     add("name", "name")
+    add("dirNames", "dirNames", dirNamesLabel)
     add("stage", "stage", (value) => catalogValue(value, PROJECT_STAGE))
     add("goal", "goal")
     add("startedOn", "startedOn", dateLabel)
@@ -192,6 +198,7 @@ export function fieldChanges(
     add("project", "projectId", (value) => projectLabel(value, projects))
     add("start", "start", formatTimestamp)
     add("end", "end", formatTimestamp)
+    add("minutes", "minutes", formatMinutesValue)
   } else if (kind === "routine") {
     add("title", "title")
     add("cadence", "cadence", (value) => catalogValue(value, CADENCE))
