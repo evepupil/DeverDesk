@@ -3,9 +3,9 @@ import type { ShotName } from "./screenshots"
 
 /**
  * 更新日志：按真实提交整理，最新的在最前面。
- * 每个版本号都是仓库里的一个 Git 标签，也有一条同名的 GitHub Release；标签打在这一版 commits 里最新的那个提交上。
- * 加新版本时：先在这里写一条，再给对应提交打同名标签、发 Release（说明取这里的中英文）。
- * 每条的文字中英文各一份；commits 是这一版对应的提交，页面上显示短编号并链到 GitHub。
+ * 每个版本号都是仓库里的一个 Git 标签，也有一条同名的 GitHub Release。
+ * 加新版本时：先在这里写一条并把产品版本号改好，提交、推送，等自动检查通过后在这个提交上打同名标签、发 Release（说明取这里的中英文）。
+ * 每条的文字中英文各一份；commits 是这一版对应的提交（v0.4.1 及以前列全了，之后每个功能列一个主提交），页面上显示短编号并链到 GitHub。
  */
 
 export type ChangeKind = "new" | "improved" | "fixed"
@@ -25,6 +25,42 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "v0.5.0",
+    date: "2026-10-02",
+    title: { zh: "AI 助手接进来：MCP、OAuth 和写代码自动记录", en: "AI assistants: MCP, OAuth and automatic coding time" },
+    summary: {
+      zh: "Claude Code、Codex、ChatGPT、Claude 都能连上你自己的 DeverDesk，替你查情况、记一笔、排日程；每次改动留底，随时可以撤销。写代码的时间和任务也能自动记下来。",
+      en: "Claude Code, Codex, ChatGPT and Claude can connect to your own DeverDesk to check status, log entries and plan your days. Every change is recorded and can be undone, and your coding time can be tracked automatically.",
+    },
+    changes: [
+      { kind: "new", text: { zh: "在线版开放 MCP 服务：AI 助手能查今天和本周、记收支、建任务、计时、把任务排进空档", en: "The cloud edition is now an MCP server: assistants can read your day and week, record money, create tasks, run the timer and schedule tasks into free time" } },
+      { kind: "new", text: { zh: "每个连接选一档权限：只看、只能提议（默认）、直接改", en: "Every connection gets a permission level: read only, propose (the default) or write" } },
+      { kind: "new", text: { zh: "AI 动态：每次改动留底，可以采纳提议、撤销改动；删除或一次改超过十条会先给预览", en: "AI activity: every change is recorded, proposals can be accepted and changes undone; deletions and bulk edits show a preview first" } },
+      { kind: "new", text: { zh: "OAuth 授权：ChatGPT、Claude 网页版和手机版只填连接器地址，在授权页登录、选权限、点允许；授权连接和手动令牌在同一个列表里管理", en: "OAuth sign-in: ChatGPT and Claude on the web and mobile connect with just the connector address. Sign in on the authorization page, pick a permission and allow; authorized connections and manual tokens share one list" } },
+      { kind: "new", text: { zh: "编程自动记录：Claude Code 插件和 Codex 钩子把写代码的时间和任务记下来，按文件夹名认副业，绑定后才上传；今天页显示投入、进行中和实际轨道", en: "Automatic coding time: a Claude Code plugin and Codex hooks log the time and tasks of your coding sessions. Folders are matched to projects by name and nothing uploads until you bind one; the Today page shows time spent, work in progress and an actual-time rail" } },
+      { kind: "new", text: { zh: "副业里程碑可以改名、改日期、删除，删除带撤销", en: "Project milestones can be renamed, rescheduled and deleted, with undo for deletions" } },
+      { kind: "new", text: { zh: "官网 deverdesk.com 上线：中英文首页、更新日志和博客，代码在仓库的 site 目录里", en: "The website deverdesk.com is live with a landing page, changelog and blog in English and Chinese; its source is in the repository's site folder" } },
+      { kind: "improved", text: { zh: "AI 助手查统计时按最近 7、30、90、365 天滚动，并和前一段同样长的时间对比；读到的任务带上备注和子任务", en: "When assistants ask for stats they get rolling 7, 30, 90 or 365-day windows compared with the period just before, and the tasks they read include notes and subtasks" } },
+      { kind: "fixed", text: { zh: "AI 助手读到的周复盘里，已完成任务的完成时间被时区多算了一次（东八区晚 8 小时），每天的计划时长也没算上例行事项", en: "In the weekly review that assistants read, completion times had the time zone applied twice (8 hours late in UTC+8) and each day's planned time left out routines" } },
+      { kind: "fixed", text: { zh: "侧栏打开时，提示条上的「撤销」点不到", en: "The Undo button in toasts could not be clicked while a side panel was open" } },
+    ],
+    commits: [
+      "8f4dc46c2d6da605c001c61a8d9abb3fbf3d6a77",
+      "34c825a2e1772135432f8015a6f66920074e59a9",
+      "ddee91ef2f9d1687735125bc2620f9d0d1018d2f",
+      "0d8aa4f4216faeb2cfaf3d77ddea5afc79c02f8f",
+      "8faf2556cd547a677f7b77db80aede07ada35ff9",
+      "83d7abe15aac5f5bd540c1e74e367c822653047f",
+      "a7607c6f7dd6dbc05a70a6986a6c42e0db250937",
+      "0c65a2ed603fa4ea909a6d1d41dbde02fb12ab9b",
+      "e156a9b07ab22483ae589ee46f584ba6eb100778",
+      "f5e26119b3b4c93c27f27f25d9a6ee5a6cca8119",
+      "7c7d2034be83ca620242621687130e3e98d1fc71",
+      "b2e5cc1464631d31489ad7efb0ea78d3538e22a6",
+      "402a949d38002c49e9c60b161a002d10021bf4c6",
+    ],
+  },
   {
     version: "v0.4.1",
     date: "2026-09-30",

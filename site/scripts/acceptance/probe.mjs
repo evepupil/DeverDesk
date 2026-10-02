@@ -181,18 +181,19 @@ await check("页脚：编辑此页链接", { path: "/zh/", ...desk }, async (pag
 await check("更新日志：标题、版本数、当前页", { path: "/zh/changelog/", ...desk }, async (page) => {
   assert((await attr(page, "html", "lang")) === "zh-CN", "html lang 不对")
   assert((await text(page, "h1")) === "更新日志", "标题不对")
-  assert((await text(page, '[data-release-count="5"]')) === "5 个版本", "版本数文字不对")
+  assert((await text(page, '[data-release-count="6"]')) === "6 个版本", "版本数文字不对")
   assert((await attr(page, 'a[data-nav-link="changelog"]', "aria-current")) === "page", "顶栏没标当前页")
 })
 
 await check("更新日志：条目、类型、提交、截图", { path: "/zh/changelog/", ...desk }, async (page) => {
   const ids = await page.locator("[data-release]").evaluateAll((els) => els.map((el) => el.getAttribute("data-release")))
-  assert(ids.join() === "release-v0-4-1,release-v0-4-0,release-v0-3-0,release-v0-2-0,release-v0-1-0", `条目是 ${ids.join()}`)
-  assert((await count(page, '[data-change-kind="fixed"]')) === 1, "修复类改动不是 1 条")
+  assert(ids.join() === "release-v0-5-0,release-v0-4-1,release-v0-4-0,release-v0-3-0,release-v0-2-0,release-v0-1-0", `条目是 ${ids.join()}`)
+  assert((await count(page, '[data-change-kind="fixed"]')) === 3, "修复类改动不是 3 条")
   assert((await attr(page, '[data-release-commit="e95ef03"]', "href")) === `${REPO}/commit/e95ef03c9771c265cc6d6d5543fa1787d84f54ea`, "提交链接不对")
-  assert((await count(page, "[data-release-commit]")) === 12, `提交编号 ${await count(page, "[data-release-commit]")} 个`)
+  assert((await count(page, "[data-release-commit]")) === 25, `提交编号 ${await count(page, "[data-release-commit]")} 个`)
   assert((await attr(page, "#release-v0-4-0 img", "src"))?.endsWith("/screenshots/zh/today.webp"), "v0.4.0 截图不对")
   assert((await count(page, "#release-v0-4-1 img")) === 0, "v0.4.1 不该有截图")
+  assert((await count(page, "#release-v0-5-0 img")) === 0, "v0.5.0 不该有截图")
 })
 
 await check("更新日志：版本跳转不被顶栏挡住", { path: "/zh/changelog/", ...desk }, async (page) => {
@@ -205,8 +206,8 @@ await check("更新日志：版本跳转不被顶栏挡住", { path: "/zh/change
 
 await check("更新日志：英文", { path: "/en/changelog/", ...desk, languages: ["en-US"] }, async (page) => {
   assert((await text(page, "h1")) === "Changelog", "英文标题不对")
-  assert((await text(page, '[data-release-count="5"]')) === "5 releases", "英文版本数不对")
-  assert((await text(page, "[data-release-body] h2")) === "Live demo, English README and CI", "第一条标题不对")
+  assert((await text(page, '[data-release-count="6"]')) === "6 releases", "英文版本数不对")
+  assert((await text(page, "[data-release-body] h2")) === "AI assistants: MCP, OAuth and automatic coding time", "第一条标题不对")
   assert((await attr(page, "a[data-edit-link]", "href")) === `${REPO}/edit/main/site/src/content/changelog.ts`, "编辑链接不对")
 })
 
@@ -215,19 +216,19 @@ const rows = (page) => page.locator("[data-post-row]").evaluateAll((els) => els.
 
 await check("博客列表：标题、总数、置顶、列表顺序", { path: "/zh/blog/", ...desk }, async (page) => {
   assert((await text(page, "h1")) === "博客", "标题不对")
-  assert((await count(page, '[data-blog-total="5"]')) === 1, "总数不是 5")
+  assert((await count(page, '[data-blog-total="6"]')) === 1, "总数不是 6")
   assert((await attr(page, 'a[data-nav-link="blog"]', "aria-current")) === "page", "顶栏没标当前页")
   assert((await attr(page, 'a[data-featured-post="why-deverdesk"]', "href")) === "/zh/blog/why-deverdesk/", "置顶文章不对")
-  assert((await rows(page)).join() === "hourly-rate,deploy-to-cloudflare,local-vs-cloud,quick-add", `列表是 ${(await rows(page)).join()}`)
-  assert((await count(page, '[data-post-count="4"]')) === 1, "结果数不是 4")
+  assert((await rows(page)).join() === "connect-ai,hourly-rate,deploy-to-cloudflare,local-vs-cloud,quick-add", `列表是 ${(await rows(page)).join()}`)
+  assert((await count(page, '[data-post-count="5"]')) === 1, "结果数不是 5")
 })
 
 await check("博客列表：标签筛选", { path: "/zh/blog/", ...desk }, async (page) => {
   await page.click('[data-post-tag="guide"]')
-  assert((await rows(page)).join() === "deploy-to-cloudflare,quick-add", `教程标签是 ${(await rows(page)).join()}`)
+  assert((await rows(page)).join() === "connect-ai,deploy-to-cloudflare,quick-add", `教程标签是 ${(await rows(page)).join()}`)
   assert((await attr(page, '[data-post-tag="guide"]', "aria-pressed")) === "true", "标签没按下")
   await page.click('[data-post-tag="guide"]')
-  assert((await rows(page)).length === 4, "再点一次没回到全部")
+  assert((await rows(page)).length === 5, "再点一次没回到全部")
   assert((await attr(page, '[data-post-tag="all"]', "aria-pressed")) === "true", "全部没按下")
 })
 
@@ -243,7 +244,7 @@ await check("博客列表：搜索空结果和清除", { path: "/zh/blog/", ...d
   assert((await count(page, '[data-post-count="0"]')) === 1, "结果数不是 0")
   await page.click("[data-post-clear]")
   assert((await page.locator("[data-post-search]").inputValue()) === "", "搜索框没清空")
-  assert((await rows(page)).length === 4, "清除后不是 4 篇")
+  assert((await rows(page)).length === 5, "清除后不是 5 篇")
 })
 
 await check("文章页：标题、目录、跳转、上下篇、编辑", { path: "/zh/blog/hourly-rate/", ...desk }, async (page) => {
@@ -262,7 +263,7 @@ await check("文章页：标题、目录、跳转、上下篇、编辑", { path:
 
 await check("博客：英文列表", { path: "/en/blog/", ...desk, languages: ["en-US"] }, async (page) => {
   assert((await text(page, "h1")) === "Blog", "英文标题不对")
-  assert((await rows(page)).length === 4, "英文列表不是 4 篇")
+  assert((await rows(page)).length === 5, "英文列表不是 5 篇")
 })
 
 // ---------- 根地址与 404 ----------
@@ -282,7 +283,7 @@ await check("404 页", { path: "/nope/", ...desk }, async (page) => {
 }, { allow404: true })
 
 // ---------- 横向溢出 ----------
-for (const path of ["/zh/", "/en/", "/zh/changelog/", "/zh/blog/", "/zh/blog/hourly-rate/", "/en/blog/local-vs-cloud/"]) {
+for (const path of ["/zh/", "/en/", "/zh/changelog/", "/zh/blog/", "/zh/blog/hourly-rate/", "/en/blog/local-vs-cloud/", "/zh/blog/connect-ai/", "/en/blog/connect-ai/"]) {
   for (const size of [desk, phone]) {
     await check(`不溢出：${path} ${size.width}`, { path, ...size }, async (page) => {
       const report = await overflowReport(page)

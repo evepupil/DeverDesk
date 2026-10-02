@@ -53,8 +53,8 @@ describe("更新日志数据", () => {
     }
   })
 
-  it("共 5 个版本，最新是 v0.4.1", () => {
-    expect(CHANGELOG).toHaveLength(5)
-    expect(CHANGELOG[0]?.version).toBe("v0.4.1")
+  it("共 6 个版本，最新是 v0.5.0", () => {
+    expect(CHANGELOG).toHaveLength(6)
+    expect(CHANGELOG[0]?.version).toBe("v0.5.0")
   })
 })
