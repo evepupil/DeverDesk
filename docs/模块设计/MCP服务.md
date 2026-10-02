@@ -118,7 +118,7 @@ AI 客户端 ──POST /mcp──→ ① 入口：Origin 检查 → 令牌校�
 
 **`list_projects`**：输入 `includeEnded?`（默认不含「已结束」）。输出：`month` 和每个副业：基本信息 + 本月 `income,expense,net,minutes,hourlyRate` + `openTasks`（没做完的任务数）+ `nextMilestone`。
 
-**`get_project`**：输入 `project`。输出：副业页卡片上的全部数字（净收入、工时、时薪、月目标进度、里程碑、近 12 周走势，和界面同一个计算函数）+ 没做完的任务（最多 30）+ 最近完成的 10 个 + 最近 10 笔收支。
+**`get_project`**：输入 `project`。输出：副业页卡片上的全部数字（净收入、工时、时薪、月目标进度、近 12 周走势，和界面同一个计算函数）+ 里程碑 `milestones`（`done`、`total`、最近一个没完成的 `next`，以及全部里程碑 `items`：没完成的在前、按截止日排，再是已完成的，每个 `{id,title,due,doneOn}`，最多 50 个，超出时 `itemsTruncated: true`；AI 标里程碑完成时按这里的编号或标题指定）+ 没做完的任务（最多 30）+ 最近完成的 10 个 + 最近 10 笔收支。
 
 **`get_stats`**：输入 `range?`（`week`/`month`/`quarter`/`year`，默认 `month`）或 `start`+`end`（最长 366 天），`project?`。`range` 取截止今天的最近 7、30、90、365 天（含今天，滚动的，不按自然周、自然月）；今天是 10 月 2 日时，`month` 的本期是 9 月 3 日到 10 月 2 日，上一期是 8 月 4 日到 9 月 2 日。自己指定起止日期时，上一期同样是紧挨在前面、同样长的一段。输出：本期和上一期的 `income,expense,net,minutes,hourlyRate,tasksDone`；`byProject`；`estimateAccuracy`（预估和实际分钟、比值）；`minutesByWeekday`（周一到周日七个数）。
 
@@ -148,7 +148,7 @@ AI 客户端 ──POST /mcp──→ ① 入口：Origin 检查 → 令牌校�
 
 **`reschedule`**：输入 `tasks?` 或 `selector?`（`overdue: true`、`plannedOn`、`plannedFrom`，至少给一样）、`to?` 或 `shiftDays?`（二选一，`shiftDays` 为 −30～30 的非零整数）、`keepTime?`（默认 `false`，清掉开始时间）。只动没做完的任务。
 
-**`manage_project`**：输入 `action`（`create`/`update`/`add_milestone`/`update_milestone`/`complete_milestone`/`reopen_milestone`/`remove_milestone`）和对应字段：`project`、`name`（1–20 字）、`color`、`stage`、`goal`、`monthlyTarget`（`null` 清掉）、`milestone`（编号或标题）、`title`、`due`。规则同界面。
+**`manage_project`**：输入 `action`（`create`/`update`/`add_milestone`/`update_milestone`/`complete_milestone`/`reopen_milestone`/`remove_milestone`）和对应字段：`project`、`name`（1–20 字）、`color`、`stage`、`goal`、`monthlyTarget`（`null` 清掉）、`milestone`（编号或标题，读 `get_project` 的 `milestones.items` 就能看到）、`title`、`due`。规则同界面。
 
 **`manage_routine`**：输入 `action`（`create`/`update`/`archive`/`unarchive`）、`routine?`、`title?`、`cadence?`、`estimateMin?`、`project?`。
 
@@ -201,7 +201,7 @@ D1 实现的约定：
 
 ## 使用说明（instructions）
 
-AI 连上时拿到的说明（英文，几百字以内）：DeverDesk 是什么；日期时间都是用户时区；先调 `get_day` 了解今天、时区、币种；引用任务用 T-123；尽量一次批量调用；写入可能进入用户的提议列表或先给预览，预览要给用户看过再确认；不要编造编号，先查再改。
+AI 连上时拿到的说明（英文，几百字以内）：DeverDesk 是什么；日期时间都是用户时区；先调 `get_day` 了解今天、时区、币种；引用任务用 T-123；尽量一次批量调用；写入可能进入用户的提议列表或先给预览，预览要给用户看过再确认；不要编造编号，先查再改；用户发布之后，恰好有一个没完成的里程碑对得上（名字或版本号吻合）就用 `manage_project` 标成完成并告诉用户，对不上或有几个候选就先问。
 
 ## 关键决策
 
@@ -252,3 +252,4 @@ AI 连上时拿到的说明（英文，几百字以内）：DeverDesk 是什么�
 - 2026-10-01：首版设计：接入方式、权限三档、22 个工具、按需查询、时区、共用业务规则。规格评审后修改：投入记录换算墙上时间时按开始时刻的偏移整体平移；改任务状态明确走「切换状态」规则；写明搜索不建全文索引的取舍。
 - 2026-10-02：第一期实现完成。评审后修改：D1 关键词过滤改用 instr；时钟加按天的偏移缓存、重复的一小时统一取更早的一刻；坏数据行跳过；读工具减少查回来的行并加两个汇总查询（三年重度数据下 `get_day` 从 22 毫秒降到 3.7 毫秒）；写工具修了 14 处（已完成的任务再标完成会改完成时间、按序号删子任务删错、跨午夜补记被拒、`allowDuplicates` 连外部单号也放开、空字符串副业引用误匹配、同号任务不报歧义、`plan_day` 默认候选等）；改动全部冲突时的说明文字。
 - 2026-10-02（联调后修正）：用 Claude Code 实连把 22 个工具逐个测了一遍，据此修了：周复盘里已完成任务的完成时间被时区多平移一次（东八区晚 8 小时）；周复盘每天的计划时长算上例行事项，和今天页、本周页一致；金额合计和时薪统一取到分，不再带浮点尾数；统计的 `range` 改为最近 7/30/90/365 天滚动对比紧挨在前面的同样长的一段；读取接口带上任务备注和子任务的编号、标题、是否完成；字段搭配出错时报人话（跨字段规则从五个工具的参数定义移到执行时检查，补上缺失的「至少改一项」检查，加守卫测试保证新增工具也不能把搭配规则写进参数定义）。
+- 2026-10-02（发布后打里程碑）：`get_project` 返回完整的里程碑清单（`milestones.items`）；`manage_project` 的 `milestone` 参数说明写明可以用编号或标题；使用说明提醒「发布之后恰好有一个里程碑对得上就标成完成，对不上或有几个候选先问」。配套的会话简报和插件说明见 [编程记录接口与显示](编程记录接口与显示.md)、[编程记录接入](编程记录接入.md)。

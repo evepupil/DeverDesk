@@ -113,6 +113,9 @@ async function legacyGetProject(source: DataSource, data: WorkbenchData): Promis
       done: summary.milestonesDone,
       total: project.milestones.length,
       next: summary.nextMilestone,
+      // 基准数据里没有里程碑，这里只要和现在的输出形状一致
+      items: project.milestones.map(({ id, title, due, doneOn }) => ({ id, title, due, doneOn })),
+      itemsTruncated: false,
     },
     weeks: summary.weeks,
     lastActive: summary.lastActive,

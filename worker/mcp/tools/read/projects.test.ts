@@ -77,6 +77,43 @@ describe("project read tools", () => {
     expect((card.weeks as Array<{ net: number }>).at(-1)?.net).toBe(61.29)
   })
 
+  it("lists every milestone with the unfinished ones first so a release can tick the right one", async () => {
+    const project = makeProject({
+      milestones: [
+        { id: "m-beta", title: "Beta", due: "2026-09-01", doneOn: "2026-09-02" },
+        { id: "m-launch", title: "Launch", due: "2026-11-01", doneOn: null },
+        { id: "m-v2", title: "v0.2 release", due: "2026-10-15", doneOn: null },
+      ],
+    })
+    const card = await getProjectTool.run(toolContext(makeWorkbench({ projects: [project] })), { project: project.id })
+
+    expect(card.milestones).toEqual({
+      done: 1,
+      total: 3,
+      next: { id: "m-v2", title: "v0.2 release", due: "2026-10-15", doneOn: null },
+      items: [
+        { id: "m-v2", title: "v0.2 release", due: "2026-10-15", doneOn: null },
+        { id: "m-launch", title: "Launch", due: "2026-11-01", doneOn: null },
+        { id: "m-beta", title: "Beta", due: "2026-09-01", doneOn: "2026-09-02" },
+      ],
+      itemsTruncated: false,
+    })
+  })
+
+  it("caps a very long milestone list and says so", async () => {
+    const milestones = Array.from({ length: 51 }, (_, index) => ({
+      id: `m-${index}`, title: `Milestone ${index}`, due: `2027-01-${String((index % 28) + 1).padStart(2, "0")}`, doneOn: null,
+    }))
+    const project = makeProject({ milestones })
+    const card = await getProjectTool.run(toolContext(makeWorkbench({ projects: [project] })), { project: project.id })
+
+    const shown = card.milestones as { total: number; items: unknown[]; itemsTruncated: boolean }
+    expect(shown.total).toBe(51)
+    expect(shown.items).toHaveLength(50)
+    expect(shown.itemsTruncated).toBe(true)
+    expect(card.truncated).toBe(true)
+  })
+
   it("presents out-of-range timestamps as empty strings", async () => {
     const project = makeProject({ id: "p-date-range" })
     const completed = makeTask({

@@ -119,7 +119,7 @@ export const manageProjectTool: WriteTool<unknown> = {
       directories: { type: "array", maxItems: 8, items: { type: "string", minLength: 1, maxLength: DIR_NAME_MAX_LENGTH } },
       addDirectories: { type: "array", maxItems: 8, items: { type: "string", minLength: 1, maxLength: DIR_NAME_MAX_LENGTH } },
       removeDirectories: { type: "array", maxItems: 8, items: { type: "string", minLength: 1, maxLength: DIR_NAME_MAX_LENGTH } },
-      milestone: { type: "string", minLength: 1 },
+      milestone: { type: "string", minLength: 1, description: "Milestone reference: its id or exact title (case-insensitive), as listed in get_project under milestones.items." },
       title: { type: "string", minLength: 1, maxLength: 40 },
       due: DAY,
       reason: REASON,

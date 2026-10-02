@@ -1,7 +1,7 @@
 import { addDays, monthEnd, monthStart, weekStart } from "../../../../src/domain/calendar"
 import { hourlyRate } from "../../../../src/domain/insights"
 import { minutesOf, isOpen, sortTasks } from "../../../../src/domain/tasks"
-import type { DayKey, LedgerEntry, Project, Task, TimeEntry } from "../../../../src/domain/types"
+import type { DayKey, LedgerEntry, Milestone, Project, Task, TimeEntry } from "../../../../src/domain/types"
 import { PROJECT_WEEKS } from "../../../../src/domain/projects"
 import type { ProjectSummary } from "../../../../src/domain/projects"
 import { roundMoney } from "../shared/numbers"
@@ -13,6 +13,17 @@ import type { Clock, ReadTool } from "../../types"
 
 interface GetProjectInput {
   project: string | null
+}
+
+/** 里程碑清单最多返回多少个：正常用不到，只是防止输出过大 */
+const MILESTONE_LIMIT = 50
+
+/** 全部里程碑：没完成的在前、按截止日排，已完成的在后。AI 要标完成时按这里的编号或标题指定 */
+function listMilestones(project: Project): Milestone[] {
+  const byDue = (a: Milestone, b: Milestone) => a.due.localeCompare(b.due) || a.title.localeCompare(b.title)
+  const pending = project.milestones.filter((milestone) => milestone.doneOn === null).sort(byDue)
+  const finished = project.milestones.filter((milestone) => milestone.doneOn !== null).sort(byDue)
+  return [...pending, ...finished].map(({ id, title, due, doneOn }) => ({ id, title, due, doneOn }))
 }
 
 function summarizeProjectOnce(
@@ -137,6 +148,7 @@ export const getProjectTool: ReadTool<GetProjectInput> = {
       .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
     const recentLedger = [...ledger].sort((a, b) => b.date.localeCompare(a.date))
     const present = presentationContext(ctx, projects)
+    const milestones = listMilestones(project)
 
     return {
       project: presentProject(project),
@@ -156,6 +168,8 @@ export const getProjectTool: ReadTool<GetProjectInput> = {
         done: summary.milestonesDone,
         total: project.milestones.length,
         next: summary.nextMilestone,
+        items: milestones.slice(0, MILESTONE_LIMIT),
+        itemsTruncated: milestones.length > MILESTONE_LIMIT,
       },
       weeks: summary.weeks.map((week) => ({ ...week, net: roundMoney(week.net) })),
       lastActive: summary.lastActive,
@@ -166,7 +180,7 @@ export const getProjectTool: ReadTool<GetProjectInput> = {
       recentCompletedTruncated: completed.length > 10,
       recentLedger: recentLedger.slice(0, 10).map((entry) => presentLedger(entry, present)),
       recentLedgerTruncated: recentLedger.length > 10,
-      truncated: open.length > 30 || completed.length > 10 || recentLedger.length > 10,
+      truncated: open.length > 30 || completed.length > 10 || recentLedger.length > 10 || milestones.length > MILESTONE_LIMIT,
     }
   },
 }

@@ -6,4 +6,6 @@ Refer to tasks by their display code, such as T-123, or by their internal ID. Lo
 
 Writes may be queued for the user's approval. A preview must be shown to the user and explicitly confirmed with manage_changes; do not treat a preview as applied. Proposed changes are reviewed in DeverDesk's AI activity. Use manage_changes only for the authenticated token's own changes.
 
-Projects can be bound to recorder folder names with manage_project's directories, addDirectories, and removeDirectories fields. Use list_projects or get_project to check existing bindings first; each directory name can belong to only one project.`
+Projects can be bound to recorder folder names with manage_project's directories, addDirectories, and removeDirectories fields. Use list_projects or get_project to check existing bindings first; each directory name can belong to only one project.
+
+Projects have milestones, listed by get_project under milestones.items. After the user publishes a release, if exactly one pending milestone clearly matches it by name or version, mark it done with manage_project (action complete_milestone) and tell the user which one. If none matches or several could, ask which one instead of guessing.`
