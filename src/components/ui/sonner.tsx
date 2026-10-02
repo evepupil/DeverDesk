@@ -27,7 +27,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         classNames: {
-          toast: "!gap-2 !px-3 !py-2.5 !text-sm !shadow-md",
+          // 侧栏和弹窗打开时，页面其余部分不接收点击；提示条单独放开，否则「撤销」点不到
+          toast: "!gap-2 !px-3 !py-2.5 !text-sm !shadow-md !pointer-events-auto",
           title: "!text-sm !font-medium",
           description: "!text-xs !text-fg-2",
           actionButton: "!h-6 !rounded-md !bg-primary !px-2 !text-xs !font-medium",
