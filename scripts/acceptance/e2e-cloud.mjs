@@ -521,6 +521,66 @@ try {
     [invalidTitleCall.exchange, missingTaskCall.exchange],
   )
 
+  // 11. 副业里程碑：AI 助手建好，设备甲在网页里改名、删除（先撤销一次再删），设备乙同步后看到，AI 再读到的也是改后的
+  const milestoneProject = "里程碑端到端"
+  const milestoneReason = "Milestone edit and delete acceptance fixture"
+  const dayAfter = (days) => {
+    const date = new Date()
+    date.setDate(date.getDate() + days)
+    const pad = (value) => String(value).padStart(2, "0")
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  }
+  const createProjectCall = await writeClient.callTool("manage_project", { action: "create", name: milestoneProject, reason: milestoneReason })
+  const milestoneCalls = []
+  for (const [title, days] of [["旧名字", 20], ["要删掉的", 30]]) {
+    milestoneCalls.push(await writeClient.callTool("manage_project", { action: "add_milestone", project: milestoneProject, title, due: dayAfter(days), reason: milestoneReason }))
+  }
+  check("里程碑：AI 助手建好副业和两条里程碑", [createProjectCall, ...milestoneCalls].every(isSuccessToolCall))
+
+  const openMilestones = async (page) => {
+    await page.locator("nav[aria-label='主导航'] a", { hasText: "副业" }).first().click()
+    const card = page.getByRole("button", { name: milestoneProject, exact: true }).first()
+    await card.waitFor({ timeout: 10_000 })
+    await card.click()
+    const sheet = page.getByRole("dialog")
+    await sheet.waitFor()
+    return sheet.locator("section", { has: page.getByRole("heading", { name: "里程碑" }) })
+  }
+  const milestoneTitles = async (section) => (await section.getByRole("checkbox").allTextContents()).map((text) => text.trim())
+
+  await syncAndWait(a.page)
+  const sectionA = await openMilestones(a.page)
+  const newDue = dayAfter(10)
+  await sectionA.getByRole("button", { name: "「旧名字」的操作" }).click()
+  await a.page.getByRole("menuitem", { name: "编辑" }).click()
+  const editorA = sectionA.locator("form[data-milestone-editor]")
+  await editorA.getByLabel("里程碑名称").fill("新名字")
+  await editorA.getByLabel("目标日期").fill(newDue)
+  await a.page.keyboard.press("Enter")
+  await editorA.waitFor({ state: "detached" })
+  await sectionA.getByRole("button", { name: "「要删掉的」的操作" }).click()
+  await a.page.getByRole("menuitem", { name: "删除" }).click()
+  await a.page.getByText("已删除里程碑").waitFor()
+  await a.page.getByRole("button", { name: "撤销" }).first().click()
+  const afterUndo = await milestoneTitles(sectionA)
+  check("里程碑：设备甲删除后点撤销，里程碑回来", afterUndo.length === 2 && afterUndo.some((text) => text.includes("要删掉的")), afterUndo.join(" | "))
+  await sectionA.getByRole("button", { name: "「要删掉的」的操作" }).click()
+  await a.page.getByRole("menuitem", { name: "删除" }).click()
+  await a.page.waitForTimeout(300)
+  // 侧栏开着时窗口栏不接收点击：先关掉侧栏再同步
+  await a.page.getByRole("dialog").getByRole("button", { name: "关闭" }).click()
+  await a.page.waitForFunction(() => document.querySelector("[role='dialog']") === null)
+  await syncAndWait(a.page)
+
+  await syncAndWait(b.page)
+  const sectionB = await openMilestones(b.page)
+  const titlesB = await milestoneTitles(sectionB)
+  check("里程碑：设备乙同步后看到改过的名字，旧名字和删掉的都没了", titlesB.length === 1 && titlesB[0].includes("新名字") && !titlesB[0].includes("旧名字"), titlesB.join(" | "))
+
+  const readProjectCall = await writeClient.callTool("get_project", { project: milestoneProject })
+  const cloudMilestones = toolResult(readProjectCall).milestones?.items ?? []
+  check("里程碑：AI 助手读到云端只剩改过的那一条，日期也是新的", cloudMilestones.length === 1 && cloudMilestones[0].title === "新名字" && cloudMilestones[0].due === newDue, JSON.stringify(cloudMilestones))
+
   check("整个过程没有页面报错", errors.length === 0, errors.join(" | "))
 } catch (error) {
   check("端到端流程", false, error instanceof Error ? error.message.split("\n")[0] : String(error))

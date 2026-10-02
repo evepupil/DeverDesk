@@ -208,6 +208,134 @@ await run("切换语言", {}, async (page) => {
   check("切换语言：刷新后还是英文", await page.getByRole("heading", { name: "Today", exact: true }).isVisible())
 })
 
+// 16. 副业里程碑：能改名改日期（回车保存、Esc 取消、写错就地提示）、能删（带撤销），刷新后保持
+const dayFromToday = (offset) => {
+  const date = new Date()
+  date.setDate(date.getDate() + offset)
+  const pad = (value) => String(value).padStart(2, "0")
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+await run("副业里程碑", { path: "/projects" }, async (page) => {
+  const openSheet = async () => {
+    await page.getByRole("button", { name: "技术博客", exact: true }).first().click()
+    await page.getByRole("dialog").waitFor()
+  }
+  await openSheet()
+  const sheet = page.getByRole("dialog")
+  const section = sheet.locator("section", { has: page.getByRole("heading", { name: "里程碑" }) })
+  const rows = section.getByRole("checkbox")
+  const editor = section.locator("form[data-milestone-editor]")
+  const titles = async () => (await rows.allTextContents()).map((text) => text.trim())
+  const openEditor = async (title) => {
+    await section.getByRole("button", { name: `「${title}」的操作` }).click()
+    await page.getByRole("menuitem", { name: "编辑" }).click()
+    await editor.waitFor()
+  }
+
+  check("里程碑：详情里列出 3 条", (await rows.count()) === 3, (await titles()).join(" | "))
+
+  // 改名和日期：编辑框带着原来的内容并聚焦，回车保存后按日期重新排序
+  await openEditor("英文版上线")
+  const titleInput = editor.getByLabel("里程碑名称")
+  check("里程碑：编辑框带着原标题", (await titleInput.inputValue()) === "英文版上线")
+  check("里程碑：编辑框打开就聚焦在标题上", await titleInput.evaluate((element) => element === document.activeElement))
+  await titleInput.fill("英文版上线 v2")
+  await editor.getByLabel("目标日期").fill(dayFromToday(-100))
+  await page.keyboard.press("Enter")
+  await editor.waitFor({ state: "detached" })
+  const renamed = await titles()
+  check("里程碑：回车保存后新标题出现", renamed.some((text) => text.includes("英文版上线 v2")), renamed.join(" | "))
+  check("里程碑：旧标题不再出现", !renamed.some((text) => text.includes("英文版上线") && !text.includes("v2")))
+  check("里程碑：日期提前后排到中间", renamed[1]?.includes("英文版上线 v2") === true, renamed.join(" | "))
+
+  // Esc 只取消编辑，不关侧栏，也不保存
+  await openEditor("英文版上线 v2")
+  await titleInput.fill("不会保存的名字")
+  await page.keyboard.press("Escape")
+  await editor.waitFor({ state: "detached" })
+  check("里程碑：Esc 取消编辑后侧栏还开着", await sheet.isVisible())
+  check("里程碑：Esc 取消后内容没变", (await titles()).some((text) => text.includes("英文版上线 v2")) && !(await titles()).some((text) => text.includes("不会保存")))
+  check("里程碑：取消后焦点回到这一行的菜单按钮", await section.getByRole("button", { name: "「英文版上线 v2」的操作" }).evaluate((element) => element === document.activeElement))
+
+  // 写错就地提示：标题空、标题太长、日期没选
+  await openEditor("英文版上线 v2")
+  await titleInput.fill("")
+  await page.keyboard.press("Enter")
+  check("里程碑：标题为空时就地提示", (await section.getByRole("alert").textContent())?.includes("请填写里程碑") === true)
+  check("里程碑：提示时编辑框保持打开", (await editor.count()) === 1)
+  await titleInput.fill("长".repeat(41))
+  await page.keyboard.press("Enter")
+  check("里程碑：标题超过 40 个字时提示", (await section.getByRole("alert").textContent())?.includes("40") === true)
+  await titleInput.fill("英文版上线 v2")
+  await editor.getByLabel("目标日期").fill("")
+  await page.keyboard.press("Enter")
+  check("里程碑：日期没选时提示", (await section.getByRole("alert").textContent())?.includes("请选择日期") === true)
+  check("里程碑：只有日期框标红，标题框不标红", (await editor.getByLabel("目标日期").getAttribute("aria-invalid")) === "true" && (await titleInput.getAttribute("aria-invalid")) === null)
+  await page.keyboard.press("Escape")
+  await editor.waitFor({ state: "detached" })
+
+  // 删除：马上消失，弹出的提示里点「撤销」放回原位
+  const before = await titles()
+  await section.getByRole("button", { name: "「英文版上线 v2」的操作" }).click()
+  await page.getByRole("menuitem", { name: "删除" }).click()
+  await page.getByText("已删除里程碑").waitFor()
+  check("里程碑：删除后这一条消失", (await rows.count()) === 2 && !(await titles()).some((text) => text.includes("英文版上线 v2")))
+  await page.getByRole("button", { name: "撤销" }).first().click()
+  await page.waitForTimeout(200)
+  check("里程碑：点撤销后原样放回原位", JSON.stringify(await titles()) === JSON.stringify(before), (await titles()).join(" | "))
+  check("里程碑：点提示条上的撤销不会把侧栏关掉", await sheet.isVisible())
+
+  // 勾选照常：点一下完成，再点一下取消
+  const target = rows.filter({ hasText: "英文版上线 v2" })
+  await target.click()
+  check("里程碑：点整行仍然能勾选完成", (await target.getAttribute("aria-checked")) === "true")
+  await target.click()
+  check("里程碑：再点一下取消完成", (await target.getAttribute("aria-checked")) === "false")
+
+  // 改完刷新还在（存到了本机）；详情侧栏开着的状态记在地址里，刷新后会自己再打开
+  await page.reload({ waitUntil: "networkidle" })
+  await page.waitForTimeout(400)
+  await page.getByRole("dialog").waitFor()
+  check("里程碑：刷新后改过的标题还在", (await rows.filter({ hasText: "英文版上线 v2" }).count()) === 1)
+})
+
+// 17. 侧栏开着时删任务：提示条上的「撤销」点得到（侧栏会让页面其余部分不接收点击，提示条要单独放开），点完侧栏还开着、任务回来
+await run("侧栏里撤销删除", { path: "/tasks" }, async (page) => {
+  await page.getByRole("button", { name: "预约体检", exact: true }).first().click()
+  const sheet = page.getByRole("dialog")
+  await sheet.waitFor()
+  await sheet.getByRole("button", { name: /的操作/ }).click()
+  await page.getByRole("menuitem", { name: "删除" }).click()
+  await page.getByText(/已删除 T-/).waitFor()
+  check("侧栏里撤销删除：删掉后侧栏显示已删除", (await sheet.getByText("这个任务已经删除").count()) > 0)
+  await page.getByRole("button", { name: "撤销" }).first().click()
+  await page.waitForTimeout(300)
+  check("侧栏里撤销删除：点撤销后任务回到侧栏里", (await sheet.getByText("预约体检", { exact: true }).count()) > 0)
+  check("侧栏里撤销删除：点提示条不会把侧栏关掉", await sheet.isVisible())
+})
+
+// 18. 英文界面里的里程碑：菜单、编辑框的提示、删除后的提示条都是英文
+await run("英文里程碑", { locale: "en-US", path: "/projects" }, async (page) => {
+  await page.getByRole("button", { name: "Developer Blog", exact: true }).first().click()
+  const sheet = page.getByRole("dialog")
+  await sheet.waitFor()
+  const section = sheet.locator("section", { has: page.getByRole("heading", { name: "Milestones" }) })
+  const menu = section.getByRole("button", { name: 'Actions for "Launch the English edition"' })
+  await menu.click()
+  await page.getByRole("menuitem", { name: "Edit" }).click()
+  const editor = section.locator("form[data-milestone-editor]")
+  await editor.getByLabel("Milestone name").fill("")
+  await page.keyboard.press("Enter")
+  const alert = (await section.getByRole("alert").textContent()) ?? ""
+  check("英文里程碑：标题为空时的提示是英文", alert.length > 0 && !HAN.test(alert), alert)
+  await page.keyboard.press("Escape")
+  await menu.click()
+  await page.getByRole("menuitem", { name: "Delete" }).click()
+  await page.getByText("Milestone deleted").waitFor()
+  const han = (await page.evaluate(() => document.body.innerText)).split("\n").filter((line) => HAN.test(line))
+  check("英文里程碑：编辑、删除后整个页面没有中文", han.length === 0, han.slice(0, 3).join(" | "))
+})
+
 console.log(results.join("\n"))
 console.log(`\n${results.filter((line) => line.startsWith("PASS")).length}/${results.length} 通过`)
 await browser.close()
