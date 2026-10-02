@@ -11,7 +11,7 @@ import { copyText } from "@/lib/platform"
 import { MCP_PATH } from "@/sync/protocol"
 
 /** 连接器地址：ChatGPT、Claude 网页版这类应用填它，连接时会跳到授权页让你点允许，不用复制令牌 */
-export function ConnectorAddress() {
+export function ConnectorAddress({ accessSession }: { accessSession: boolean }) {
   const t = useT()
   const [copied, setCopied] = useState(false)
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -48,6 +48,7 @@ export function ConnectorAddress() {
         </Button>
       </div>
       <p className="text-xs text-fg-2">{t.auth.tokens.connector.hint}</p>
+      {accessSession && <p className="text-xs text-fg-2">{t.auth.tokens.connector.accessHint}</p>}
     </div>
   )
 }

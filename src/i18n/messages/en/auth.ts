@@ -33,6 +33,7 @@ export const auth: Messages["auth"] = {
     connector: {
       label: "Connector address",
       hint: "Paste this address when adding a custom connector in ChatGPT, Claude and similar apps",
+      accessHint: "When deployed behind Cloudflare Access, add bypass rules for /mcp, /oauth/* and /.well-known/*.",
     },
     permissionFor: (name) => `${name} permission`,
     tiers: {

@@ -37,6 +37,7 @@ export const auth = {
     connector: {
       label: "连接器地址",
       hint: "ChatGPT、Claude 等添加自定义连接器时填这个地址",
+      accessHint: "部署在 Cloudflare Access 后面时，需要给 /mcp、/oauth/*、/.well-known/* 各加一条绕过规则",
     },
     permissionFor: (name: string) => `${name} 的权限`,
     tiers: {
