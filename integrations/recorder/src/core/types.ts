@@ -27,6 +27,11 @@ export type StopEvent = EventBase & { kind: "stop"; summary?: string }
 export type EndEvent = EventBase & { kind: "end"; reason?: string }
 export type CommitEvent = EventBase & {
   kind: "commit"
+  /**
+   * 钩子发现这个提交的时刻（毫秒）。引擎按「max(提交时间, 发现时刻)」给提交排队处理，
+   * 这样晚发现的老提交（合并、rebase 带进来的）只会排在已输出的任务之后，不会重新切分它们。回填出来的提交没有这一项。
+   */
+  seenAt?: number
   repo: string
   sha: string
   subject: string

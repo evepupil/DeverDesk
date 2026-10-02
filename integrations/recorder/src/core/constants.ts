@@ -17,8 +17,11 @@ export const MERGE_WINDOW = 2 * 60 * MINUTE
 export const MIN_ENTRY = 0.5 * MINUTE
 /** 没有对应 AI 工作时间的单个提交，至少要有这么长才新建任务 */
 export const MIN_STANDALONE_TASK = 1 * MINUTE
-/** 只算到「现在 − 它」，避开刚写进日志还没落稳的事件 */
-export const SETTLE_LAG = 30_000
+/**
+ * 到站后至少过这么久才算数、才上传：一个时刻上谁在场，要等到它之后 PRESENCE_GAP 才完全确定
+ * （窗口干完一轮后 15 分钟内回来发话，中间会回头补计入并与别的窗口平分），再加 30 秒避开刚写进日志还没落稳的事件。
+ */
+export const SETTLE_DELAY = PRESENCE_GAP + 30_000
 
 /** 任务名最长（和服务器一致） */
 export const TASK_TITLE_MAX = 80
