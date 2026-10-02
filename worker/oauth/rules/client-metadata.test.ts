@@ -65,6 +65,8 @@ describe("身份说明的内容", () => {
     const nameless = Object.fromEntries(Object.entries(chatgpt).filter(([key]) => key !== "client_name"))
     expect(parseClientMetadata(url, nameless)?.name).toBe("chatgpt.com")
     expect(displayName("  Chat\u0007GPT\n ", "x.example")).toBe("ChatGPT")
+    // 从右往左排、零宽空格、下一行、行分隔符都会把标题搅乱
+    expect(displayName("Chat‮GPT​\u0085 ", "x.example")).toBe("ChatGPT")
     expect(displayName("名".repeat(150), "x.example")).toHaveLength(100)
     expect(displayName("   ", "x.example")).toBe("x.example")
   })
@@ -102,7 +104,23 @@ describe("自助登记的内容", () => {
     })
   })
 
-  it("跳回地址缺失或不合格报 invalid_redirect_uri，其余问题报 invalid_client_metadata", () => {
+  it("Cursor 同时报 cursor:// 地址：去掉它，其余照常登记", () => {
+    // Cursor 3.10 以后的登记内容（论坛报告），授权时用的是本机地址
+    const checked = checkRegistration({
+      client_name: "Cursor",
+      redirect_uris: [
+        "cursor://anysphere.cursor-mcp/oauth/callback",
+        "https://www.cursor.com/agents/mcp/oauth/callback",
+        "http://localhost:8787/callback",
+      ],
+    })
+    expect(checked).toMatchObject({
+      ok: true,
+      value: { redirectUris: ["https://www.cursor.com/agents/mcp/oauth/callback", "http://localhost:8787/callback"] },
+    })
+  })
+
+  it("跳回地址缺失或一个合格的都没有报 invalid_redirect_uri，其余问题报 invalid_client_metadata", () => {
     expect(checkRegistration({})).toMatchObject({ ok: false, error: "invalid_redirect_uri" })
     expect(checkRegistration({ redirect_uris: ["cursor://callback"] })).toMatchObject({ ok: false, error: "invalid_redirect_uri" })
     expect(checkRegistration({ redirect_uris: Array.from({ length: 11 }, (_, i) => `https://a.example/${i}`) }))

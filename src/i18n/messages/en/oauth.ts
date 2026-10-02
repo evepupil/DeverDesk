@@ -9,6 +9,8 @@ export const oauth: Messages["oauth"] = {
   allowing: "Allowing…",
   deny: "Deny",
   redirecting: (host) => `Returning to ${host}…`,
+  requestError: (host) => `The authorization request from ${host} is invalid`,
+  backTo: (host) => `Return to ${host}`,
   invalid: (reason) => `This authorization link is invalid: ${reason}`,
   reasons: {
     client_id: "the client ID is malformed",

@@ -39,14 +39,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-/** 名字是对方自报的：去掉首尾空白和控制字符，太长截断，没有就用域名 */
+/** 控制字符、格式字符（从右往左排、零宽字符等）、行和段落分隔符：会把标题和列表搅乱 */
+const INVISIBLE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu
+
+/** 名字是对方自报的：去掉看不见的字符和首尾空白，太长截断，没有就用域名 */
 export function displayName(value: unknown, fallbackHost: string): string {
   if (typeof value !== "string") return fallbackHost
-  const visible = [...value].filter((char) => {
-    const code = char.codePointAt(0) ?? 0
-    return code > 0x1f && code !== 0x7f
-  })
-  const cleaned = visible.join("").trim()
+  const cleaned = value.replace(INVISIBLE, "").trim()
   if (cleaned === "") return fallbackHost
   return [...cleaned].slice(0, MAX_CLIENT_NAME_LENGTH).join("")
 }

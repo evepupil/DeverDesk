@@ -11,6 +11,9 @@ export const oauth = {
   allowing: "允许中…",
   deny: "拒绝",
   redirecting: (host: string) => `正在回到 ${host}…`,
+  /** 请求在点允许之前就有错：不自动跳，给一个回去的按钮 */
+  requestError: (host: string) => `${host} 发来的授权请求有误`,
+  backTo: (host: string) => `回到 ${host}`,
   invalid: (reason: string) => `授权链接无效：${reason}`,
   reasons: {
     client_id: "客户端编号不对",

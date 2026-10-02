@@ -17,8 +17,11 @@ export interface RegisteredClientRow {
   secretHash: string | null
 }
 
-/** 超过一天还没授权过的、或超过 30 天没用且没有连接的，登记时顺手删掉 */
-const UNUSED_NEW_CLIENT_MS = 24 * 60 * 60 * 1000
+/**
+ * 登记后 7 天还没授权过的、或 30 天没用（换令牌、续期都算用）且没有连接的，登记时顺手删掉。
+ * 客户端会记住自己的编号，删早了它再来授权就只看到「没有登记过」，所以留得宽一些。
+ */
+const UNUSED_NEW_CLIENT_MS = 7 * 24 * 60 * 60 * 1000
 const IDLE_CLIENT_MS = 30 * 24 * 60 * 60 * 1000
 
 function parseUris(value: string): string[] {

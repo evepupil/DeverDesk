@@ -40,9 +40,11 @@ CREATE TABLE oauth_grants (
   tier TEXT NOT NULL,
   resource TEXT NOT NULL,
   scope TEXT NOT NULL,
-  -- 当前的续期令牌；上一张在当前这张第一次被使用前仍然有效
+  -- 当前的续期令牌；上一张只在换下后 2 分钟内还能重试（客户端没收到结果时用），过了这段时间再拿来用就整条作废
   refresh_hash TEXT NOT NULL UNIQUE,
   previous_refresh_hash TEXT,
+  -- 上一张被换下的时间
+  rotated_at INTEGER,
   refresh_expires_at INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
   last_used_at INTEGER

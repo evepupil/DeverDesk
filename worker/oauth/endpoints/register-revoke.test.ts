@@ -16,7 +16,7 @@ import {
   type TokenSet,
 } from "../test-support"
 import type { OAuthDependencies } from "../clients/types"
-import { REGISTER_LIMIT_PER_WINDOW } from "./register"
+import { REGISTER_LIMIT_PER_SOURCE, REGISTER_LIMIT_TOTAL } from "./register"
 
 function register(env: TestEnv, deps: OAuthDependencies, metadata: unknown, ip = "203.0.113.7"): Promise<Response | null> {
   return handleOAuthRequest(new Request(`${ORIGIN}/oauth/register`, {
@@ -32,6 +32,7 @@ async function json(response: Response | null): Promise<Record<string, unknown>>
 }
 
 const CURSOR = { client_name: "Cursor", redirect_uris: ["http://localhost:8787/callback"] }
+const DAY = 24 * 60 * 60 * 1000
 
 describe("自助登记", () => {
   it("公开客户端：拿到 ddcl_ 编号，不发密钥", async () => {
@@ -127,7 +128,7 @@ describe("自助登记", () => {
 
   it("同一 IP 一小时最多 20 次，过了窗口重新计", async () => {
     const env = oauthEnv()
-    for (let index = 0; index < REGISTER_LIMIT_PER_WINDOW; index += 1) {
+    for (let index = 0; index < REGISTER_LIMIT_PER_SOURCE; index += 1) {
       expect((await register(env, testDeps(), CURSOR))!.status).toBe(201)
     }
     const blocked = await register(env, testDeps(), CURSOR)
@@ -137,18 +138,51 @@ describe("自助登记", () => {
     expect((await register(env, testDeps({ now: () => NOW + 60 * 60 * 1000 + 1 }), CURSOR))!.status).toBe(201)
   })
 
-  it("超过一天没授权过的客户端在下次登记时被清掉，有连接的留着", async () => {
+  it("IPv6 在同一个 /64 网段里换地址，算同一个来源", async () => {
+    const env = oauthEnv()
+    for (let index = 1; index <= REGISTER_LIMIT_PER_SOURCE; index += 1) {
+      expect((await register(env, testDeps(), CURSOR, `2001:db8:1:2::${index.toString(16)}`))!.status).toBe(201)
+    }
+    expect((await register(env, testDeps(), CURSOR, "2001:db8:1:2:ffff::abcd"))!.status).toBe(429)
+    expect((await register(env, testDeps(), CURSOR, "2001:db8:1:3::1"))!.status).toBe(201)
+  })
+
+  it("所有来源合起来一小时最多 60 次；名额满了也不再写计数", async () => {
+    const env = oauthEnv()
+    for (let index = 0; index < REGISTER_LIMIT_TOTAL; index += 1) {
+      expect((await register(env, testDeps(), CURSOR, `198.51.100.${index}`))!.status).toBe(201)
+    }
+    expect((await register(env, testDeps(), CURSOR, "203.0.113.200"))!.status).toBe(429)
+    expect(env.DB.rows("SELECT id FROM oauth_clients")).toHaveLength(REGISTER_LIMIT_TOTAL)
+  })
+
+  it("过了窗口的计数按前缀清掉，不碰别的键", async () => {
+    const env = oauthEnv()
+    await register(env, testDeps(), CURSOR, "198.51.100.9")
+    await env.DB.prepare("INSERT INTO rate_limits (key, count, window_start) VALUES ('other:x', 1, 0)").run()
+    await register(env, testDeps({ now: () => NOW + 2 * 60 * 60 * 1000 }), CURSOR, "198.51.100.10")
+    const keys = env.DB.rows<{ key: string }>("SELECT key FROM rate_limits ORDER BY key").map((row) => row.key)
+    expect(keys).toEqual(["other:x", "register-total", "register:198.51.100.10"])
+  })
+
+  it("登记后 7 天没授权过的客户端在下次登记时被清掉，有连接的留着；续期也记作用过", async () => {
     const env = oauthEnv()
     const deps = testDeps()
     const unused = await json(await register(env, deps, CURSOR)) as { client_id: string }
+    const recent = await json(await register(env, testDeps({ now: () => NOW + 5 * DAY }), CURSOR, "198.51.100.3")) as { client_id: string }
     const used = await json(await register(env, deps, CURSOR)) as { client_id: string }
     const code = await approveAndGetCode(env, deps, await authorizeQuery({ client_id: used.client_id, redirect_uri: CURSOR.redirect_uris[0]! }))
-    await postForm(env, deps, "/oauth/token", {
+    const exchanged = await postForm(env, deps, "/oauth/token", {
       grant_type: "authorization_code", code, redirect_uri: CURSOR.redirect_uris[0]!, client_id: used.client_id, code_verifier: VERIFIER,
     })
-    await register(env, testDeps({ now: () => NOW + 2 * 24 * 60 * 60 * 1000 }), CURSOR, "198.51.100.2")
+    const tokens = await exchanged!.json() as TokenSet
+    await refresh(env, testDeps({ now: () => NOW + 3 * DAY }), tokens.refresh_token, { client_id: used.client_id })
+    expect(env.DB.rows("SELECT last_used_at FROM oauth_clients WHERE id = ?", used.client_id)).toEqual([{ last_used_at: NOW + 3 * DAY }])
+
+    await register(env, testDeps({ now: () => NOW + 8 * DAY }), CURSOR, "198.51.100.2")
     const ids = env.DB.rows<{ id: string }>("SELECT id FROM oauth_clients").map((row) => row.id)
     expect(ids).not.toContain(unused.client_id)
+    expect(ids).toContain(recent.client_id)
     expect(ids).toContain(used.client_id)
   })
 })

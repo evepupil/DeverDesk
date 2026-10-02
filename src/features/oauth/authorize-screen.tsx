@@ -24,6 +24,8 @@ type Phase =
   | { kind: "loading" }
   | { kind: "login"; passwordEnabled: boolean }
   | { kind: "consent"; client: AuthorizeClientView }
+  /** 请求在你点允许之前就有错：跳回地址虽然登记过，但不一定可信，不自动跳，由你点按钮回去 */
+  | { kind: "request-error"; redirectTo: string; host: string }
   | { kind: "redirecting"; host: string }
   | { kind: "invalid"; reason: AuthorizeInvalidReason }
   | { kind: "local" }
@@ -51,14 +53,18 @@ export function AuthorizeScreen() {
   // 授权请求原样转给服务器，页面自己不解析
   const query = useRef("")
 
-  const apply = useCallback((response: AuthorizeResponse) => {
+  const go = useCallback((redirectTo: string) => {
+    setPhase({ kind: "redirecting", host: hostOf(redirectTo) })
+    window.location.assign(redirectTo)
+  }, [])
+
+  /** decided：是用户点了允许或拒绝之后的结果，可以直接跳；检查请求时的出错跳转要用户自己点 */
+  const apply = useCallback((response: AuthorizeResponse, decided: boolean) => {
     if (response.status === "ok") setPhase({ kind: "consent", client: response.client })
     else if (response.status === "invalid") setPhase({ kind: "invalid", reason: response.reason })
-    else {
-      setPhase({ kind: "redirecting", host: hostOf(response.redirectTo) })
-      window.location.assign(response.redirectTo)
-    }
-  }, [])
+    else if (decided) go(response.redirectTo)
+    else setPhase({ kind: "request-error", redirectTo: response.redirectTo, host: hostOf(response.redirectTo) })
+  }, [go])
 
   // 查登录、让服务器检查授权请求；调用前由调用方把状态切回加载中
   const load = useCallback(() => {
@@ -68,7 +74,7 @@ export function AuthorizeScreen() {
           setPhase({ kind: "login", passwordEnabled: session.passwordEnabled })
           return
         }
-        return describeAuthorization(query.current).then(apply)
+        return describeAuthorization(query.current).then((response) => apply(response, false))
       })
       .catch((cause: unknown) => {
         if (cause instanceof ApiFailure && cause.kind === "unauthorized") {
@@ -94,7 +100,7 @@ export function AuthorizeScreen() {
     setPending(decision)
     setError(null)
     try {
-      apply(await decideAuthorization(query.current, decision, tier))
+      apply(await decideAuthorization(query.current, decision, tier), true)
     } catch (cause) {
       if (cause instanceof ApiFailure && cause.kind === "unauthorized") {
         setPhase({ kind: "login", passwordEnabled: true })
@@ -125,6 +131,19 @@ export function AuthorizeScreen() {
         <p role="status" className="text-center text-sm text-fg-2 break-all">
           {t.oauth.redirecting(phase.host)}
         </p>
+      )}
+      {phase.kind === "request-error" && (
+        <EmptyState
+          icon={TriangleAlert}
+          tone="error"
+          title={t.oauth.requestError(phase.host)}
+          className="py-2"
+          action={
+            <Button variant="outline" size="sm" onClick={() => go(phase.redirectTo)}>
+              {t.oauth.backTo(phase.host)}
+            </Button>
+          }
+        />
       )}
       {phase.kind === "invalid" && (
         <EmptyState icon={TriangleAlert} tone="error" title={t.oauth.invalid(t.oauth.reasons[phase.reason])} className="py-2" />

@@ -1,7 +1,7 @@
 // POST /oauth/token：授权码换令牌、续期令牌换新。规则见 docs/模块设计/OAuth授权.md「换令牌」。
 import { randomBase64Url, sha256Hex } from "../../auth/crypto"
 import type { WorkerEnv } from "../../types"
-import { ACCESS_TOKEN_TTL_SECONDS, PREFIX, REFRESH_IDLE_MS, SECRET_PATTERN } from "../config"
+import { ACCESS_TOKEN_TTL_SECONDS, PREFIX, REFRESH_IDLE_MS, REFRESH_REUSE_LEEWAY_MS, SECRET_PATTERN } from "../config"
 import { authenticateClient } from "../clients/authenticate"
 import type { OAuthDependencies } from "../clients/types"
 import { methodNotAllowed, oauthError, oauthJson, preflight, readForm, single } from "../http"
@@ -100,17 +100,28 @@ async function exchangeAuthorizationCode(
     accessExpiresAt: now + ACCESS_TOKEN_TTL_SECONDS * 1000,
     now,
   })
-  if (!created) return invalidGrant("The authorization code was already used.")
+  if (!created) {
+    // 同一个授权码同时来了两次、被另一个请求抢先换走了：同样当作重复使用，把抢先建出的连接收回
+    const latest = await findCode(db, codeHash)
+    if (latest?.grantId) await deleteGrant(db, latest.grantId)
+    return invalidGrant("The authorization code was already used; the connection it created has been revoked.")
+  }
   if (client.registered) await touchRegisteredClient(db, client.clientId, now)
   return tokenResponse(accessToken, refreshToken, record.scope)
+}
+
+/** 上一张续期令牌是不是刚换下不久，还允许拿来重试 */
+function withinReuseLeeway(rotatedAt: number | null, now: number): boolean {
+  return rotatedAt !== null && now - rotatedAt <= REFRESH_REUSE_LEEWAY_MS
 }
 
 async function refreshTokens(
   db: D1Database,
   params: URLSearchParams,
-  clientId: string,
+  client: { clientId: string; registered: boolean },
   now: number,
 ): Promise<Response> {
+  const clientId = client.clientId
   const presented = single(params, "refresh_token")
   if (!presented) return oauthError("invalid_request", "refresh_token is required, exactly once.")
   if (!hasShape(presented, PREFIX.refresh)) return invalidGrant("The refresh token is not valid.")
@@ -131,6 +142,13 @@ async function refreshTokens(
     return oauthError("invalid_scope", "The requested scope exceeds the original grant.")
   }
 
+  const isCurrent = grant.refreshHash === presentedHash
+  if (!isCurrent && !withinReuseLeeway(grant.rotatedAt, now)) {
+    // 换下来好一阵的旧续期令牌又被拿来用：多半是被盗了，整条连接作废，拿着新令牌的一方也要重新授权
+    await deleteGrant(db, grant.id)
+    return invalidGrant("This refresh token was already used; the connection has been revoked.")
+  }
+
   const refreshToken = newSecret(PREFIX.refresh)
   const rotation: Rotation = {
     grantId: grant.id,
@@ -139,18 +157,18 @@ async function refreshTokens(
     refreshExpiresAt: now + REFRESH_IDLE_MS,
     now,
   }
-  let rotated = grant.refreshHash === presentedHash
-    ? await rotateFromCurrent(db, rotation)
-    : await rotateFromPrevious(db, rotation)
+  const notBefore = now - REFRESH_REUSE_LEEWAY_MS
+  let rotated = isCurrent ? await rotateFromCurrent(db, rotation) : await rotateFromPrevious(db, rotation, notBefore)
   if (!rotated) {
     // 另一个续期请求抢先改了：这张如果刚好成了「上一张」，按上一张再试一次
     const latest = await findGrant(db, grant.id)
-    if (latest?.previousRefreshHash === presentedHash) rotated = await rotateFromPrevious(db, rotation)
+    if (latest?.previousRefreshHash === presentedHash) rotated = await rotateFromPrevious(db, rotation, notBefore)
   }
   if (!rotated) return invalidGrant("The refresh token is no longer valid.")
 
   const accessToken = newSecret(PREFIX.access)
   await addAccessToken(db, grant.id, await sha256Hex(accessToken), now + ACCESS_TOKEN_TTL_SECONDS * 1000, now)
+  if (client.registered) await touchRegisteredClient(db, clientId, now)
   return tokenResponse(accessToken, refreshToken, grant.scope)
 }
 
@@ -167,7 +185,7 @@ export async function handleToken(request: Request, env: WorkerEnv, deps: OAuthD
   const grantType = single(params, "grant_type")
   const now = deps.now()
   if (grantType === "authorization_code") return exchangeAuthorizationCode(env.DB, params, client, now)
-  if (grantType === "refresh_token") return refreshTokens(env.DB, params, client.clientId, now)
+  if (grantType === "refresh_token") return refreshTokens(env.DB, params, client, now)
   if (!grantType) return oauthError("invalid_request", "grant_type is required, exactly once.")
   return oauthError("unsupported_grant_type", "Only authorization_code and refresh_token are supported.")
 }

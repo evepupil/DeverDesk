@@ -11,6 +11,8 @@ export interface GrantRecord {
   scope: string
   refreshHash: string
   previousRefreshHash: string | null
+  /** 上一张续期令牌被换下的时间 */
+  rotatedAt: number | null
   refreshExpiresAt: number
   createdAt: number
   lastUsedAt: number | null
@@ -26,13 +28,14 @@ interface GrantRow {
   scope: string
   refresh_hash: string
   previous_refresh_hash: string | null
+  rotated_at: number | null
   refresh_expires_at: number
   created_at: number
   last_used_at: number | null
 }
 
 const GRANT_COLUMNS =
-  "id, client_id, client_name, client_host, tier, resource, scope, refresh_hash, previous_refresh_hash, refresh_expires_at, created_at, last_used_at"
+  "id, client_id, client_name, client_host, tier, resource, scope, refresh_hash, previous_refresh_hash, rotated_at, refresh_expires_at, created_at, last_used_at"
 
 function toGrant(row: GrantRow): GrantRecord {
   return {
@@ -45,6 +48,7 @@ function toGrant(row: GrantRow): GrantRecord {
     scope: row.scope,
     refreshHash: row.refresh_hash,
     previousRefreshHash: row.previous_refresh_hash,
+    rotatedAt: row.rotated_at,
     refreshExpiresAt: row.refresh_expires_at,
     createdAt: row.created_at,
     lastUsedAt: row.last_used_at,
@@ -75,7 +79,7 @@ export async function exchangeCodeForGrant(
   const [marked] = await db.batch([
     db.prepare("UPDATE oauth_codes SET grant_id = ? WHERE hash = ? AND grant_id IS NULL").bind(grant.id, codeHash),
     db.prepare(
-      `INSERT INTO oauth_grants (${GRANT_COLUMNS}) SELECT ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL ` +
+      `INSERT INTO oauth_grants (${GRANT_COLUMNS}) SELECT ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, NULL ` +
       "WHERE EXISTS (SELECT 1 FROM oauth_codes WHERE hash = ? AND grant_id = ?)",
     ).bind(
       grant.id, grant.clientId, grant.clientName, grant.clientHost, grant.tier, grant.resource, grant.scope,
@@ -109,20 +113,24 @@ export interface Rotation {
   now: number
 }
 
-/** 用的是当前那张：上一张换成它，当前换成新的。只在没被别人改过时才改得动 */
+/** 用的是当前那张：上一张换成它、记下换下的时间，当前换成新的。只在没被别人改过时才改得动 */
 export async function rotateFromCurrent(db: D1Database, rotation: Rotation): Promise<boolean> {
   const result = await db.prepare(
-    "UPDATE oauth_grants SET previous_refresh_hash = refresh_hash, refresh_hash = ?, refresh_expires_at = ?, last_used_at = ? " +
+    "UPDATE oauth_grants SET previous_refresh_hash = refresh_hash, rotated_at = ?, refresh_hash = ?, refresh_expires_at = ?, last_used_at = ? " +
     "WHERE id = ? AND refresh_hash = ?",
-  ).bind(rotation.newRefreshHash, rotation.refreshExpiresAt, rotation.now, rotation.grantId, rotation.presentedHash).run()
+  ).bind(rotation.now, rotation.newRefreshHash, rotation.refreshExpiresAt, rotation.now, rotation.grantId, rotation.presentedHash).run()
   return (result.meta.changes ?? 0) === 1
 }
 
-/** 用的是上一张（客户端没收到上次续期的结果）：当前换成新的，上一张不动 */
-export async function rotateFromPrevious(db: D1Database, rotation: Rotation): Promise<boolean> {
+/**
+ * 用的是上一张（客户端没收到上次续期的结果，马上拿旧的重试）：当前换成新的，上一张和换下时间不动。
+ * 只在上一张换下不早于 notBefore 时才改得动。
+ */
+export async function rotateFromPrevious(db: D1Database, rotation: Rotation, notBefore: number): Promise<boolean> {
   const result = await db.prepare(
-    "UPDATE oauth_grants SET refresh_hash = ?, refresh_expires_at = ?, last_used_at = ? WHERE id = ? AND previous_refresh_hash = ?",
-  ).bind(rotation.newRefreshHash, rotation.refreshExpiresAt, rotation.now, rotation.grantId, rotation.presentedHash).run()
+    "UPDATE oauth_grants SET refresh_hash = ?, refresh_expires_at = ?, last_used_at = ? " +
+    "WHERE id = ? AND previous_refresh_hash = ? AND rotated_at >= ?",
+  ).bind(rotation.newRefreshHash, rotation.refreshExpiresAt, rotation.now, rotation.grantId, rotation.presentedHash, notBefore).run()
   return (result.meta.changes ?? 0) === 1
 }
 

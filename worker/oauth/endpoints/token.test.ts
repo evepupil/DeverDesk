@@ -5,6 +5,7 @@ import {
   CHATGPT_ID,
   NOW,
   ORIGIN,
+  VERIFIER,
   approveAndGetCode,
   connect,
   exchangeCode,
@@ -91,6 +92,42 @@ describe("授权码换令牌", () => {
     expect(env.DB.rows("SELECT id FROM oauth_grants")).toEqual([])
   })
 
+  it("同一个授权码同时来两次：只有一个换得出来，抢先建出的连接也收回", async () => {
+    const env = oauthEnv()
+    const deps = testDeps()
+    const code = await approveAndGetCode(env, deps)
+    const [first, second] = await Promise.all([exchangeCode(env, deps, code), exchangeCode(env, deps, code)])
+    expect([first.status, second.status].sort()).toEqual([200, 400])
+    expect(env.DB.rows("SELECT id FROM oauth_grants")).toEqual([])
+    expect(env.DB.rows("SELECT hash FROM oauth_tokens")).toEqual([])
+  })
+
+  it("只带签名断言、没带 client_id（ChatGPT 首选的写法）：从断言里认出编号，按公开客户端换", async () => {
+    const env = oauthEnv()
+    const deps = testDeps()
+    const code = await approveAndGetCode(env, deps)
+    const encode = (value: unknown) => btoa(JSON.stringify(value)).replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_")
+    const assertion = `${encode({ alg: "RS256" })}.${encode({ iss: CHATGPT_ID, sub: CHATGPT_ID, aud: `${ORIGIN}/oauth/token` })}.signature`
+    const response = await postForm(env, deps, "/oauth/token", {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: "https://chatgpt.com/connector_platform_oauth_redirect",
+      code_verifier: VERIFIER,
+      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      client_assertion: assertion,
+    })
+    expect(response!.status).toBe(200)
+
+    const forged = `${encode({ alg: "none" })}.${encode({ sub: "ddcl_registered" })}.`
+    const rejected = await postForm(env, deps, "/oauth/token", {
+      grant_type: "refresh_token",
+      refresh_token: "ddr_x",
+      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      client_assertion: forged,
+    })
+    expect(await errorOf(rejected!)).toBe("invalid_client")
+  })
+
   it("不带 PKCE 原文换不出来（防降级）", async () => {
     const env = oauthEnv()
     const deps = testDeps()
@@ -154,6 +191,28 @@ describe("续期", () => {
     expect(await errorOf(await refresh(env, deps, first.refresh_token))).toBe("invalid_grant")
     // 被跳过的那张（第二次发的）也不能用
     expect(await errorOf(await refresh(env, deps, secondTokens.refresh_token))).toBe("invalid_grant")
+  })
+
+  it("换下超过 2 分钟的旧续期令牌又被拿来用：当作被盗，整条连接作废", async () => {
+    const env = oauthEnv()
+    const first = await connect(env, testDeps())
+    const rotated = await refresh(env, testDeps({ now: () => NOW + DAY }), first.refresh_token)
+    const current = await rotated.json() as TokenSet
+
+    const replay = await refresh(env, testDeps({ now: () => NOW + DAY + 2 * 60 * 1000 + 1 }), first.refresh_token)
+    expect(await errorOf(replay)).toBe("invalid_grant")
+    expect(env.DB.rows("SELECT id FROM oauth_grants")).toEqual([])
+    expect(env.DB.rows("SELECT hash FROM oauth_tokens")).toEqual([])
+    expect(await errorOf(await refresh(env, testDeps({ now: () => NOW + DAY + 3 * 60 * 1000 }), current.refresh_token))).toBe("invalid_grant")
+  })
+
+  it("2 分钟内拿旧的重试可以（客户端没收到上次的结果）", async () => {
+    const env = oauthEnv()
+    const first = await connect(env, testDeps())
+    await refresh(env, testDeps({ now: () => NOW + DAY }), first.refresh_token)
+    const retried = await refresh(env, testDeps({ now: () => NOW + DAY + 2 * 60 * 1000 }), first.refresh_token)
+    expect(retried.status).toBe(200)
+    expect(env.DB.rows("SELECT id FROM oauth_grants")).toHaveLength(1)
   })
 
   it("30 天没用就失效，并删掉这条连接", async () => {

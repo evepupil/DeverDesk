@@ -7,6 +7,11 @@ export const CODE_TTL_MS = 5 * 60 * 1000
 export const ACCESS_TOKEN_TTL_SECONDS = 60 * 60
 /** 续期令牌连续 30 天不用就失效；每次续期往后顺延 */
 export const REFRESH_IDLE_MS = 30 * 24 * 60 * 60 * 1000
+/**
+ * 换下来的上一张续期令牌还能重试多久：客户端没收到续期结果时会马上用旧的再试。
+ * 过了这段时间还有人拿旧的来用，多半是被盗了，整条连接作废（RFC 9700 4.14.2）。
+ */
+export const REFRESH_REUSE_LEEWAY_MS = 2 * 60 * 1000
 
 /** 各种凭证的前缀：一眼能分清是哪一种，也让 /mcp 知道去哪张表查 */
 export const PREFIX = {

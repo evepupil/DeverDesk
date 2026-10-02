@@ -1,5 +1,5 @@
 // 换令牌和注销时认客户端：Authorization: Basic 头、表单里的 client_secret，或者公开客户端只带 client_id。
-import { constantTimeEqual, sha256Hex, utf8Encoder } from "../../auth/crypto"
+import { constantTimeEqual, decodeBase64Url, sha256Hex, utf8Encoder } from "../../auth/crypto"
 import { PREFIX } from "../config"
 import { oauthError, single } from "../http"
 import { isClientMetadataUrl } from "../rules/client-metadata"
@@ -20,6 +20,28 @@ function parseBasic(header: string | null): { id: string; secret: string } | nul
     if (separator < 0) return null
     const unescape = (value: string) => decodeURIComponent(value.replace(/\+/g, " "))
     return { id: unescape(decoded.slice(0, separator)), secret: unescape(decoded.slice(separator + 1)) }
+  } catch {
+    return null
+  }
+}
+
+const JWT_ASSERTION = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+
+/**
+ * 只带签名断言、没带 client_id 时，从断言里读出客户端编号（ChatGPT 的身份说明首选 private_key_jwt）。
+ * 签名不验：只认身份说明类的网址编号，仍按公开客户端对待，安全靠 PKCE 和续期令牌本身。
+ */
+function assertedClientId(params: URLSearchParams): string | null {
+  if (params.get("client_assertion_type") !== JWT_ASSERTION) return null
+  const payload = params.get("client_assertion")?.split(".")[1]
+  const bytes = payload ? decodeBase64Url(payload) : null
+  if (!bytes) return null
+  try {
+    const claims: unknown = JSON.parse(new TextDecoder().decode(bytes))
+    if (typeof claims !== "object" || claims === null) return null
+    const { sub, iss } = claims as Record<string, unknown>
+    const subject = typeof sub === "string" ? sub : typeof iss === "string" ? iss : null
+    return subject !== null && isClientMetadataUrl(subject) ? subject : null
   } catch {
     return null
   }
@@ -56,7 +78,7 @@ export async function authenticateClient(
   }
   if (basic && bodyId !== null && bodyId !== basic.id) return clientFailure("client_id does not match the authorization header.", true)
 
-  const clientId = basic?.id ?? bodyId
+  const clientId = basic?.id ?? bodyId ?? assertedClientId(params)
   const secret = basic?.secret ?? bodySecret
   if (!clientId) return clientFailure("client_id is required.", basicAttempted)
 

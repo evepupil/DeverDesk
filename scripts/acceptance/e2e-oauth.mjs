@@ -252,6 +252,14 @@ try {
   check("拒绝：跳回带 access_denied，没有 code", deniedResult.returned?.searchParams.get("error") === "access_denied"
     && !deniedResult.returned?.searchParams.get("code") && deniedResult.returned?.searchParams.get("iss") === BASE)
 
+  // 请求在点允许之前就有错：跳回地址不一定可信，不自动跳，给「回到」按钮
+  const broken = new URL(deniedUrl)
+  broken.searchParams.set("response_type", "token")
+  await page.goto(broken.toString(), { waitUntil: "networkidle" })
+  await page.getByText(/发来的授权请求有误/).waitFor({ timeout: 10_000 })
+  check("请求有误：不自动跳走，给「回到」按钮", page.url().startsWith(`${BASE}/authorize`)
+    && await page.getByRole("button", { name: "回到 127.0.0.1:43123" }).isVisible())
+
   // 6. 连接 AI 列表：授权连接和个人令牌在一起；断开后马上 401
   const personal = await createToken(BASE, cookie, { name: "E2E 个人令牌", tier: "read" })
   const listed = await requestJson(BASE, "/api/tokens", { cookie })

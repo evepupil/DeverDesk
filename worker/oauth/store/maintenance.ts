@@ -17,10 +17,11 @@ export async function countHit(db: D1Database, key: string, windowMs: number, no
   return row.count
 }
 
-/** 删掉已经过了窗口的计数 */
+/** 删掉某个前缀下已经过了窗口的计数；前缀匹配写成主键范围，走索引不扫全表 */
 export async function deleteStaleHits(db: D1Database, prefix: string, windowMs: number, now: number): Promise<void> {
-  await db.prepare("DELETE FROM rate_limits WHERE key LIKE ? AND window_start <= ?")
-    .bind(`${prefix}%`, now - windowMs)
+  const upper = `${prefix.slice(0, -1)}${String.fromCharCode(prefix.charCodeAt(prefix.length - 1) + 1)}`
+  await db.prepare("DELETE FROM rate_limits WHERE key >= ? AND key < ? AND window_start <= ?")
+    .bind(prefix, upper, now - windowMs)
     .run()
 }
 

@@ -30,8 +30,9 @@ export function checkRegistration(metadata: Record<string, unknown>): Registrati
   if (!isStringArray(uris) || uris.length === 0 || uris.length > MAX_REGISTERED_REDIRECT_URIS) {
     return { ok: false, error: "invalid_redirect_uri", description: `redirect_uris must list 1-${MAX_REGISTERED_REDIRECT_URIS} URIs.` }
   }
-  const rejected = uris.find((uri) => !isAcceptableRedirectUri(uri))
-  if (rejected !== undefined) {
+  // 不合格的去掉、合格的照常登记（RFC 7591 允许服务器改写）：Cursor 会同时报一个 cursor:// 地址，授权时用的是本机地址
+  const accepted = [...new Set(uris.filter((uri) => isAcceptableRedirectUri(uri)))]
+  if (accepted.length === 0) {
     return { ok: false, error: "invalid_redirect_uri", description: "Redirect URIs must use https, or http on localhost, without a fragment." }
   }
 
@@ -53,8 +54,8 @@ export function checkRegistration(metadata: Record<string, unknown>): Registrati
   return {
     ok: true,
     value: {
-      name: displayName(metadata.client_name, redirectUriHost(uris[0]!)),
-      redirectUris: [...new Set(uris)],
+      name: displayName(metadata.client_name, redirectUriHost(accepted[0]!)),
+      redirectUris: accepted,
       authMethod: method,
       grantTypes: SUPPORTED_GRANT_TYPES.filter((type) => grantTypes.includes(type)),
     },

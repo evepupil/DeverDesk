@@ -4,16 +4,26 @@ import type { WorkerEnv } from "../../types"
 import { PREFIX } from "../config"
 import type { OAuthDependencies } from "../clients/types"
 import { methodNotAllowed, oauthError, oauthJson, preflight, readJsonObject } from "../http"
+import { rateLimitSource } from "../rules/rate-limit"
 import { checkRegistration } from "../rules/registration"
 import { countRegisteredClients, deleteUnusedClients, insertClient } from "../store/clients"
 import { countHit, deleteStaleHits } from "../store/maintenance"
 
-/** 同一 IP 每小时最多登记 20 次 */
-export const REGISTER_LIMIT_PER_WINDOW = 20
 export const REGISTER_WINDOW_MS = 60 * 60 * 1000
-/** 清理之后还超过这么多就不再收 */
-export const MAX_REGISTERED_CLIENTS = 1000
-const RATE_KEY = "register:"
+/** 同一来源（IPv4 地址或 IPv6 的 /64 网段）每小时最多登记 20 次 */
+export const REGISTER_LIMIT_PER_SOURCE = 20
+/** 所有来源合起来每小时最多 60 次：换再多地址也刷不出更多 */
+export const REGISTER_LIMIT_TOTAL = 60
+/** 兜底上限：正常用不到，只防清理跟不上 */
+export const MAX_REGISTERED_CLIENTS = 10_000
+const SOURCE_KEY = "register:"
+const TOTAL_KEY = "register-total"
+
+function tooMany(): Response {
+  return oauthError("too_many_requests", "Too many client registrations; try again later.", 429, {
+    "Retry-After": String(REGISTER_WINDOW_MS / 1000),
+  })
+}
 
 export async function handleRegister(request: Request, env: WorkerEnv, deps: OAuthDependencies): Promise<Response> {
   if (request.method === "OPTIONS") return preflight()
@@ -24,17 +34,15 @@ export async function handleRegister(request: Request, env: WorkerEnv, deps: OAu
   if (!checked.ok) return oauthError(checked.error, checked.description)
 
   const now = deps.now()
-  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown"
-  if (await countHit(env.DB, `${RATE_KEY}${ip}`, REGISTER_WINDOW_MS, now) > REGISTER_LIMIT_PER_WINDOW) {
-    return oauthError("too_many_requests", "Too many client registrations from this address; try again later.", 429, {
-      "Retry-After": String(REGISTER_WINDOW_MS / 1000),
-    })
-  }
+  // 先清理、再看总数，名额满了不再写任何计数
   await deleteUnusedClients(env.DB, now)
-  await deleteStaleHits(env.DB, RATE_KEY, REGISTER_WINDOW_MS, now)
   if (await countRegisteredClients(env.DB) >= MAX_REGISTERED_CLIENTS) {
     return oauthError("temporarily_unavailable", "Too many registered clients; try again later.", 503)
   }
+  const source = rateLimitSource(request.headers.get("CF-Connecting-IP") ?? "unknown")
+  if (await countHit(env.DB, `${SOURCE_KEY}${source}`, REGISTER_WINDOW_MS, now) > REGISTER_LIMIT_PER_SOURCE) return tooMany()
+  if (await countHit(env.DB, TOTAL_KEY, REGISTER_WINDOW_MS, now) > REGISTER_LIMIT_TOTAL) return tooMany()
+  await deleteStaleHits(env.DB, SOURCE_KEY, REGISTER_WINDOW_MS, now)
 
   const registration = checked.value
   const clientId = `${PREFIX.client}${randomBase64Url(18)}`
