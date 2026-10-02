@@ -143,6 +143,28 @@ Every change an assistant makes is recorded. The sparkles icon in the top bar op
 
 If the workspace sits behind Cloudflare Access, add an Access bypass rule for the `/mcp` path; DeverDesk checks the token itself. Claude on the web and in the mobile apps connects through OAuth, which isn't supported yet.
 
+## Log coding time automatically
+
+A small recorder listens to Claude Code (and Codex) while you work and turns what happened into finished tasks and time entries, in the side project you bound to the folder.
+
+1. **Bind a folder to a project.** Open the project and add the folder name (for example `my-app`) under **Directory names**, or tell your assistant "add this project to DeverDesk".
+2. **Create a token.** Avatar menu → **Connect AI**, create a token with the **Write** permission, and open the **Recorder** tab.
+3. **Install the Claude Code plugin** and enter your workspace address (no trailing slash) and the token when asked:
+
+```bash
+claude plugin marketplace add evepupil/DeverDesk
+claude plugin install deverdesk@deverdesk
+```
+
+For Codex, or without the plugin, download `integrations/claude-code/bin/deverdesk-recorder` from this repository and run `node deverdesk-recorder setup --url https://your-workspace.example.com --token dd_your_token --install-codex-hooks`. Run `deverdesk-recorder doctor` any time to check that everything is wired up.
+
+How it counts:
+
+- Time counts while you are around. A prompt starts the clock, 15 minutes without you stops it, and an AI working alone is counted for at most 15 minutes. Windows running in parallel share the time, so the total never exceeds the clock.
+- A commit finishes a task: the work since the previous commit becomes a completed task named after the commit message. Tiny commits fold into the previous task. Write `Closes T-123` in the message to complete an existing task instead.
+- Tasks show up about 15 minutes after the commit. The Today page shows what is running right now and a thin "actual" rail beside the timeline.
+- Only folders bound to a project are uploaded. Everything else stays on your machine in `~/.deverdesk`.
+
 ## Automation API
 
 The cloud edition also has a small HTTP API for scripts. Create a token from the avatar menu → **Connect AI** with the **Write** permission. Each token is shown only once and stored only as a hash.
